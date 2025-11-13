@@ -1,0 +1,28 @@
+## Cursor — Backend Development Rules (Abhedyam MVP)
+
+1. Implement only finalized features listed in the project record.
+2. Do not create extra APIs, endpoints, or modules unless explicitly mentioned.
+3. Keep every change focused and minimal — one purpose per generation.
+4. Follow DRY — reuse existing logic and avoid duplication.
+5. Maintain clean, small files with clear names; modular code > monolithic blobs.
+6. No comments inside generated code — readability through clean structure only.
+7. Always update or generate OpenAPI spec for public endpoints.
+8. Prefix all API routes with versioning (`/api/v1/...`).
+9. Use consistent response envelopes for errors and optional success; include machine-readable error codes.
+10. Generate unit tests for business logic covering success, edge, and failure paths.
+11. Tests must be deterministic and run without external dependencies (mock gateways & APIs).
+12. Include contract validation tests (responses vs OpenAPI).
+13. Create light integration tests only for critical flows (auth, sale, payment, notification).
+14. Never expose secrets or credentials in code — use env/config placeholders only.
+15. Validate and sanitize all incoming data; reject malformed or unsafe input.
+16. Use structured JSON logs; include `requestId`/`correlationId` where available; never log sensitive fields.
+17. Design APIs and flows with idempotency for payment/OTP endpoints.
+18. Use a message queue only if needed. Generate worker scaffolds only when explicitly requested.
+19. During development, DB schema changes can fully overwrite old versions — latest schema is truth.
+20. Generate proper API contracts and specs (OpenAPI must always match code).
+21. Until MVP: no PR flow needed — just build and commit clean.
+22. If any ambiguity or assumption arises, ask first before generating code.
+23. Minimal metrics: expose only core counters (sales_created, otp_sent, payment_attempts).
+24. CI-ready structure: include tests, OpenAPI validation, lint.
+25. Maintain small, focused prompt templates in `/.ai/prompts.md`.
+26. When generating code, list affected files + brief purpose (1–2 lines), no code explanations.

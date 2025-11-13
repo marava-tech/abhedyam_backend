@@ -1,0 +1,17 @@
+package com.abhedyam.service.interfaces;
+
+import com.abhedyam.model.Notification;
+
+import java.util.List;
+import java.util.UUID;
+
+public interface INotificationService {
+    Notification create(Notification notification);
+    Notification getById(UUID id);
+    List<Notification> getAll();
+    List<Notification> getByOwnerId(UUID ownerId);
+    List<Notification> getByUserId(UUID userId);
+    Notification update(UUID id, Notification notificationDetails);
+    void delete(UUID id);
+}
+
