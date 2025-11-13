@@ -1,0 +1,16 @@
+generatorName: dart
+inputSpec: http://localhost:8080/api/v1/api-docs
+outputDir: ./generated/flutter-client
+packageName: abhedyam_api
+pubName: abhedyam_api
+pubVersion: 1.0.0
+pubDescription: Abhedyam Backend API Client for Flutter
+pubAuthor: Abhedyam Team
+pubAuthorEmail: support@abhedyam.com
+pubHomepage: https://github.com/abhedyam/flutter-client
+additionalProperties:
+  serializationLibrary: json_serializable
+  dateLibrary: core
+  useEnumExtension: true
+  enumUnknownDefaultCase: true
+

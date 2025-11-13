@@ -1,8 +1,13 @@
 package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
+import com.abhedyam.dto.CustomerCreateRequest;
+import com.abhedyam.dto.CustomerProfileSummary;
+import com.abhedyam.dto.CustomerSearchRequest;
+import com.abhedyam.dto.PageResponse;
 import com.abhedyam.model.Customer;
 import com.abhedyam.service.interfaces.ICustomerService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -19,8 +24,8 @@ public class CustomerController {
     
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Customer> create(@RequestBody Customer customer) {
-        return ApiResponse.success(customerService.create(customer));
+    public ApiResponse<Customer> create(@Valid @RequestBody CustomerCreateRequest request) {
+        return ApiResponse.success(customerService.create(request));
     }
     
     @GetMapping("/{id}")
@@ -28,19 +33,24 @@ public class CustomerController {
         return ApiResponse.success(customerService.getById(id));
     }
     
-    @GetMapping
-    public ApiResponse<List<Customer>> getAll() {
-        return ApiResponse.success(customerService.getAll());
+    @GetMapping("/{id}/summary")
+    public ApiResponse<CustomerProfileSummary> getProfileSummary(@PathVariable UUID id) {
+        return ApiResponse.success(customerService.getCustomerProfileSummary(id));
     }
     
-    @GetMapping("/owner/{ownerId}")
-    public ApiResponse<List<Customer>> getByOwnerId(@PathVariable UUID ownerId) {
-        return ApiResponse.success(customerService.getByOwnerId(ownerId));
+    @GetMapping("/search")
+    public ApiResponse<PageResponse<Customer>> searchCustomers(@ModelAttribute CustomerSearchRequest request) {
+        return ApiResponse.success(customerService.searchCustomers(request));
+    }
+    
+    @GetMapping("/my-customers")
+    public ApiResponse<List<Customer>> getMyCustomers() {
+        return ApiResponse.success(customerService.getByOwnerId(null));
     }
     
     @PutMapping("/{id}")
-    public ApiResponse<Customer> update(@PathVariable UUID id, @RequestBody Customer customer) {
-        return ApiResponse.success(customerService.update(id, customer));
+    public ApiResponse<Customer> update(@PathVariable UUID id, @Valid @RequestBody CustomerCreateRequest request) {
+        return ApiResponse.success(customerService.update(id, request));
     }
     
     @DeleteMapping("/{id}")

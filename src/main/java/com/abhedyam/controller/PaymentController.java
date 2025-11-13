@@ -1,8 +1,10 @@
 package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
+import com.abhedyam.dto.PaymentStatusUpdateRequest;
 import com.abhedyam.model.Payment;
 import com.abhedyam.service.interfaces.IPaymentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -17,30 +19,24 @@ public class PaymentController {
     
     private final IPaymentService paymentService;
     
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Payment> create(@RequestBody Payment payment) {
-        return ApiResponse.success(paymentService.create(payment));
-    }
-    
     @GetMapping("/{id}")
     public ApiResponse<Payment> getById(@PathVariable UUID id) {
         return ApiResponse.success(paymentService.getById(id));
     }
     
-    @GetMapping
-    public ApiResponse<List<Payment>> getAll() {
-        return ApiResponse.success(paymentService.getAll());
-    }
-    
-    @GetMapping("/owner/{ownerId}")
-    public ApiResponse<List<Payment>> getByOwnerId(@PathVariable UUID ownerId) {
-        return ApiResponse.success(paymentService.getByOwnerId(ownerId));
+    @GetMapping("/my-payments")
+    public ApiResponse<List<Payment>> getMyPayments() {
+        return ApiResponse.success(paymentService.getByOwnerId(null));
     }
     
     @GetMapping("/customer/{customerId}")
     public ApiResponse<List<Payment>> getByCustomerId(@PathVariable UUID customerId) {
         return ApiResponse.success(paymentService.getByCustomerId(customerId));
+    }
+    
+    @PatchMapping("/{id}/status")
+    public ApiResponse<Payment> updateStatus(@PathVariable UUID id, @Valid @RequestBody PaymentStatusUpdateRequest request) {
+        return ApiResponse.success(paymentService.updateStatus(id, request));
     }
     
     @PutMapping("/{id}")
@@ -55,4 +51,5 @@ public class PaymentController {
         return ApiResponse.success(null);
     }
 }
+
 

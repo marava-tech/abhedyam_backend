@@ -1,14 +1,20 @@
 package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
+import com.abhedyam.dto.CallLogCreateRequest;
+import com.abhedyam.dto.CallLogResponse;
+import com.abhedyam.dto.CallLogSyncRequest;
 import com.abhedyam.model.CallLog;
 import com.abhedyam.service.interfaces.ICallLogService;
+import com.abhedyam.util.SecurityUtil;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/call-logs")
@@ -19,28 +25,48 @@ public class CallLogController {
     
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<CallLog> create(@RequestBody CallLog callLog) {
-        return ApiResponse.success(callLogService.create(callLog));
+    public ApiResponse<CallLogResponse> create(@Valid @RequestBody CallLogCreateRequest request) {
+        CallLog callLog = callLogService.createCallLog(request);
+        if (callLog == null) {
+            return ApiResponse.success(null);
+        }
+        return ApiResponse.success(CallLogResponse.fromEntity(callLog));
+    }
+    
+    @PostMapping("/sync")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<List<CallLogResponse>> syncCallLogs(@Valid @RequestBody CallLogSyncRequest request) {
+        List<CallLog> callLogs = callLogService.syncCallLogs(request);
+        List<CallLogResponse> responses = callLogs.stream()
+            .map(CallLogResponse::fromEntity)
+            .collect(Collectors.toList());
+        return ApiResponse.success(responses);
     }
     
     @GetMapping("/{id}")
-    public ApiResponse<CallLog> getById(@PathVariable UUID id) {
-        return ApiResponse.success(callLogService.getById(id));
+    public ApiResponse<CallLogResponse> getById(@PathVariable UUID id) {
+        CallLog callLog = callLogService.getById(id);
+        return ApiResponse.success(CallLogResponse.fromEntity(callLog));
     }
     
-    @GetMapping
-    public ApiResponse<List<CallLog>> getAll() {
-        return ApiResponse.success(callLogService.getAll());
+    @GetMapping("/my-logs")
+    public ApiResponse<List<CallLogResponse>> getMyCallLogs() {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        List<CallLog> callLogs = callLogService.getByOwnerId(ownerId);
+        List<CallLogResponse> responses = callLogs.stream()
+            .filter(log -> log.getIsActive() != null && log.getIsActive())
+            .map(CallLogResponse::fromEntity)
+            .collect(Collectors.toList());
+        return ApiResponse.success(responses);
     }
     
-    @GetMapping("/owner/{ownerId}")
-    public ApiResponse<List<CallLog>> getByOwnerId(@PathVariable UUID ownerId) {
-        return ApiResponse.success(callLogService.getByOwnerId(ownerId));
-    }
-    
-    @PutMapping("/{id}")
-    public ApiResponse<CallLog> update(@PathVariable UUID id, @RequestBody CallLog callLog) {
-        return ApiResponse.success(callLogService.update(id, callLog));
+    @GetMapping("/customer/{customerId}")
+    public ApiResponse<List<CallLogResponse>> getByCustomerId(@PathVariable UUID customerId) {
+        List<CallLog> callLogs = callLogService.getByCustomerId(customerId);
+        List<CallLogResponse> responses = callLogs.stream()
+            .map(CallLogResponse::fromEntity)
+            .collect(Collectors.toList());
+        return ApiResponse.success(responses);
     }
     
     @DeleteMapping("/{id}")

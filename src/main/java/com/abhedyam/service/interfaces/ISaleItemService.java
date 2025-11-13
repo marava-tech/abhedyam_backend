@@ -11,6 +11,7 @@ public interface ISaleItemService {
     List<SaleItem> getAll();
     List<SaleItem> getByOwnerId(UUID ownerId);
     List<SaleItem> getByCustomerId(UUID customerId);
+    List<SaleItem> getByTransactionId(String transactionId);
     SaleItem update(UUID id, SaleItem saleItemDetails);
     void delete(UUID id);
 }

@@ -1,8 +1,12 @@
 package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
+import com.abhedyam.dto.PageResponse;
+import com.abhedyam.dto.ProductCreateRequest;
+import com.abhedyam.dto.ProductSearchRequest;
 import com.abhedyam.model.Product;
 import com.abhedyam.service.interfaces.IProductService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -19,8 +23,8 @@ public class ProductController {
     
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Product> create(@RequestBody Product product) {
-        return ApiResponse.success(productService.create(product));
+    public ApiResponse<Product> create(@Valid @RequestBody ProductCreateRequest request) {
+        return ApiResponse.success(productService.create(request));
     }
     
     @GetMapping("/{id}")
@@ -28,19 +32,24 @@ public class ProductController {
         return ApiResponse.success(productService.getById(id));
     }
     
-    @GetMapping
-    public ApiResponse<List<Product>> getAll() {
-        return ApiResponse.success(productService.getAll());
+    @GetMapping("/search")
+    public ApiResponse<PageResponse<Product>> searchProducts(@ModelAttribute ProductSearchRequest request) {
+        return ApiResponse.success(productService.searchProducts(request));
     }
     
-    @GetMapping("/owner/{ownerId}")
-    public ApiResponse<List<Product>> getByOwnerId(@PathVariable UUID ownerId) {
-        return ApiResponse.success(productService.getByOwnerId(ownerId));
+    @GetMapping("/my-products")
+    public ApiResponse<List<Product>> getMyProducts() {
+        return ApiResponse.success(productService.getByOwnerId(null));
     }
     
     @PutMapping("/{id}")
-    public ApiResponse<Product> update(@PathVariable UUID id, @RequestBody Product product) {
-        return ApiResponse.success(productService.update(id, product));
+    public ApiResponse<Product> update(@PathVariable UUID id, @Valid @RequestBody ProductCreateRequest request) {
+        return ApiResponse.success(productService.update(id, request));
+    }
+    
+    @PatchMapping("/{id}/toggle-active")
+    public ApiResponse<Product> toggleActive(@PathVariable UUID id) {
+        return ApiResponse.success(productService.toggleActive(id));
     }
     
     @DeleteMapping("/{id}")

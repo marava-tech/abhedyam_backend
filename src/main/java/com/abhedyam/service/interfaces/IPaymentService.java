@@ -1,5 +1,6 @@
 package com.abhedyam.service.interfaces;
 
+import com.abhedyam.dto.PaymentStatusUpdateRequest;
 import com.abhedyam.model.Payment;
 
 import java.util.List;
@@ -11,6 +12,7 @@ public interface IPaymentService {
     List<Payment> getAll();
     List<Payment> getByOwnerId(UUID ownerId);
     List<Payment> getByCustomerId(UUID customerId);
+    Payment updateStatus(UUID id, PaymentStatusUpdateRequest request);
     Payment update(UUID id, Payment paymentDetails);
     void delete(UUID id);
 }
