@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: abhedyam-backend
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/abhedyam?createDatabaseIfNotExist=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /api/v1
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:REDACTED_JWT_SECRET}
+    expiration: ${JWT_EXPIRATION:86400000}
+  fast2sms:
+    api-key: ${FAST2SMS_API_KEY:}
+  cashfree:
+    client-id: ${CASHFREE_CLIENT_ID:}
+    client-secret: ${CASHFREE_SECRET:}
+  chatgpt:
+    api-key: ${CHATGPT_API_KEY:}
+
