@@ -1,9 +1,12 @@
 package com.abhedyam.service;
 
+import com.abhedyam.dto.PaymentStatusUpdateRequest;
+import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Payment;
 import com.abhedyam.repository.PaymentRepository;
 import com.abhedyam.service.interfaces.IPaymentService;
+import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,27 +21,60 @@ public class PaymentService implements IPaymentService {
     
     private final PaymentRepository paymentRepository;
     
+    @Override
     public Payment create(Payment payment) {
         return paymentRepository.save(payment);
     }
     
+    @Override
     public Payment getById(UUID id) {
-        return paymentRepository.findById(id)
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        Payment payment = paymentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment not found with id: " + id));
+        
+        if (!payment.getOwnerId().equals(ownerId)) {
+            throw new BusinessException("UNAUTHORIZED", "You don't have access to this payment");
+        }
+        
+        return payment;
     }
     
+    @Override
     public List<Payment> getAll() {
         return paymentRepository.findAll();
     }
     
+    @Override
     public List<Payment> getByOwnerId(UUID ownerId) {
-        return paymentRepository.findByOwnerId(ownerId);
+        UUID currentOwnerId = SecurityUtil.getCurrentUserId();
+        UUID targetOwnerId = ownerId != null ? ownerId : currentOwnerId;
+        if (!currentOwnerId.equals(targetOwnerId)) {
+            throw new BusinessException("UNAUTHORIZED", "You can only view your own payments");
+        }
+        return paymentRepository.findByOwnerId(targetOwnerId);
     }
     
+    @Override
     public List<Payment> getByCustomerId(UUID customerId) {
-        return paymentRepository.findByCustomerId(customerId);
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        List<Payment> payments = paymentRepository.findByCustomerId(customerId);
+        return payments.stream()
+            .filter(p -> p.getOwnerId().equals(ownerId))
+            .toList();
     }
     
+    @Override
+    @Transactional
+    public Payment updateStatus(UUID id, PaymentStatusUpdateRequest request) {
+        Payment payment = getById(id);
+        payment.setStatus(request.getStatus());
+        if (request.getReference() != null) {
+            payment.setReference(request.getReference());
+        }
+        return paymentRepository.save(payment);
+    }
+    
+    @Override
     @Transactional
     public Payment update(UUID id, Payment paymentDetails) {
         Payment payment = getById(id);
@@ -49,6 +85,7 @@ public class PaymentService implements IPaymentService {
         return paymentRepository.save(payment);
     }
     
+    @Override
     @Transactional
     public void delete(UUID id) {
         Payment payment = getById(id);

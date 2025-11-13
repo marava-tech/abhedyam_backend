@@ -32,5 +32,17 @@ public class Notification extends BaseEntity {
     
     @Column(nullable = false)
     private Boolean isRead = false;
+    
+    @Column
+    private UUID relatedEntityId;
+    
+    @Column
+    private String relatedEntityType;
+    
+    @Column(nullable = false)
+    private Integer retryCount = 0;
+    
+    @Column
+    private Instant readAt;
 }
 

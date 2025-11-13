@@ -1,14 +1,18 @@
 package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
+import com.abhedyam.dto.NotificationMarkReadRequest;
+import com.abhedyam.dto.NotificationResponse;
 import com.abhedyam.model.Notification;
 import com.abhedyam.service.interfaces.INotificationService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/notifications")
@@ -17,35 +21,34 @@ public class NotificationController {
     
     private final INotificationService notificationService;
     
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Notification> create(@RequestBody Notification notification) {
-        return ApiResponse.success(notificationService.create(notification));
+    @GetMapping("/me")
+    public ApiResponse<List<NotificationResponse>> getMyNotifications(@RequestParam(required = false) Boolean unreadOnly) {
+        List<Notification> notifications = notificationService.getMyNotifications(unreadOnly);
+        List<NotificationResponse> responses = notifications.stream()
+            .map(NotificationResponse::fromEntity)
+            .collect(Collectors.toList());
+        return ApiResponse.success(responses);
     }
     
     @GetMapping("/{id}")
-    public ApiResponse<Notification> getById(@PathVariable UUID id) {
-        return ApiResponse.success(notificationService.getById(id));
+    public ApiResponse<NotificationResponse> getById(@PathVariable UUID id) {
+        Notification notification = notificationService.getById(id);
+        return ApiResponse.success(NotificationResponse.fromEntity(notification));
     }
     
-    @GetMapping
-    public ApiResponse<List<Notification>> getAll() {
-        return ApiResponse.success(notificationService.getAll());
+    @PatchMapping("/{id}/read")
+    public ApiResponse<NotificationResponse> markAsRead(@PathVariable UUID id) {
+        Notification notification = notificationService.markAsRead(id);
+        return ApiResponse.success(NotificationResponse.fromEntity(notification));
     }
     
-    @GetMapping("/owner/{ownerId}")
-    public ApiResponse<List<Notification>> getByOwnerId(@PathVariable UUID ownerId) {
-        return ApiResponse.success(notificationService.getByOwnerId(ownerId));
-    }
-    
-    @GetMapping("/user/{userId}")
-    public ApiResponse<List<Notification>> getByUserId(@PathVariable UUID userId) {
-        return ApiResponse.success(notificationService.getByUserId(userId));
-    }
-    
-    @PutMapping("/{id}")
-    public ApiResponse<Notification> update(@PathVariable UUID id, @RequestBody Notification notification) {
-        return ApiResponse.success(notificationService.update(id, notification));
+    @PostMapping("/mark-read")
+    public ApiResponse<List<NotificationResponse>> markMultipleAsRead(@Valid @RequestBody NotificationMarkReadRequest request) {
+        List<Notification> notifications = notificationService.markMultipleAsRead(request);
+        List<NotificationResponse> responses = notifications.stream()
+            .map(NotificationResponse::fromEntity)
+            .collect(Collectors.toList());
+        return ApiResponse.success(responses);
     }
     
     @DeleteMapping("/{id}")

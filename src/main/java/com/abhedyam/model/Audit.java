@@ -6,6 +6,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -25,10 +27,19 @@ public class Audit extends BaseEntity {
     @Column(nullable = false)
     private AuditAction action;
     
+    @Column
+    private UUID entityId;
+    
+    @Column(precision = 15, scale = 2)
+    private BigDecimal amount;
+    
     @Column(nullable = false)
     private String headline;
     
     @Column(columnDefinition = "TEXT")
     private String description;
+    
+    @Column(nullable = false)
+    private Instant timestamp;
 }
 

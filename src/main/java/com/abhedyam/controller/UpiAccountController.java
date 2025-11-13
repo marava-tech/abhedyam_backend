@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/upi-accounts")
+@RequestMapping("/api/v1/upi-accounts")
 @RequiredArgsConstructor
 public class UpiAccountController {
     

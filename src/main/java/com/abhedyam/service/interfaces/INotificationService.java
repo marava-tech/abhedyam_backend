@@ -1,5 +1,6 @@
 package com.abhedyam.service.interfaces;
 
+import com.abhedyam.dto.NotificationMarkReadRequest;
 import com.abhedyam.model.Notification;
 
 import java.util.List;
@@ -11,6 +12,9 @@ public interface INotificationService {
     List<Notification> getAll();
     List<Notification> getByOwnerId(UUID ownerId);
     List<Notification> getByUserId(UUID userId);
+    List<Notification> getMyNotifications(Boolean unreadOnly);
+    Notification markAsRead(UUID id);
+    List<Notification> markMultipleAsRead(NotificationMarkReadRequest request);
     Notification update(UUID id, Notification notificationDetails);
     void delete(UUID id);
 }

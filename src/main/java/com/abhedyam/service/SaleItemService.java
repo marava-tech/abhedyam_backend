@@ -39,6 +39,10 @@ public class SaleItemService implements ISaleItemService {
         return saleItemRepository.findByCustomerId(customerId);
     }
     
+    public List<SaleItem> getByTransactionId(String transactionId) {
+        return saleItemRepository.findByTransactionId(transactionId);
+    }
+    
     @Transactional
     public SaleItem update(UUID id, SaleItem saleItemDetails) {
         SaleItem saleItem = getById(id);

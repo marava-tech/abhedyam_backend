@@ -1,8 +1,10 @@
 package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
+import com.abhedyam.dto.ReminderCreateRequest;
 import com.abhedyam.model.Reminder;
 import com.abhedyam.service.interfaces.IReminderService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -19,8 +21,8 @@ public class ReminderController {
     
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Reminder> create(@RequestBody Reminder reminder) {
-        return ApiResponse.success(reminderService.create(reminder));
+    public ApiResponse<Reminder> create(@Valid @RequestBody ReminderCreateRequest request) {
+        return ApiResponse.success(reminderService.create(request));
     }
     
     @GetMapping("/{id}")
@@ -28,24 +30,24 @@ public class ReminderController {
         return ApiResponse.success(reminderService.getById(id));
     }
     
-    @GetMapping
-    public ApiResponse<List<Reminder>> getAll() {
-        return ApiResponse.success(reminderService.getAll());
-    }
-    
-    @GetMapping("/owner/{ownerId}")
-    public ApiResponse<List<Reminder>> getByOwnerId(@PathVariable UUID ownerId) {
-        return ApiResponse.success(reminderService.getByOwnerId(ownerId));
-    }
-    
     @GetMapping("/customer/{customerId}")
     public ApiResponse<List<Reminder>> getByCustomerId(@PathVariable UUID customerId) {
         return ApiResponse.success(reminderService.getByCustomerId(customerId));
     }
     
+    @GetMapping("/pending")
+    public ApiResponse<List<Reminder>> getPendingReminders() {
+        return ApiResponse.success(reminderService.getPendingReminders());
+    }
+    
     @PutMapping("/{id}")
-    public ApiResponse<Reminder> update(@PathVariable UUID id, @RequestBody Reminder reminder) {
-        return ApiResponse.success(reminderService.update(id, reminder));
+    public ApiResponse<Reminder> update(@PathVariable UUID id, @Valid @RequestBody ReminderCreateRequest request) {
+        return ApiResponse.success(reminderService.update(id, request));
+    }
+    
+    @PatchMapping("/{id}/mark-sent")
+    public ApiResponse<Reminder> markAsSent(@PathVariable UUID id) {
+        return ApiResponse.success(reminderService.markAsSent(id));
     }
     
     @DeleteMapping("/{id}")

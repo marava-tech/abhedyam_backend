@@ -26,6 +26,9 @@ public class SaleItem extends BaseEntity {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal price;
     
+    @Column(nullable = false, precision = 18, scale = 3)
+    private BigDecimal quantity = BigDecimal.ONE;
+    
     @Column
     private Instant dueDate;
     
