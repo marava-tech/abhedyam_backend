@@ -27,7 +27,18 @@
     </root>
     
     <logger name="com.abhedyam" level="DEBUG"/>
-    <logger name="org.springframework.web" level="INFO"/>
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="org.springframework.web" level="WARN"/>
+    <logger name="org.springframework.boot" level="WARN"/>
+    <logger name="org.springframework.security" level="WARN"/>
     <logger name="org.hibernate" level="WARN"/>
+    <logger name="org.apache" level="WARN"/>
+    <logger name="org.apache.catalina" level="WARN"/>
+    <logger name="org.apache.tomcat" level="WARN"/>
+    <logger name="org.apache.coyote" level="WARN"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+    <logger name="org.springframework.data" level="WARN"/>
+    <logger name="org.springframework.orm" level="WARN"/>
+    <logger name="org.springframework.transaction" level="WARN"/>
 </configuration>
 

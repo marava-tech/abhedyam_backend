@@ -34,7 +34,7 @@ public class StockService implements IStockService {
     @Override
     @Transactional
     public InventoryLedger recordPurchaseIn(UUID productId, BigDecimal quantity, String note) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
+        UUID ownerId = getCurrentOwnerId();
         Product product = validateProductAccess(productId);
         
         BigDecimal currentStock = getCurrentStock(productId);
@@ -58,7 +58,7 @@ public class StockService implements IStockService {
     @Override
     @Transactional
     public InventoryLedger recordSaleOut(UUID productId, BigDecimal quantity, UUID saleItemId, String note) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
+        UUID ownerId = getCurrentOwnerId();
         Product product = validateProductAccess(productId);
         
         BigDecimal currentStock = getCurrentStock(productId);
@@ -88,7 +88,7 @@ public class StockService implements IStockService {
     @Override
     @Transactional
     public InventoryLedger recordManualAdjustment(StockAdjustmentRequest request) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
+        UUID ownerId = getCurrentOwnerId();
         Product product = validateProductAccess(request.getProductId());
         
         BigDecimal currentStock = getCurrentStock(request.getProductId());
@@ -116,6 +116,7 @@ public class StockService implements IStockService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public BigDecimal getCurrentStock(UUID productId) {
         Product product = validateProductAccess(productId);
         
@@ -127,15 +128,15 @@ public class StockService implements IStockService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public BigDecimal computeStockFromLedger(UUID productId) {
-        List<InventoryLedger> ledgers = inventoryLedgerRepository.findByProductId(productId);
+        UUID ownerId = getCurrentOwnerId();
+        List<InventoryLedger> ledgers = inventoryLedgerRepository.findByOwnerIdAndProductId(ownerId, productId);
         
-        BigDecimal total = BigDecimal.ZERO;
-        for (InventoryLedger ledger : ledgers) {
-            total = total.add(ledger.getChangeQty());
-        }
-        
-        return total.max(BigDecimal.ZERO);
+        return ledgers.stream()
+            .map(InventoryLedger::getChangeQty)
+            .reduce(BigDecimal.ZERO, BigDecimal::add)
+            .max(BigDecimal.ZERO);
     }
     
     @Override
@@ -151,7 +152,7 @@ public class StockService implements IStockService {
         updateStockCache(productId, computedStock);
         
         if (!oldStock.equals(computedStock)) {
-            UUID ownerId = SecurityUtil.getCurrentUserId();
+            UUID ownerId = getCurrentOwnerId();
             auditService.logStockChange(productId, ownerId, oldStock, computedStock, 
                 "SYNC_FROM_LEDGER", "Stock synced from ledger");
         }
@@ -160,12 +161,14 @@ public class StockService implements IStockService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public List<Product> getLowStockProducts(BigDecimal threshold) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
-        List<Product> products = productRepository.findByOwnerId(ownerId);
+        UUID ownerId = getCurrentOwnerId();
+        List<Product> products = productRepository.findByOwnerId(ownerId).stream()
+            .filter(p -> p.getIsActive() != null && p.getIsActive())
+            .toList();
         
         return products.stream()
-            .filter(p -> p.getIsActive() != null && p.getIsActive())
             .filter(p -> {
                 BigDecimal stock = getCurrentStock(p.getId());
                 return stock.compareTo(threshold) <= 0;
@@ -189,18 +192,21 @@ public class StockService implements IStockService {
     }
     
     private void updateStockCache(UUID productId, BigDecimal stock) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
+        UUID ownerId = getCurrentOwnerId();
         Inventory inventory = inventoryRepository.findByOwnerIdAndProductId(ownerId, productId)
-            .orElse(new Inventory());
+            .orElseGet(() -> {
+                Inventory inv = new Inventory();
+                inv.setProductId(productId);
+                inv.setOwnerId(ownerId);
+                return inv;
+            });
         
-        inventory.setProductId(productId);
-        inventory.setOwnerId(ownerId);
         inventory.setStock(stock);
         inventoryRepository.save(inventory);
     }
     
     private Product validateProductAccess(UUID productId) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
+        UUID ownerId = getCurrentOwnerId();
         Product product = productRepository.findById(productId)
             .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
         
@@ -209,6 +215,10 @@ public class StockService implements IStockService {
         }
         
         return product;
+    }
+    
+    private UUID getCurrentOwnerId() {
+        return SecurityUtil.getCurrentUserId();
     }
 }
 

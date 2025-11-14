@@ -38,6 +38,15 @@ public class DocumentUploadController {
         return ApiResponse.success(documentUploadService.getDocumentById(id));
     }
     
+    @PutMapping("/{id}")
+    public ApiResponse<Document> updateDocument(
+            @PathVariable UUID id,
+            @RequestParam(value = "name", required = false) String name,
+            @RequestParam(value = "orderIndex", required = false) Integer orderIndex,
+            @RequestParam(value = "visibleToCustomers", required = false) Boolean visibleToCustomers) {
+        return ApiResponse.success(documentUploadService.updateDocument(id, name, orderIndex, visibleToCustomers));
+    }
+    
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ApiResponse<Void> deleteDocument(@PathVariable UUID id) {

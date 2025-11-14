@@ -49,14 +49,14 @@ public class UpiAccountManagementService implements IUpiAccountManagementService
     }
     
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<UPIAccount> getOwnerUpiAccounts() {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        return upiAccountRepository.findAll().stream()
-                .filter(account -> account.getOwnerId().equals(ownerId))
-                .toList();
+        return upiAccountRepository.findByOwnerIdOrderByCreatedAtDesc(ownerId);
     }
     
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public UPIAccount getUpiAccountById(UUID id) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         UPIAccount account = upiAccountRepository.findById(id)

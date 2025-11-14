@@ -69,6 +69,7 @@ public class CustomerService implements ICustomerService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public Customer getById(UUID id) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         Customer customer = customerRepository.findById(id)
@@ -82,11 +83,7 @@ public class CustomerService implements ICustomerService {
     }
     
     @Override
-    public List<Customer> getAll() {
-        return customerRepository.findAll();
-    }
-    
-    @Override
+    @Transactional(readOnly = true)
     public List<Customer> getByOwnerId(UUID ownerId) {
         UUID currentOwnerId = SecurityUtil.getCurrentUserId();
         UUID targetOwnerId = ownerId != null ? ownerId : currentOwnerId;
@@ -97,6 +94,7 @@ public class CustomerService implements ICustomerService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public PageResponse<Customer> searchCustomers(CustomerSearchRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
@@ -127,18 +125,27 @@ public class CustomerService implements ICustomerService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public CustomerProfileSummary getCustomerProfileSummary(UUID customerId) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         Customer customer = getById(customerId);
         
-        List<SaleItem> saleItems = saleItemRepository.findByCustomerId(customerId);
-        List<Payment> payments = paymentRepository.findByCustomerId(customerId);
-        List<Note> notes = noteRepository.findByCustomerId(customerId);
-        List<Reminder> reminders = reminderRepository.findByCustomerId(customerId);
+        List<SaleItem> saleItems = saleItemRepository.findByCustomerId(customerId).stream()
+            .filter(item -> item.getOwnerId().equals(ownerId))
+            .toList();
+        List<Payment> payments = paymentRepository.findByCustomerId(customerId).stream()
+            .filter(p -> p.getOwnerId().equals(ownerId))
+            .toList();
+        List<Note> notes = noteRepository.findByCustomerId(customerId).stream()
+            .filter(n -> n.getOwnerId().equals(ownerId))
+            .toList();
+        List<Reminder> reminders = reminderRepository.findByCustomerId(customerId).stream()
+            .filter(r -> r.getOwnerId().equals(ownerId))
+            .toList();
         
         long totalSales = saleItems.size();
         BigDecimal totalAmount = saleItems.stream()
-            .map(SaleItem::getPrice)
+            .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
             .reduce(BigDecimal.ZERO, BigDecimal::add);
         
         BigDecimal totalPaid = payments.stream()

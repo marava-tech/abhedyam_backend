@@ -10,6 +10,7 @@ public interface IDocumentUploadService {
     Document uploadDocument(MultipartFile file, String name, Integer orderIndex, Boolean visibleToCustomers);
     List<Document> getOwnerDocuments();
     Document getDocumentById(UUID id);
+    Document updateDocument(UUID id, String name, Integer orderIndex, Boolean visibleToCustomers);
     void deleteDocument(UUID id);
 }
 

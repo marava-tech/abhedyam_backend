@@ -19,16 +19,15 @@ public class AuthController {
     
     @PostMapping("/otp/send")
     @ResponseStatus(HttpStatus.OK)
-    @com.abhedyam.annotation.RateLimited(maxRequests = 3, windowSeconds = 60, keyPrefix = "otp.send")
     public ApiResponse<Void> sendOtp(@Valid @RequestBody OtpSendRequest request) {
-        authService.sendOtp(request.getPhone());
+        authService.sendOtp(request.getIdentifier());
         return ApiResponse.success(null);
     }
     
-    @PostMapping("/otp/verify")
+    @PostMapping("/login")
     @ResponseStatus(HttpStatus.OK)
-    public ApiResponse<AuthResponse> verifyOtp(@Valid @RequestBody OtpVerifyRequest request) {
-        AuthResponse response = authService.verifyOtp(request);
+    public ApiResponse<AuthResponse> login(@Valid @RequestBody OtpVerifyRequest request) {
+        AuthResponse response = authService.login(request);
         return ApiResponse.success(response);
     }
 }

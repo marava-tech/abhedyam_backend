@@ -38,14 +38,14 @@ public class SwaggerExamples {
     
     public static final String OTP_SEND_REQUEST = """
         {
-          "phone": "+919876543210"
+          "identifier": "user@example.com"
         }
         """;
     
     public static final String OTP_VERIFY_REQUEST = """
         {
-          "phone": "+919876543210",
-          "otp": "123456"
+          "identifier": "user@example.com",
+          "otp": "1234"
         }
         """;
     

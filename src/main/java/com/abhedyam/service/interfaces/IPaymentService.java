@@ -9,7 +9,6 @@ import java.util.UUID;
 public interface IPaymentService {
     Payment create(Payment payment);
     Payment getById(UUID id);
-    List<Payment> getAll();
     List<Payment> getByOwnerId(UUID ownerId);
     List<Payment> getByCustomerId(UUID customerId);
     Payment updateStatus(UUID id, PaymentStatusUpdateRequest request);

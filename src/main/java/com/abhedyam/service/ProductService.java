@@ -57,6 +57,7 @@ public class ProductService implements IProductService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public Product getById(UUID id) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         Product product = productRepository.findById(id)
@@ -70,11 +71,7 @@ public class ProductService implements IProductService {
     }
     
     @Override
-    public List<Product> getAll() {
-        return productRepository.findAll();
-    }
-    
-    @Override
+    @Transactional(readOnly = true)
     public List<Product> getByOwnerId(UUID ownerId) {
         UUID currentOwnerId = SecurityUtil.getCurrentUserId();
         if (ownerId != null && !currentOwnerId.equals(ownerId)) {
@@ -85,6 +82,7 @@ public class ProductService implements IProductService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public PageResponse<Product> searchProducts(ProductSearchRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
