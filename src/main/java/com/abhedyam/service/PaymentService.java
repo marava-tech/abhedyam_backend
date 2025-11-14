@@ -27,6 +27,7 @@ public class PaymentService implements IPaymentService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public Payment getById(UUID id) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         Payment payment = paymentRepository.findById(id)
@@ -40,11 +41,7 @@ public class PaymentService implements IPaymentService {
     }
     
     @Override
-    public List<Payment> getAll() {
-        return paymentRepository.findAll();
-    }
-    
-    @Override
+    @Transactional(readOnly = true)
     public List<Payment> getByOwnerId(UUID ownerId) {
         UUID currentOwnerId = SecurityUtil.getCurrentUserId();
         UUID targetOwnerId = ownerId != null ? ownerId : currentOwnerId;
@@ -55,6 +52,7 @@ public class PaymentService implements IPaymentService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public List<Payment> getByCustomerId(UUID customerId) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         List<Payment> payments = paymentRepository.findByCustomerId(customerId);

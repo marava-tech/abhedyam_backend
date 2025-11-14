@@ -43,6 +43,7 @@ public class NoteService implements INoteService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public Note getById(UUID id) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         Note note = noteRepository.findById(id)
@@ -56,11 +57,7 @@ public class NoteService implements INoteService {
     }
     
     @Override
-    public List<Note> getAll() {
-        return noteRepository.findAll();
-    }
-    
-    @Override
+    @Transactional(readOnly = true)
     public List<Note> getByOwnerId(UUID ownerId) {
         UUID currentOwnerId = SecurityUtil.getCurrentUserId();
         if (!currentOwnerId.equals(ownerId)) {
@@ -70,6 +67,7 @@ public class NoteService implements INoteService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public List<Note> getByCustomerId(UUID customerId) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         List<Note> notes = noteRepository.findByCustomerId(customerId);

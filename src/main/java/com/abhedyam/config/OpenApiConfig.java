@@ -35,8 +35,7 @@ public class OpenApiConfig {
                     .name("Apache 2.0")
                     .url("https://www.apache.org/licenses/LICENSE-2.0.html")))
             .servers(List.of(
-                new Server().url("http://localhost:" + serverPort + "/api/v1").description("Local Development Server"),
-                new Server().url("https://api.abhedyam.com/api/v1").description("Production Server")
+                new Server().url("http://localhost:" + serverPort).description("Local Development Server")
             ))
             .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
             .components(new io.swagger.v3.oas.models.Components()

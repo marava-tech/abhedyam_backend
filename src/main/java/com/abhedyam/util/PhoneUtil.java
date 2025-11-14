@@ -30,7 +30,7 @@ public class PhoneUtil {
     }
     
     public static String generateOTP() {
-        return String.valueOf(100000 + (int)(Math.random() * 900000));
+        return String.valueOf(1000 + (int)(Math.random() * 9000));
     }
 }
 

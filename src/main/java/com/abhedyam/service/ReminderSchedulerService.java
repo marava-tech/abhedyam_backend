@@ -6,6 +6,7 @@ import com.abhedyam.model.enums.ReminderChannel;
 import com.abhedyam.model.enums.ReminderStatus;
 import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.ReminderRepository;
+import com.abhedyam.service.interfaces.IEmailService;
 import com.abhedyam.service.interfaces.IReminderSchedulerService;
 import com.abhedyam.service.interfaces.ISmsService;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class ReminderSchedulerService implements IReminderSchedulerService {
     private final ReminderRepository reminderRepository;
     private final CustomerRepository customerRepository;
     private final NotificationService notificationService;
+    private final IEmailService emailService;
     private final ISmsService smsService;
     
     @Scheduled(fixedRate = 60000)
@@ -66,13 +68,20 @@ public class ReminderSchedulerService implements IReminderSchedulerService {
         } else if (reminder.getChannel() == ReminderChannel.SMS) {
             Customer customer = customerRepository.findById(reminder.getCustomerId()).orElse(null);
             if (customer != null && customer.getPhone() != null) {
-                boolean sent = smsService.sendSmsWithRetry(customer.getPhone(), reminder.getText(), 3);
+                String emailAddress = customer.getPhone() + "@abhedyam.local";
+                String subject = "Reminder: " + reminder.getText();
+                boolean sent = emailService.sendEmailWithRetry(emailAddress, subject, reminder.getText(), 3);
+                
+                if (!sent) {
+                    log.warn("Failed to send email reminder, falling back to SMS for reminder: {}", reminder.getId());
+                    sent = smsService.sendSmsWithRetry(customer.getPhone(), reminder.getText(), 3);
+                }
                 
                 com.abhedyam.model.Notification notification = new com.abhedyam.model.Notification();
                 notification.setOwnerId(reminder.getOwnerId());
                 notification.setUserId(reminder.getCustomerId());
                 notification.setType(com.abhedyam.model.enums.NotificationType.INFO);
-                notification.setMessage("SMS Reminder: " + reminder.getText());
+                notification.setMessage("Email Reminder: " + reminder.getText());
                 notification.setTimestamp(Instant.now());
                 notification.setIsRead(false);
                 notification.setRelatedEntityId(reminder.getId());
@@ -81,7 +90,7 @@ public class ReminderSchedulerService implements IReminderSchedulerService {
                 notificationService.create(notification);
                 
                 if (!sent) {
-                    log.error("Failed to send SMS reminder after 3 retries for reminder: {}", reminder.getId());
+                    log.error("Failed to send reminder after 3 retries for reminder: {}", reminder.getId());
                 }
             }
         }

@@ -11,5 +11,6 @@ import java.util.UUID;
 public interface InventoryLedgerRepository extends JpaRepository<InventoryLedger, UUID> {
     List<InventoryLedger> findByOwnerId(UUID ownerId);
     List<InventoryLedger> findByProductId(UUID productId);
+    List<InventoryLedger> findByOwnerIdAndProductId(UUID ownerId, UUID productId);
 }
 

@@ -12,7 +12,6 @@ import java.util.UUID;
 public interface ICustomerService {
     Customer create(CustomerCreateRequest request);
     Customer getById(UUID id);
-    List<Customer> getAll();
     List<Customer> getByOwnerId(UUID ownerId);
     PageResponse<Customer> searchCustomers(CustomerSearchRequest request);
     CustomerProfileSummary getCustomerProfileSummary(UUID customerId);

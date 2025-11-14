@@ -15,11 +15,14 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private String name;
     
-    @Column(nullable = false)
+    @Column
     private String phone;
     
-    @Column(nullable = false, unique = true)
+    @Column(unique = true)
     private String phoneNormalized;
+    
+    @Column(unique = true)
+    private String email;
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

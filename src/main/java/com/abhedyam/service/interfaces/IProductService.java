@@ -11,7 +11,6 @@ import java.util.UUID;
 public interface IProductService {
     Product create(ProductCreateRequest request);
     Product getById(UUID id);
-    List<Product> getAll();
     List<Product> getByOwnerId(UUID ownerId);
     PageResponse<Product> searchProducts(ProductSearchRequest request);
     Product update(UUID id, ProductCreateRequest request);

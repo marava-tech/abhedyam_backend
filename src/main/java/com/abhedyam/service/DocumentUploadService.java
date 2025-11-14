@@ -78,6 +78,25 @@ public class DocumentUploadService implements IDocumentUploadService {
     
     @Override
     @Transactional
+    public Document updateDocument(UUID id, String name, Integer orderIndex, Boolean visibleToCustomers) {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        Document document = getDocumentById(id);
+        
+        if (name != null) {
+            document.setName(name);
+        }
+        if (orderIndex != null) {
+            document.setOrderIndex(orderIndex);
+        }
+        if (visibleToCustomers != null) {
+            document.setVisibleToCustomers(visibleToCustomers);
+        }
+        
+        return documentRepository.save(document);
+    }
+    
+    @Override
+    @Transactional
     public void deleteDocument(UUID id) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         Document document = getDocumentById(id);

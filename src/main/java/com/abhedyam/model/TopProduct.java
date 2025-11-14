@@ -35,7 +35,7 @@ public class TopProduct extends BaseEntity {
     @Column(nullable = false)
     private Integer orderCount = 0;
     
-    @Column(nullable = false)
+    @Column(name = "`rank`", nullable = false)
     private Integer rank;
 }
 
