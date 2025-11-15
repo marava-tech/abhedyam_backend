@@ -85,7 +85,7 @@ public class SaleService implements ISaleService {
                 throw new BusinessException("UNAUTHORIZED", "You don't have access to this product");
             }
             
-            BigDecimal quantity = itemRequest.getQuantity() != null ? itemRequest.getQuantity() : BigDecimal.ONE;
+            BigDecimal quantity = BigDecimal.ONE;
             BigDecimal currentStock = stockService.getCurrentStock(itemRequest.getProductId());
             
             if (currentStock.compareTo(quantity) < 0) {
@@ -94,14 +94,19 @@ public class SaleService implements ISaleService {
                     ". Available: " + currentStock + ", Required: " + quantity);
             }
             
-            BigDecimal itemTotal = itemRequest.getPrice().multiply(quantity);
+            BigDecimal itemPrice = itemRequest.getPrice() != null ? itemRequest.getPrice() : product.getPrice();
+            if (itemPrice == null) {
+                throw new BusinessException("PRICE_REQUIRED", "Product price is not set and no price provided in request");
+            }
+            
+            BigDecimal itemTotal = itemPrice;
             totalAmount = totalAmount.add(itemTotal);
             
             SaleItem saleItem = new SaleItem();
             saleItem.setProductId(itemRequest.getProductId());
             saleItem.setCustomerId(request.getCustomerId());
             saleItem.setOwnerId(ownerId);
-            saleItem.setPrice(itemRequest.getPrice());
+            saleItem.setPrice(itemPrice);
             saleItem.setQuantity(quantity);
             saleItem.setTransactionId(transactionId);
             saleItem.setDueDate(request.getDueDate());

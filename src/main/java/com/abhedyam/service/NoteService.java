@@ -4,7 +4,6 @@ import com.abhedyam.dto.NoteCreateRequest;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Note;
-import com.abhedyam.model.enums.NoteStatus;
 import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.NoteRepository;
 import com.abhedyam.service.interfaces.INoteService;
@@ -13,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,7 +35,6 @@ public class NoteService implements INoteService {
         note.setCustomerId(request.getCustomerId());
         note.setOwnerId(ownerId);
         note.setText(request.getText());
-        note.setStatus(NoteStatus.PENDING);
         
         return noteRepository.save(note);
     }
@@ -81,14 +78,6 @@ public class NoteService implements INoteService {
     public Note update(UUID id, String text) {
         Note note = getById(id);
         note.setText(text);
-        return noteRepository.save(note);
-    }
-    
-    @Override
-    @Transactional
-    public Note updateStatus(UUID id, NoteStatus status) {
-        Note note = getById(id);
-        note.setStatus(status);
         return noteRepository.save(note);
     }
 }

@@ -12,6 +12,5 @@ public interface INoteService {
     List<Note> getByOwnerId(UUID ownerId);
     List<Note> getByCustomerId(UUID customerId);
     Note update(UUID id, String text);
-    Note updateStatus(UUID id, com.abhedyam.model.enums.NoteStatus status);
 }
 
