@@ -20,4 +20,7 @@ public interface IAuditService {
                        BigDecimal newStock, String source, String details);
     void logSaleCreation(UUID saleId, UUID ownerId, UUID customerId, BigDecimal amount, String transactionId);
     void logSaleCancellation(UUID saleId, UUID ownerId, UUID customerId, BigDecimal amount, String transactionId);
+    void logProductCreation(UUID productId, UUID ownerId, String productName, String productCode);
+    void logReminderCreation(UUID reminderId, UUID ownerId, UUID customerId, String reminderText);
 }
+

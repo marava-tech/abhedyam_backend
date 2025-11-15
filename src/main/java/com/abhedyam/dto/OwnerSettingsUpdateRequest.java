@@ -1,13 +1,23 @@
 package com.abhedyam.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.util.Map;
 
 @Data
+@Schema(description = "Request to update owner settings")
 public class OwnerSettingsUpdateRequest {
+    @Schema(description = "Daily quote enabled", example = "true")
     private Boolean dailyQuoteEnabled;
+    
+    @Schema(description = "Call log sync enabled", example = "true")
     private Boolean callLogSyncEnabled;
+    
+    @Schema(description = "Dark mode enabled", example = "false")
+    private Boolean isDarkModeEnabled;
+    
+    @Schema(description = "Other feature flags")
     private Map<String, Object> otherFlags;
 }
 

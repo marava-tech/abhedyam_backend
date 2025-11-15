@@ -3,6 +3,8 @@ package com.abhedyam.model;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -13,13 +15,15 @@ import java.util.UUID;
 @Setter
 public class Inventory extends BaseEntity {
     
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID productId;
     
     @Column(nullable = false, precision = 18, scale = 3)
     private BigDecimal stock;
     
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID ownerId;
 }
 

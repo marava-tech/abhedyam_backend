@@ -3,6 +3,8 @@ package com.abhedyam.model;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
 
@@ -27,7 +29,8 @@ public class Document extends BaseEntity {
     @Column(nullable = false)
     private Boolean visibleToCustomers = false;
     
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID ownerId;
 }
 

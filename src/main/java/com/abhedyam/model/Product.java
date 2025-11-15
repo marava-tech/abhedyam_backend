@@ -33,7 +33,8 @@ public class Product extends BaseEntity {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal price;
     
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID ownerId;
     
     @Column(nullable = false)

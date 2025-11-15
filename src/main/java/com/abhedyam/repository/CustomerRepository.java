@@ -9,11 +9,14 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface CustomerRepository extends JpaRepository<Customer, UUID> {
     List<Customer> findByOwnerId(UUID ownerId);
+    
+    Optional<Customer> findByPhoneNormalized(String phoneNormalized);
     
     @Query("SELECT c FROM Customer c WHERE c.ownerId = :ownerId " +
            "AND (:searchTerm IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +

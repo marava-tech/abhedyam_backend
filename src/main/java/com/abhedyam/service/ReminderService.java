@@ -7,6 +7,7 @@ import com.abhedyam.model.Reminder;
 import com.abhedyam.model.enums.ReminderStatus;
 import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.ReminderRepository;
+import com.abhedyam.service.interfaces.IAuditService;
 import com.abhedyam.service.interfaces.IReminderService;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class ReminderService implements IReminderService {
     
     private final ReminderRepository reminderRepository;
     private final CustomerRepository customerRepository;
+    private final IAuditService auditService;
     
     @Override
     @Transactional
@@ -47,7 +49,11 @@ public class ReminderService implements IReminderService {
         reminder.setText(request.getText());
         reminder.setStatus(ReminderStatus.PENDING);
         
-        return reminderRepository.save(reminder);
+        Reminder savedReminder = reminderRepository.save(reminder);
+        
+        auditService.logReminderCreation(savedReminder.getId(), ownerId, request.getCustomerId(), request.getText());
+        
+        return savedReminder;
     }
     
     @Override

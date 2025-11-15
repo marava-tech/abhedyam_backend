@@ -25,12 +25,13 @@ public class OwnerSettingsService implements IOwnerSettingsService {
         
         OwnerSettings settings = ownerSettingsRepository.findByOwnerId(ownerId)
                 .orElseGet(() -> {
-                    OwnerSettings newSettings = new OwnerSettings();
-                    newSettings.setId(ownerId);
-                    newSettings.setOwnerId(ownerId);
-                    newSettings.setDailyQuoteEnabled(true);
-                    newSettings.setCallLogSyncEnabled(true);
-                    return ownerSettingsRepository.save(newSettings);
+                OwnerSettings newSettings = new OwnerSettings();
+                newSettings.setId(ownerId);
+                newSettings.setOwnerId(ownerId);
+                newSettings.setDailyQuoteEnabled(true);
+                newSettings.setCallLogSyncEnabled(true);
+                newSettings.setIsDarkModeEnabled(false);
+                return ownerSettingsRepository.save(newSettings);
                 });
         
         return toResponse(settings);
@@ -43,12 +44,13 @@ public class OwnerSettingsService implements IOwnerSettingsService {
         
         OwnerSettings settings = ownerSettingsRepository.findByOwnerId(ownerId)
                 .orElseGet(() -> {
-                    OwnerSettings newSettings = new OwnerSettings();
-                    newSettings.setId(ownerId);
-                    newSettings.setOwnerId(ownerId);
-                    newSettings.setDailyQuoteEnabled(true);
-                    newSettings.setCallLogSyncEnabled(true);
-                    return newSettings;
+                OwnerSettings newSettings = new OwnerSettings();
+                newSettings.setId(ownerId);
+                newSettings.setOwnerId(ownerId);
+                newSettings.setDailyQuoteEnabled(true);
+                newSettings.setCallLogSyncEnabled(true);
+                newSettings.setIsDarkModeEnabled(false);
+                return newSettings;
                 });
         
         if (request.getDailyQuoteEnabled() != null) {
@@ -56,6 +58,9 @@ public class OwnerSettingsService implements IOwnerSettingsService {
         }
         if (request.getCallLogSyncEnabled() != null) {
             settings.setCallLogSyncEnabled(request.getCallLogSyncEnabled());
+        }
+        if (request.getIsDarkModeEnabled() != null) {
+            settings.setIsDarkModeEnabled(request.getIsDarkModeEnabled());
         }
         if (request.getOtherFlags() != null) {
             settings.setOtherFlags(request.getOtherFlags());
@@ -70,6 +75,7 @@ public class OwnerSettingsService implements IOwnerSettingsService {
         response.setId(settings.getId());
         response.setDailyQuoteEnabled(settings.getDailyQuoteEnabled());
         response.setCallLogSyncEnabled(settings.getCallLogSyncEnabled());
+        response.setIsDarkModeEnabled(settings.getIsDarkModeEnabled());
         response.setOtherFlags(settings.getOtherFlags());
         response.setCreatedAt(settings.getCreatedAt());
         response.setUpdatedAt(settings.getUpdatedAt());

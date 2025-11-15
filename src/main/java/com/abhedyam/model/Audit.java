@@ -5,6 +5,8 @@ import com.abhedyam.model.enums.AuditType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -16,7 +18,8 @@ import java.util.UUID;
 @Setter
 public class Audit extends BaseEntity {
     
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID ownerId;
     
     @Enumerated(EnumType.STRING)
@@ -27,7 +30,8 @@ public class Audit extends BaseEntity {
     @Column(nullable = false)
     private AuditAction action;
     
-    @Column
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(columnDefinition = "VARCHAR(36)")
     private UUID entityId;
     
     @Column(precision = 15, scale = 2)
