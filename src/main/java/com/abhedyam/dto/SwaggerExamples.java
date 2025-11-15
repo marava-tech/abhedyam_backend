@@ -38,14 +38,22 @@ public class SwaggerExamples {
     
     public static final String OTP_SEND_REQUEST = """
         {
-          "identifier": "user@example.com"
+          "email": "user@example.com"
         }
         """;
     
     public static final String OTP_VERIFY_REQUEST = """
         {
-          "identifier": "user@example.com",
+          "email": "user@example.com",
           "otp": "1234"
+        }
+        """;
+    
+    public static final String FIREBASE_LOGIN_REQUEST = """
+        {
+          "phone": "+919876543210",
+          "name": "John Doe",
+          "email": "john@example.com"
         }
         """;
     

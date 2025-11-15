@@ -29,6 +29,11 @@ public class SmsService implements ISmsService {
     }
     
     private boolean sendOtpWithTemplate(String phone, String otp) {
+        if (phone == null || phone.isEmpty()) {
+            log.info("Phone number not provided. Skipping SMS OTP send. Email is primary channel.");
+            return false;
+        }
+        
         if (apiKey == null || apiKey.isEmpty()) {
             log.warn("2Factor API key not configured. Skipping OTP send.");
             return false;
@@ -41,7 +46,7 @@ public class SmsService implements ISmsService {
         
         String normalizedPhone = PhoneUtil.normalizePhone(phone);
         if (normalizedPhone == null || normalizedPhone.isEmpty() || !PhoneUtil.isValidPhone(normalizedPhone)) {
-            log.warn("Invalid phone number format: {} (normalized: {})", phone, normalizedPhone);
+            log.warn("Invalid phone number format: {} (normalized: {}). Skipping SMS OTP send.", phone, normalizedPhone);
             return false;
         }
         
@@ -100,6 +105,11 @@ public class SmsService implements ISmsService {
     
     @Override
     public boolean sendSmsWithRetry(String phone, String message, int maxRetries) {
+        if (phone == null || phone.isEmpty()) {
+            log.info("Phone number not provided. Skipping SMS send. Email is primary channel.");
+            return false;
+        }
+        
         if (apiKey == null || apiKey.isEmpty()) {
             log.warn("2Factor API key not configured. Skipping SMS send. Message: {}", message);
             return false;
@@ -107,7 +117,7 @@ public class SmsService implements ISmsService {
         
         String normalizedPhone = phone.replace("+", "").replaceAll("[^0-9]", "");
         if (normalizedPhone.length() < 10) {
-            log.warn("Invalid phone number format: {}", phone);
+            log.warn("Invalid phone number format: {}. Skipping SMS send.", phone);
             return false;
         }
         

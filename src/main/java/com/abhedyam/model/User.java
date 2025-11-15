@@ -1,5 +1,6 @@
 package com.abhedyam.model;
 
+import com.abhedyam.exception.BusinessException;
 import com.abhedyam.model.enums.UserType;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -15,10 +16,10 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private String name;
     
-    @Column
+    @Column(nullable = true)
     private String phone;
     
-    @Column(unique = true)
+    @Column(unique = true, nullable = true)
     private String phoneNormalized;
     
     @Column(unique = true)
@@ -30,5 +31,6 @@ public class User extends BaseEntity {
     
     @Column
     private String imageUrl;
+
 }
 
