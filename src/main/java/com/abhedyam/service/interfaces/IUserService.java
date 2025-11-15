@@ -1,15 +1,17 @@
 package com.abhedyam.service.interfaces;
 
-import com.abhedyam.model.User;
+import com.abhedyam.dto.UserCreateRequest;
+import com.abhedyam.dto.UserResponse;
+import com.abhedyam.dto.UserUpdateRequest;
 
 import java.util.List;
 import java.util.UUID;
 
 public interface IUserService {
-    User create(User user);
-    User getById(UUID id);
-    List<User> getAll();
-    User update(UUID id, User userDetails);
+    UserResponse create(UserCreateRequest request);
+    UserResponse getById(UUID id);
+    List<UserResponse> getAll();
+    UserResponse update(UUID id, UserUpdateRequest request);
     void delete(UUID id);
 }
 

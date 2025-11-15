@@ -15,7 +15,8 @@ import java.util.UUID;
 @Setter
 public class OwnerSettings extends BaseEntity {
     
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID ownerId;
     
     @Column(nullable = false)

@@ -3,6 +3,8 @@ package com.abhedyam.model;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -13,7 +15,8 @@ import java.util.UUID;
 @Setter
 public class LocationDetails extends BaseEntity {
     
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID userId;
     
     @Column(nullable = false, precision = 10, scale = 7)

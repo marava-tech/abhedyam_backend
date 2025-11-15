@@ -1,9 +1,15 @@
 package com.abhedyam.service;
 
+import com.abhedyam.dto.UserCreateRequest;
+import com.abhedyam.dto.UserResponse;
+import com.abhedyam.dto.UserUpdateRequest;
+import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.User;
 import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.IUserService;
+import com.abhedyam.util.EmailUtil;
+import com.abhedyam.util.PhoneUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -18,33 +25,101 @@ public class UserService implements IUserService {
     
     private final UserRepository userRepository;
     
-    public User create(User user) {
-        return userRepository.save(user);
+    @Transactional
+    public UserResponse create(UserCreateRequest request) {
+        User user = new User();
+        user.setName(request.getName());
+        user.setType(request.getType() != null ? request.getType() : com.abhedyam.model.enums.UserType.BUSINESS);
+        
+        if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
+            String normalizedPhone = PhoneUtil.normalizePhone(request.getPhone());
+            user.setPhone(normalizedPhone.replace("+", ""));
+            user.setPhoneNormalized(normalizedPhone);
+        }
+        
+        if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
+            user.setEmail(EmailUtil.normalizeEmail(request.getEmail()));
+        }
+        
+        if (request.getImageUrl() != null) {
+            user.setImageUrl(request.getImageUrl());
+        }
+        
+        validateEmailOrPhone(user);
+        User saved = userRepository.save(user);
+        return toResponse(saved);
     }
     
-    public User getById(UUID id) {
-        return userRepository.findById(id)
+    public UserResponse getById(UUID id) {
+        User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        return toResponse(user);
     }
     
-    public List<User> getAll() {
-        return userRepository.findAll();
+    public List<UserResponse> getAll() {
+        return userRepository.findAll().stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
     
     @Transactional
-    public User update(UUID id, User userDetails) {
-        User user = getById(id);
-        if (userDetails.getName() != null) user.setName(userDetails.getName());
-        if (userDetails.getPhone() != null) user.setPhone(userDetails.getPhone());
-        if (userDetails.getPhoneNormalized() != null) user.setPhoneNormalized(userDetails.getPhoneNormalized());
-        if (userDetails.getType() != null) user.setType(userDetails.getType());
-        if (userDetails.getImageUrl() != null) user.setImageUrl(userDetails.getImageUrl());
-        return userRepository.save(user);
+    public UserResponse update(UUID id, UserUpdateRequest request) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        
+        if (request.getName() != null && !request.getName().trim().isEmpty()) {
+            user.setName(request.getName());
+        }
+        
+        if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
+            String normalizedPhone = PhoneUtil.normalizePhone(request.getPhone());
+            user.setPhone(normalizedPhone.replace("+", ""));
+            user.setPhoneNormalized(normalizedPhone);
+        }
+        
+        if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
+            user.setEmail(EmailUtil.normalizeEmail(request.getEmail()));
+        }
+        
+        if (request.getImageUrl() != null) {
+            if (request.getImageUrl().trim().isEmpty()) {
+                user.setImageUrl(null);
+            } else {
+                user.setImageUrl(request.getImageUrl());
+            }
+        }
+        
+        validateEmailOrPhone(user);
+        User saved = userRepository.save(user);
+        return toResponse(saved);
+    }
+    
+    private UserResponse toResponse(User user) {
+        UserResponse response = new UserResponse();
+        response.setId(user.getId());
+        response.setName(user.getName());
+        response.setPhone(user.getPhone());
+        response.setEmail(user.getEmail());
+        response.setType(user.getType());
+        response.setImageUrl(user.getImageUrl());
+        response.setCreatedAt(user.getCreatedAt());
+        response.setUpdatedAt(user.getUpdatedAt());
+        return response;
+    }
+    
+    private void validateEmailOrPhone(User user) {
+        boolean hasEmail = user.getEmail() != null && !user.getEmail().trim().isEmpty();
+        boolean hasPhone = user.getPhone() != null && !user.getPhone().trim().isEmpty();
+        
+        if (!hasEmail && !hasPhone) {
+            throw new BusinessException("MISSING_IDENTIFIER", "User must have either email or phone number");
+        }
     }
     
     @Transactional
     public void delete(UUID id) {
-        User user = getById(id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         user.setDeletedAt(Instant.now());
         user.setIsActive(false);
         userRepository.save(user);

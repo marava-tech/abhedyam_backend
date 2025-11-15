@@ -1,14 +1,16 @@
 package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
-import com.abhedyam.model.LocationDetails;
+import com.abhedyam.dto.LocationDetailsCreateRequest;
+import com.abhedyam.dto.LocationDetailsResponse;
+import com.abhedyam.dto.LocationDetailsUpdateRequest;
 import com.abhedyam.service.interfaces.ILocationDetailsService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/location-details")
@@ -19,29 +21,29 @@ public class LocationDetailsController {
     
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<LocationDetails> create(@RequestBody LocationDetails locationDetails) {
-        return ApiResponse.success(locationDetailsService.create(locationDetails));
+    public ApiResponse<LocationDetailsResponse> create(@Valid @RequestBody LocationDetailsCreateRequest request) {
+        return ApiResponse.success(locationDetailsService.create(request));
     }
     
-    @GetMapping("/{id}")
-    public ApiResponse<LocationDetails> getById(@PathVariable UUID id) {
-        return ApiResponse.success(locationDetailsService.getById(id));
+    @GetMapping("/me")
+    public ApiResponse<LocationDetailsResponse> getCurrentUserLocation() {
+        return ApiResponse.success(locationDetailsService.getCurrentUserLocation());
     }
     
     @GetMapping
-    public ApiResponse<List<LocationDetails>> getAll() {
+    public ApiResponse<List<LocationDetailsResponse>> getAll() {
         return ApiResponse.success(locationDetailsService.getAll());
     }
     
-    @PutMapping("/{id}")
-    public ApiResponse<LocationDetails> update(@PathVariable UUID id, @RequestBody LocationDetails locationDetails) {
-        return ApiResponse.success(locationDetailsService.update(id, locationDetails));
+    @PatchMapping("/me")
+    public ApiResponse<LocationDetailsResponse> update(@Valid @RequestBody LocationDetailsUpdateRequest request) {
+        return ApiResponse.success(locationDetailsService.updateCurrentUserLocation(request));
     }
     
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/me")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> delete(@PathVariable UUID id) {
-        locationDetailsService.delete(id);
+    public ApiResponse<Void> delete() {
+        locationDetailsService.deleteCurrentUserLocation();
         return ApiResponse.success(null);
     }
 }

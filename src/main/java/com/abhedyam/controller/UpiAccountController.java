@@ -2,7 +2,7 @@ package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.UpiAccountCreateRequest;
-import com.abhedyam.model.UPIAccount;
+import com.abhedyam.dto.UpiAccountResponse;
 import com.abhedyam.service.interfaces.IUpiAccountManagementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,17 +21,27 @@ public class UpiAccountController {
     
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<UPIAccount> createUpiAccount(@Valid @RequestBody UpiAccountCreateRequest request) {
+    public ApiResponse<UpiAccountResponse> createUpiAccount(@Valid @RequestBody UpiAccountCreateRequest request) {
         return ApiResponse.success(upiAccountManagementService.createUpiAccount(request));
     }
     
+    @GetMapping("/me")
+    public ApiResponse<UpiAccountResponse> getCurrentUserUpiAccount() {
+        return ApiResponse.success(upiAccountManagementService.getCurrentUserUpiAccount());
+    }
+    
+    @PatchMapping("/me")
+    public ApiResponse<UpiAccountResponse> updateCurrentUserUpiAccount(@Valid @RequestBody UpiAccountCreateRequest request) {
+        return ApiResponse.success(upiAccountManagementService.updateCurrentUserUpiAccount(request));
+    }
+    
     @GetMapping
-    public ApiResponse<List<UPIAccount>> getOwnerUpiAccounts() {
+    public ApiResponse<List<UpiAccountResponse>> getOwnerUpiAccounts() {
         return ApiResponse.success(upiAccountManagementService.getOwnerUpiAccounts());
     }
     
     @GetMapping("/{id}")
-    public ApiResponse<UPIAccount> getUpiAccountById(@PathVariable UUID id) {
+    public ApiResponse<UpiAccountResponse> getUpiAccountById(@PathVariable UUID id) {
         return ApiResponse.success(upiAccountManagementService.getUpiAccountById(id));
     }
     
@@ -43,7 +53,7 @@ public class UpiAccountController {
     }
     
     @PutMapping("/{id}/primary")
-    public ApiResponse<UPIAccount> setPrimaryUpiAccount(@PathVariable UUID id) {
+    public ApiResponse<UpiAccountResponse> setPrimaryUpiAccount(@PathVariable UUID id) {
         return ApiResponse.success(upiAccountManagementService.setPrimaryUpiAccount(id));
     }
 }

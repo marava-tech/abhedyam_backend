@@ -16,6 +16,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          use_get_generated_keys: true
+        id:
+          new_generator_mappings: true
 
   data:
     redis:
@@ -69,6 +73,8 @@ app:
   twofactor:
     api-key: ${TWO_FACTOR_API_KEY:3f77c89e-c18d-11f0-a6b2-0200cd936042}
     otp-template: ${TWO_FACTOR_OTP_TEMPLATE:Abhedyam_OTP_Template}
+  firebase:
+    credentials: ${FIREBASE_CREDENTIALS:}
   email:
     enabled: ${EMAIL_ENABLED:true}
     from: ${EMAIL_FROM:marava.technologies@gmail.com}

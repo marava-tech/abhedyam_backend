@@ -1,6 +1,7 @@
 package com.abhedyam.service;
 
 import com.abhedyam.dto.UpiAccountCreateRequest;
+import com.abhedyam.dto.UpiAccountResponse;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Owner;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -26,14 +28,23 @@ public class UpiAccountManagementService implements IUpiAccountManagementService
     
     @Override
     @Transactional
-    public UPIAccount createUpiAccount(UpiAccountCreateRequest request) {
+    public UpiAccountResponse createUpiAccount(UpiAccountCreateRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
         if (upiAccountRepository.findByVpa(request.getVpa()).isPresent()) {
             throw new BusinessException("VPA_ALREADY_EXISTS", "VPA already exists");
         }
         
-        UPIAccount upiAccount = new UPIAccount();
+        UPIAccount existingAccount = upiAccountRepository.findById(ownerId).orElse(null);
+        UPIAccount upiAccount;
+        
+        if (existingAccount != null) {
+            upiAccount = existingAccount;
+        } else {
+            upiAccount = new UPIAccount();
+            upiAccount.setId(ownerId);
+        }
+        
         upiAccount.setVpa(request.getVpa());
         upiAccount.setOwnerId(ownerId);
         upiAccount.setIsVerified(false);
@@ -45,19 +56,62 @@ public class UpiAccountManagementService implements IUpiAccountManagementService
         owner.setUpiAccountId(saved.getId());
         ownerRepository.save(owner);
         
-        return saved;
+        return toResponse(saved);
     }
     
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public List<UPIAccount> getOwnerUpiAccounts() {
+    public UpiAccountResponse getCurrentUserUpiAccount() {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        return upiAccountRepository.findByOwnerIdOrderByCreatedAtDesc(ownerId);
+        UPIAccount account = upiAccountRepository.findById(ownerId)
+                .orElseThrow(() -> new ResourceNotFoundException("UPI Account not found for current user"));
+        return toResponse(account);
+    }
+    
+    @Override
+    @Transactional
+    public UpiAccountResponse updateCurrentUserUpiAccount(UpiAccountCreateRequest request) {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        
+        if (upiAccountRepository.findByVpa(request.getVpa())
+                .filter(acc -> !acc.getId().equals(ownerId))
+                .isPresent()) {
+            throw new BusinessException("VPA_ALREADY_EXISTS", "VPA already exists");
+        }
+        
+        UPIAccount upiAccount = upiAccountRepository.findById(ownerId)
+                .orElseGet(() -> {
+                    UPIAccount newAccount = new UPIAccount();
+                    newAccount.setId(ownerId);
+                    newAccount.setOwnerId(ownerId);
+                    return newAccount;
+                });
+        
+        upiAccount.setVpa(request.getVpa());
+        upiAccount.setOwnerId(ownerId);
+        
+        UPIAccount saved = upiAccountRepository.save(upiAccount);
+        
+        Owner owner = ownerRepository.findById(ownerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
+        owner.setUpiAccountId(saved.getId());
+        ownerRepository.save(owner);
+        
+        return toResponse(saved);
     }
     
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public UPIAccount getUpiAccountById(UUID id) {
+    public List<UpiAccountResponse> getOwnerUpiAccounts() {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        return upiAccountRepository.findByOwnerIdOrderByCreatedAtDesc(ownerId).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+    
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public UpiAccountResponse getUpiAccountById(UUID id) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         UPIAccount account = upiAccountRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("UPI Account not found"));
@@ -66,14 +120,19 @@ public class UpiAccountManagementService implements IUpiAccountManagementService
             throw new BusinessException("UNAUTHORIZED", "You don't have access to this UPI account");
         }
         
-        return account;
+        return toResponse(account);
     }
     
     @Override
     @Transactional
     public void deleteUpiAccount(UUID id) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        UPIAccount account = getUpiAccountById(id);
+        UPIAccount account = upiAccountRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("UPI Account not found"));
+        
+        if (!account.getOwnerId().equals(ownerId)) {
+            throw new BusinessException("UNAUTHORIZED", "You don't have access to this UPI account");
+        }
         
         account.setDeletedAt(Instant.now());
         account.setIsActive(false);
@@ -89,16 +148,32 @@ public class UpiAccountManagementService implements IUpiAccountManagementService
     
     @Override
     @Transactional
-    public UPIAccount setPrimaryUpiAccount(UUID id) {
+    public UpiAccountResponse setPrimaryUpiAccount(UUID id) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        UPIAccount account = getUpiAccountById(id);
+        UPIAccount account = upiAccountRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("UPI Account not found"));
+        
+        if (!account.getOwnerId().equals(ownerId)) {
+            throw new BusinessException("UNAUTHORIZED", "You don't have access to this UPI account");
+        }
         
         Owner owner = ownerRepository.findById(ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
         owner.setUpiAccountId(id);
         ownerRepository.save(owner);
         
-        return account;
+        return toResponse(account);
+    }
+    
+    private UpiAccountResponse toResponse(UPIAccount account) {
+        UpiAccountResponse response = new UpiAccountResponse();
+        response.setId(account.getId());
+        response.setVpa(account.getVpa());
+        response.setIsVerified(account.getIsVerified());
+        response.setVerifiedAt(account.getVerifiedAt());
+        response.setCreatedAt(account.getCreatedAt());
+        response.setUpdatedAt(account.getUpdatedAt());
+        return response;
     }
 }
 

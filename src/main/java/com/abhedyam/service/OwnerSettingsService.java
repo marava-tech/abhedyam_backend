@@ -1,5 +1,6 @@
 package com.abhedyam.service;
 
+import com.abhedyam.dto.OwnerSettingsResponse;
 import com.abhedyam.dto.OwnerSettingsUpdateRequest;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Owner;
@@ -12,8 +13,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -23,74 +22,45 @@ public class OwnerSettingsService implements IOwnerSettingsService {
     private final OwnerSettingsRepository ownerSettingsRepository;
     private final OwnerRepository ownerRepository;
     
-    public OwnerSettings create(OwnerSettings ownerSettings) {
-        return ownerSettingsRepository.save(ownerSettings);
-    }
-    
-    public OwnerSettings getById(UUID id) {
-        return ownerSettingsRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("OwnerSettings not found with id: " + id));
-    }
-    
-    public List<OwnerSettings> getAll() {
-        return ownerSettingsRepository.findAll();
-    }
-    
-    @Transactional
-    public OwnerSettings update(UUID id, OwnerSettings settingsDetails) {
-        OwnerSettings settings = getById(id);
-        if (settingsDetails.getDailyQuoteEnabled() != null) settings.setDailyQuoteEnabled(settingsDetails.getDailyQuoteEnabled());
-        if (settingsDetails.getCallLogSyncEnabled() != null) settings.setCallLogSyncEnabled(settingsDetails.getCallLogSyncEnabled());
-        if (settingsDetails.getOtherFlags() != null) settings.setOtherFlags(settingsDetails.getOtherFlags());
-        return ownerSettingsRepository.save(settings);
-    }
-    
-    @Transactional
-    public void delete(UUID id) {
-        OwnerSettings settings = getById(id);
-        settings.setDeletedAt(Instant.now());
-        settings.setIsActive(false);
-        ownerSettingsRepository.save(settings);
-    }
-    
     @Override
-    public OwnerSettings getCurrentOwnerSettings() {
+    @Transactional
+    public OwnerSettingsResponse getCurrentOwnerSettings() {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        Owner owner = ownerRepository.findById(ownerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
         
-        if (owner.getUserSettingsId() == null) {
-            OwnerSettings settings = new OwnerSettings();
-            settings.setOwnerId(ownerId);
-            settings.setDailyQuoteEnabled(true);
-            settings.setCallLogSyncEnabled(true);
-            return ownerSettingsRepository.save(settings);
-        }
+        OwnerSettings settings = ownerSettingsRepository.findById(ownerId)
+                .orElseGet(() -> {
+                    OwnerSettings newSettings = new OwnerSettings();
+                    newSettings.setId(ownerId);
+                    newSettings.setOwnerId(ownerId);
+                    newSettings.setDailyQuoteEnabled(true);
+                    newSettings.setCallLogSyncEnabled(true);
+                    OwnerSettings saved = ownerSettingsRepository.save(newSettings);
+                    
+                    Owner owner = ownerRepository.findById(ownerId)
+                            .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
+                    owner.setUserSettingsId(saved.getId());
+                    ownerRepository.save(owner);
+                    
+                    return saved;
+                });
         
-        return ownerSettingsRepository.findById(owner.getUserSettingsId())
-                .orElseThrow(() -> new ResourceNotFoundException("OwnerSettings not found"));
+        return toResponse(settings);
     }
     
     @Override
     @Transactional
-    public OwnerSettings updateCurrentOwnerSettings(OwnerSettingsUpdateRequest request) {
+    public OwnerSettingsResponse updateCurrentOwnerSettings(OwnerSettingsUpdateRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        Owner owner = ownerRepository.findById(ownerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
         
-        OwnerSettings settings;
-        if (owner.getUserSettingsId() == null) {
-            settings = new OwnerSettings();
-            settings.setOwnerId(ownerId);
-            settings.setDailyQuoteEnabled(true);
-            settings.setCallLogSyncEnabled(true);
-            settings = ownerSettingsRepository.save(settings);
-            owner.setUserSettingsId(settings.getId());
-            ownerRepository.save(owner);
-        } else {
-            settings = ownerSettingsRepository.findById(owner.getUserSettingsId())
-                    .orElseThrow(() -> new ResourceNotFoundException("OwnerSettings not found"));
-        }
+        OwnerSettings settings = ownerSettingsRepository.findById(ownerId)
+                .orElseGet(() -> {
+                    OwnerSettings newSettings = new OwnerSettings();
+                    newSettings.setId(ownerId);
+                    newSettings.setOwnerId(ownerId);
+                    newSettings.setDailyQuoteEnabled(true);
+                    newSettings.setCallLogSyncEnabled(true);
+                    return newSettings;
+                });
         
         if (request.getDailyQuoteEnabled() != null) {
             settings.setDailyQuoteEnabled(request.getDailyQuoteEnabled());
@@ -102,7 +72,25 @@ public class OwnerSettingsService implements IOwnerSettingsService {
             settings.setOtherFlags(request.getOtherFlags());
         }
         
-        return ownerSettingsRepository.save(settings);
+        OwnerSettings saved = ownerSettingsRepository.save(settings);
+        
+        Owner owner = ownerRepository.findById(ownerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
+        owner.setUserSettingsId(saved.getId());
+        ownerRepository.save(owner);
+        
+        return toResponse(saved);
+    }
+    
+    private OwnerSettingsResponse toResponse(OwnerSettings settings) {
+        OwnerSettingsResponse response = new OwnerSettingsResponse();
+        response.setId(settings.getId());
+        response.setDailyQuoteEnabled(settings.getDailyQuoteEnabled());
+        response.setCallLogSyncEnabled(settings.getCallLogSyncEnabled());
+        response.setOtherFlags(settings.getOtherFlags());
+        response.setCreatedAt(settings.getCreatedAt());
+        response.setUpdatedAt(settings.getUpdatedAt());
+        return response;
     }
 }
 
