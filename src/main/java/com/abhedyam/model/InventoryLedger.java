@@ -4,6 +4,8 @@ import com.abhedyam.model.enums.InventoryLedgerSourceType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -14,10 +16,12 @@ import java.util.UUID;
 @Setter
 public class InventoryLedger extends BaseEntity {
     
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID ownerId;
     
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID productId;
     
     @Column(nullable = false)
@@ -30,7 +34,8 @@ public class InventoryLedger extends BaseEntity {
     @Column(nullable = false)
     private InventoryLedgerSourceType sourceType;
     
-    @Column
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(columnDefinition = "VARCHAR(36)")
     private UUID sourceId;
     
     @Column

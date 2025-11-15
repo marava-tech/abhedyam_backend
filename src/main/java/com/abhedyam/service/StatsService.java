@@ -1,28 +1,40 @@
 package com.abhedyam.service;
 
+import com.abhedyam.dto.DashboardStatsResponse;
+import com.abhedyam.dto.RecentActivityResponse;
 import com.abhedyam.dto.StatsRequest;
 import com.abhedyam.dto.StatsResponse;
+import com.abhedyam.model.Audit;
 import com.abhedyam.model.DailyStats;
 import com.abhedyam.model.Product;
 import com.abhedyam.model.SaleItem;
 import com.abhedyam.model.TopProduct;
+import com.abhedyam.model.enums.AuditAction;
+import com.abhedyam.model.enums.AuditType;
+import com.abhedyam.repository.AuditRepository;
 import com.abhedyam.repository.DailyStatsRepository;
 import com.abhedyam.repository.ProductRepository;
 import com.abhedyam.repository.SaleItemRepository;
 import com.abhedyam.repository.TopProductRepository;
 import com.abhedyam.service.interfaces.IStatsService;
+import com.abhedyam.service.interfaces.IStockService;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -38,6 +50,8 @@ public class StatsService implements IStatsService {
     private final TopProductRepository topProductRepository;
     private final SaleItemRepository saleItemRepository;
     private final ProductRepository productRepository;
+    private final AuditRepository auditRepository;
+    private final IStockService stockService;
     private final RedisTemplate<String, String> redisTemplate;
     
     private static final String STATS_CACHE_PREFIX = "stats:daily:";
@@ -255,6 +269,108 @@ public class StatsService implements IStatsService {
         }
         
         topProductRepository.saveAll(topProducts);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public DashboardStatsResponse getDashboardStats() {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        
+        List<Product> products = productRepository.findByOwnerId(ownerId).stream()
+            .filter(p -> p.getIsActive() != null && p.getIsActive())
+            .toList();
+        
+        BigDecimal totalStockCount = BigDecimal.ZERO;
+        long lowStockCount = 0;
+        
+        for (Product product : products) {
+            BigDecimal stock = stockService.getCurrentStock(product.getId());
+            totalStockCount = totalStockCount.add(stock != null ? stock : BigDecimal.ZERO);
+            if (stock != null && stock.compareTo(new BigDecimal("2")) < 0) {
+                lowStockCount++;
+            }
+        }
+        
+        Instant now = Instant.now();
+        Instant sevenDaysAgo = now.minusSeconds(7 * 24 * 60 * 60);
+        
+        List<SaleItem> lastWeekSales = saleItemRepository.findByOwnerId(ownerId).stream()
+            .filter(item -> {
+                Instant createdAt = item.getCreatedAt();
+                return createdAt != null && createdAt.isAfter(sevenDaysAgo) && createdAt.isBefore(now)
+                    && item.getIsActive() != null && item.getIsActive();
+            })
+            .toList();
+        
+        BigDecimal lastWeekSalesAmount = lastWeekSales.stream()
+            .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        Instant fourteenDaysAgo = now.minusSeconds(14 * 24 * 60 * 60);
+        
+        List<SaleItem> previousWeekSales = saleItemRepository.findByOwnerId(ownerId).stream()
+            .filter(item -> {
+                Instant createdAt = item.getCreatedAt();
+                return createdAt != null && createdAt.isAfter(fourteenDaysAgo) && createdAt.isBefore(sevenDaysAgo)
+                    && item.getIsActive() != null && item.getIsActive();
+            })
+            .toList();
+        
+        int currentWeekProductsSold = lastWeekSales.stream()
+            .mapToInt(item -> item.getQuantity() != null ? item.getQuantity().intValue() : 1)
+            .sum();
+        
+        int previousWeekProductsSold = previousWeekSales.stream()
+            .mapToInt(item -> item.getQuantity() != null ? item.getQuantity().intValue() : 1)
+            .sum();
+        
+        BigDecimal weeklyGrowthPercentage = BigDecimal.ZERO;
+        if (previousWeekProductsSold > 0) {
+            int difference = currentWeekProductsSold - previousWeekProductsSold;
+            weeklyGrowthPercentage = new BigDecimal(difference)
+                .divide(new BigDecimal(previousWeekProductsSold), 4, RoundingMode.HALF_UP)
+                .multiply(new BigDecimal("100"));
+        } else if (currentWeekProductsSold > 0) {
+            weeklyGrowthPercentage = new BigDecimal("100");
+        }
+        
+        return new DashboardStatsResponse(
+            totalStockCount,
+            lowStockCount,
+            lastWeekSalesAmount,
+            weeklyGrowthPercentage
+        );
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<RecentActivityResponse> getRecentActivities(Pageable pageable) {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        
+        List<AuditType> types = Arrays.asList(AuditType.SALE, AuditType.PRODUCT, AuditType.REMINDER);
+        List<AuditAction> actions = Arrays.asList(
+            AuditAction.CREATE,
+            AuditAction.SALE_ITEM_SOLD,
+            AuditAction.PRODUCT_CREATED,
+            AuditAction.REMINDER_CREATED
+        );
+        
+        Page<Audit> audits = auditRepository.findRecentActivities(ownerId, types, actions, pageable);
+        
+        List<RecentActivityResponse> activities = audits.getContent().stream()
+            .map(audit -> new RecentActivityResponse(
+                audit.getId(),
+                audit.getType(),
+                audit.getAction(),
+                audit.getHeadline(),
+                audit.getDescription(),
+                audit.getAmount(),
+                audit.getEntityId(),
+                audit.getTimestamp()
+            ))
+            .collect(Collectors.toList());
+        
+        return new PageImpl<>(activities, pageable, audits.getTotalElements());
     }
 }
 

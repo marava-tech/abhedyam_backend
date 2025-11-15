@@ -4,6 +4,8 @@ import com.abhedyam.model.enums.NotificationType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -14,10 +16,12 @@ import java.util.UUID;
 @Setter
 public class Notification extends BaseEntity {
     
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID ownerId;
     
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID userId;
     
     @Enumerated(EnumType.STRING)
@@ -33,7 +37,8 @@ public class Notification extends BaseEntity {
     @Column(nullable = false)
     private Boolean isRead = false;
     
-    @Column
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(columnDefinition = "VARCHAR(36)")
     private UUID relatedEntityId;
     
     @Column

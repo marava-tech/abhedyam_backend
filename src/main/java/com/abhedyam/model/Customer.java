@@ -3,6 +3,8 @@ package com.abhedyam.model;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
 
@@ -12,8 +14,7 @@ import java.util.UUID;
 @Setter
 @PrimaryKeyJoinColumn(name = "id")
 public class Customer extends User {
-    @Column
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(columnDefinition = "VARCHAR(36)")
     private UUID ownerId;
-
 }
-

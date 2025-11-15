@@ -3,6 +3,8 @@ package com.abhedyam.model;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -14,13 +16,15 @@ import java.util.UUID;
 @Setter
 public class TopProduct extends BaseEntity {
     
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID ownerId;
     
     @Column(nullable = false)
     private LocalDate statDate;
     
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID productId;
     
     @Column(nullable = false)

@@ -8,6 +8,7 @@ import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Product;
 import com.abhedyam.repository.ProductRepository;
+import com.abhedyam.service.interfaces.IAuditService;
 import com.abhedyam.service.interfaces.IProductService;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +19,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,6 +27,7 @@ import java.util.UUID;
 public class ProductService implements IProductService {
     
     private final ProductRepository productRepository;
+    private final IAuditService auditService;
     
     @Override
     @Transactional
@@ -54,7 +55,11 @@ public class ProductService implements IProductService {
             product.setStock(request.getStock());
         }
         
-        return productRepository.save(product);
+        Product savedProduct = productRepository.save(product);
+        
+        auditService.logProductCreation(savedProduct.getId(), ownerId, savedProduct.getName(), savedProduct.getCode());
+        
+        return savedProduct;
     }
     
     @Override

@@ -19,6 +19,9 @@ public class OwnerSettingsResponse {
     @Schema(description = "Call log sync enabled", example = "true")
     private Boolean callLogSyncEnabled;
     
+    @Schema(description = "Dark mode enabled", example = "false")
+    private Boolean isDarkModeEnabled;
+    
     @Schema(description = "Other feature flags")
     private Map<String, Object> otherFlags;
     

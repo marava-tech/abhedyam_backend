@@ -3,9 +3,11 @@ package com.abhedyam.service;
 import com.abhedyam.dto.AuthResponse;
 import com.abhedyam.dto.FirebaseLoginRequest;
 import com.abhedyam.dto.OtpVerifyRequest;
+import com.abhedyam.model.Customer;
 import com.abhedyam.model.Owner;
 import com.abhedyam.model.User;
 import com.abhedyam.model.enums.UserType;
+import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.OwnerRepository;
 import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.IAuthService;
@@ -30,6 +32,7 @@ public class AuthService implements IAuthService {
     private final FirebaseService firebaseService;
     private final UserRepository userRepository;
     private final OwnerRepository ownerRepository;
+    private final CustomerRepository customerRepository;
     private final JwtUtil jwtUtil;
     
     @Override
@@ -73,12 +76,15 @@ public class AuthService implements IAuthService {
         String phoneForToken = user.getPhoneNormalized() != null ? user.getPhoneNormalized() : normalizedEmail;
         String token = jwtUtil.generateToken(user.getId(), phoneForToken);
         
+        UserType userType = UserType.BUSINESS;
+        
         return new AuthResponse(
             token,
             user.getId().toString(),
             phoneForToken,
             user.getName(),
-            isNewUser
+            isNewUser,
+            userType
         );
     }
     
@@ -102,20 +108,32 @@ public class AuthService implements IAuthService {
             log.warn("Firebase token validation skipped for testing - phone: {}", normalizedPhone);
         }
         
+        Optional<Customer> existingCustomer = customerRepository.findByPhoneNormalized(normalizedPhone);
         Optional<User> existingUser = userRepository.findByPhoneNormalized(normalizedPhone);
-        boolean isNewUser = existingUser.isEmpty();
         
+        UserType userType;
+        boolean isNewUser;
         User user;
-        if (isNewUser) {
-            user = createNewUserWithFirebase(normalizedPhone, request.getName(), request.getEmail());
-            log.info("New user created with phone: {}", normalizedPhone);
-        } else {
+        
+        if (existingCustomer.isPresent()) {
+            user = existingCustomer.get();
+            userType = UserType.CUSTOMER;
+            isNewUser = false;
+            log.info("Customer logged in with phone: {}", normalizedPhone);
+        } else if (existingUser.isPresent()) {
             user = existingUser.get();
+            userType = UserType.BUSINESS;
+            isNewUser = false;
             if (request.getEmail() != null && !request.getEmail().trim().isEmpty() && user.getEmail() == null) {
                 user.setEmail(EmailUtil.normalizeEmail(request.getEmail()));
                 userRepository.save(user);
             }
-            log.info("User logged in with phone: {}", normalizedPhone);
+            log.info("Business user logged in with phone: {}", normalizedPhone);
+        } else {
+            user = createNewUserWithFirebase(normalizedPhone, request.getName(), request.getEmail());
+            userType = UserType.BUSINESS;
+            isNewUser = true;
+            log.info("New business user created with phone: {}", normalizedPhone);
         }
         
         String phoneForToken = user.getPhoneNormalized() != null ? user.getPhoneNormalized() : normalizedPhone;
@@ -126,7 +144,8 @@ public class AuthService implements IAuthService {
             user.getId().toString(),
             phoneForToken,
             user.getName(),
-            isNewUser
+            isNewUser,
+            userType
         );
     }
     
