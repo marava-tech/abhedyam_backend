@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 @Data
-@Schema(description = "Request to adjust stock manually", example = SwaggerExamples.STOCK_ADJUSTMENT_REQUEST)
+@Schema(description = "Request to adjust stock manually")
 public class StockAdjustmentRequest {
     @NotNull(message = "Product ID is required")
     @Schema(description = "UUID of the product", example = "123e4567-e89b-12d3-a456-426614174001", required = true)

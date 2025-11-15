@@ -7,7 +7,7 @@ import lombok.Data;
 import java.util.UUID;
 
 @Data
-@Schema(description = "Request to create a customer", example = SwaggerExamples.CUSTOMER_CREATE_REQUEST)
+@Schema(description = "Request to create a customer")
 public class CustomerCreateRequest {
     @NotBlank(message = "Customer name is required")
     @Schema(description = "Customer name", example = "John Doe", required = true)

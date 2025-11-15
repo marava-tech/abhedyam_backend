@@ -42,12 +42,5 @@ public class DailyQuoteController {
     public ApiResponse<DailyQuote> update(@PathVariable UUID id, @RequestBody DailyQuote dailyQuote) {
         return ApiResponse.success(dailyQuoteService.update(id, dailyQuote));
     }
-    
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> delete(@PathVariable UUID id) {
-        dailyQuoteService.delete(id);
-        return ApiResponse.success(null);
-    }
 }
 

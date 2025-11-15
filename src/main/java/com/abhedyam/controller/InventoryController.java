@@ -42,12 +42,5 @@ public class InventoryController {
     public ApiResponse<Inventory> update(@PathVariable UUID id, @RequestBody Inventory inventory) {
         return ApiResponse.success(inventoryService.update(id, inventory));
     }
-    
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> delete(@PathVariable UUID id) {
-        inventoryService.delete(id);
-        return ApiResponse.success(null);
-    }
 }
 

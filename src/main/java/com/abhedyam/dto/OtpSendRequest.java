@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
-@Schema(description = "Request to send OTP to email", example = SwaggerExamples.OTP_SEND_REQUEST)
+@Schema(description = "Request to send OTP to email")
 public class OtpSendRequest {
     @NotBlank(message = "Email is required")
     @Schema(description = "Email address", example = "user@example.com", required = true)

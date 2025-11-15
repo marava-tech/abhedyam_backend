@@ -4,6 +4,7 @@ import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.PageResponse;
 import com.abhedyam.dto.ProductCreateRequest;
 import com.abhedyam.dto.ProductSearchRequest;
+import com.abhedyam.dto.ProductUpdateRequest;
 import com.abhedyam.model.Product;
 import com.abhedyam.service.interfaces.IProductService;
 import jakarta.validation.Valid;
@@ -42,21 +43,14 @@ public class ProductController {
         return ApiResponse.success(productService.getByOwnerId(null));
     }
     
-    @PutMapping("/{id}")
-    public ApiResponse<Product> update(@PathVariable UUID id, @Valid @RequestBody ProductCreateRequest request) {
-        return ApiResponse.success(productService.update(id, request));
+    @PatchMapping("/me")
+    public ApiResponse<Product> updateProduct(@Valid @RequestBody ProductUpdateRequest request) {
+        return ApiResponse.success(productService.updateProduct(request));
     }
     
-    @PatchMapping("/{id}/toggle-active")
-    public ApiResponse<Product> toggleActive(@PathVariable UUID id) {
+    @PatchMapping("/me/toggle-active")
+    public ApiResponse<Product> toggleActive(@RequestParam("id") UUID id) {
         return ApiResponse.success(productService.toggleActive(id));
-    }
-    
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> delete(@PathVariable UUID id) {
-        productService.delete(id);
-        return ApiResponse.success(null);
     }
 }
 

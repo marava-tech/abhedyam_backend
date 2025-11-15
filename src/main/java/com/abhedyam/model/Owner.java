@@ -4,10 +4,6 @@ import com.abhedyam.model.enums.Subscription;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
-import java.util.UUID;
 
 @Entity
 @Table(name = "owners")
@@ -20,9 +16,6 @@ public class Owner extends User {
     private String businessName;
     
     @Column
-    private String email;
-    
-    @Column
     private String imageUrl;
     
     @Column(nullable = false)
@@ -31,17 +24,5 @@ public class Owner extends User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Subscription subscription = Subscription.GO;
-    
-    @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(columnDefinition = "VARCHAR(36)")
-    private UUID upiAccountId;
-    
-    @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(columnDefinition = "VARCHAR(36)")
-    private UUID userSettingsId;
-    
-    @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(columnDefinition = "VARCHAR(36)")
-    private UUID locationDetailsId;
 }
 

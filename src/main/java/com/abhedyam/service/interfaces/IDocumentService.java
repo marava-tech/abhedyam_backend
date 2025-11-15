@@ -11,6 +11,5 @@ public interface IDocumentService {
     List<Document> getAll();
     List<Document> getByOwnerId(UUID ownerId);
     Document update(UUID id, Document documentDetails);
-    void delete(UUID id);
 }
 

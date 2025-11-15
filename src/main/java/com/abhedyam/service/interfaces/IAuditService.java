@@ -14,7 +14,6 @@ public interface IAuditService {
     List<Audit> getAll();
     List<Audit> getByOwnerId(UUID ownerId);
     Audit update(UUID id, Audit auditDetails);
-    void delete(UUID id);
     void logFinancialOperation(AuditType type, AuditAction action, UUID entityId, 
                               UUID ownerId, BigDecimal amount, String details);
     void logStockChange(UUID productId, UUID ownerId, BigDecimal oldStock, 

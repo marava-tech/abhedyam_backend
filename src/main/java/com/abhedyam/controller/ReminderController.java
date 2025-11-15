@@ -49,12 +49,5 @@ public class ReminderController {
     public ApiResponse<Reminder> markAsSent(@PathVariable UUID id) {
         return ApiResponse.success(reminderService.markAsSent(id));
     }
-    
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> delete(@PathVariable UUID id) {
-        reminderService.delete(id);
-        return ApiResponse.success(null);
-    }
 }
 

@@ -138,14 +138,5 @@ public class NotificationService implements INotificationService {
         if (notificationDetails.getIsRead() != null) notification.setIsRead(notificationDetails.getIsRead());
         return notificationRepository.save(notification);
     }
-    
-    @Override
-    @Transactional
-    public void delete(UUID id) {
-        Notification notification = getById(id);
-        notification.setDeletedAt(Instant.now());
-        notification.setIsActive(false);
-        notificationRepository.save(notification);
-    }
 }
 

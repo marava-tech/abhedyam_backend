@@ -175,15 +175,6 @@ public class CallLogService implements ICallLogService {
     }
     
     @Override
-    @Transactional
-    public void delete(UUID id) {
-        CallLog callLog = getById(id);
-        callLog.setDeletedAt(Instant.now());
-        callLog.setIsActive(false);
-        callLogRepository.save(callLog);
-    }
-    
-    @Override
     public boolean isCallLogSyncEnabled() {
         try {
             return ownerSettingsService.getCurrentOwnerSettings().getCallLogSyncEnabled();

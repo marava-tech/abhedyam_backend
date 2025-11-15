@@ -3,6 +3,7 @@ package com.abhedyam.service.interfaces;
 import com.abhedyam.dto.CustomerCreateRequest;
 import com.abhedyam.dto.CustomerProfileSummary;
 import com.abhedyam.dto.CustomerSearchRequest;
+import com.abhedyam.dto.CustomerUpdateRequest;
 import com.abhedyam.dto.PageResponse;
 import com.abhedyam.model.Customer;
 
@@ -15,7 +16,6 @@ public interface ICustomerService {
     List<Customer> getByOwnerId(UUID ownerId);
     PageResponse<Customer> searchCustomers(CustomerSearchRequest request);
     CustomerProfileSummary getCustomerProfileSummary(UUID customerId);
-    Customer update(UUID id, CustomerCreateRequest request);
-    void delete(UUID id);
+    Customer updateCustomer(CustomerUpdateRequest request);
 }
 

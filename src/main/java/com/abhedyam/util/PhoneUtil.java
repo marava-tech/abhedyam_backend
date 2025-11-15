@@ -29,6 +29,17 @@ public class PhoneUtil {
         return PHONE_PATTERN.matcher(normalized).matches();
     }
     
+    public static String extractPhoneWithoutCountryCode(String normalizedPhone) {
+        if (normalizedPhone == null || normalizedPhone.isEmpty()) {
+            return null;
+        }
+        String phone = normalizedPhone.replace("+", "");
+        if (phone.startsWith("91") && phone.length() == 12) {
+            return phone.substring(2);
+        }
+        return phone;
+    }
+    
     public static String generateOTP() {
         return String.valueOf(1000 + (int)(Math.random() * 9000));
     }

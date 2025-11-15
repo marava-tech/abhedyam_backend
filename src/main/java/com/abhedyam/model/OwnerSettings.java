@@ -10,13 +10,13 @@ import java.util.Map;
 import java.util.UUID;
 
 @Entity
-@Table(name = "owner_settings")
+@Table(name = "owner_settings", uniqueConstraints = @UniqueConstraint(columnNames = "owner_id"))
 @Getter
 @Setter
 public class OwnerSettings extends BaseEntity {
     
     @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
+    @Column(nullable = false, unique = true, columnDefinition = "VARCHAR(36)")
     private UUID ownerId;
     
     @Column(nullable = false)

@@ -43,13 +43,5 @@ public class DailyQuoteService implements IDailyQuoteService {
         if (quoteDetails.getIsActive() != null) quote.setIsActive(quoteDetails.getIsActive());
         return dailyQuoteRepository.save(quote);
     }
-    
-    @Transactional
-    public void delete(UUID id) {
-        DailyQuote quote = getById(id);
-        quote.setDeletedAt(Instant.now());
-        quote.setIsActive(false);
-        dailyQuoteRepository.save(quote);
-    }
 }
 

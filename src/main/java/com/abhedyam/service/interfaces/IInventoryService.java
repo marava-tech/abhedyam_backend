@@ -11,6 +11,5 @@ public interface IInventoryService {
     List<Inventory> getAll();
     List<Inventory> getByOwnerId(UUID ownerId);
     Inventory update(UUID id, Inventory inventoryDetails);
-    void delete(UUID id);
 }
 

@@ -6,7 +6,6 @@ import com.abhedyam.model.Payment;
 import com.abhedyam.service.interfaces.IPaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -42,13 +41,6 @@ public class PaymentController {
     @PutMapping("/{id}")
     public ApiResponse<Payment> update(@PathVariable UUID id, @RequestBody Payment payment) {
         return ApiResponse.success(paymentService.update(id, payment));
-    }
-    
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> delete(@PathVariable UUID id) {
-        paymentService.delete(id);
-        return ApiResponse.success(null);
     }
 }
 

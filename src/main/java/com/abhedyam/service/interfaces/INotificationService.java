@@ -16,6 +16,5 @@ public interface INotificationService {
     Notification markAsRead(UUID id);
     List<Notification> markMultipleAsRead(NotificationMarkReadRequest request);
     Notification update(UUID id, Notification notificationDetails);
-    void delete(UUID id);
 }
 

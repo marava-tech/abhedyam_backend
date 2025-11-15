@@ -15,6 +15,5 @@ public interface IReminderService {
     List<Reminder> getPendingReminders();
     Reminder update(UUID id, ReminderCreateRequest request);
     Reminder markAsSent(UUID id);
-    void delete(UUID id);
 }
 

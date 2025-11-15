@@ -41,13 +41,5 @@ public class InventoryService implements IInventoryService {
         if (inventoryDetails.getStock() != null) inventory.setStock(inventoryDetails.getStock());
         return inventoryRepository.save(inventory);
     }
-    
-    @Transactional
-    public void delete(UUID id) {
-        Inventory inventory = getById(id);
-        inventory.setDeletedAt(Instant.now());
-        inventory.setIsActive(false);
-        inventoryRepository.save(inventory);
-    }
 }
 

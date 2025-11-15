@@ -121,14 +121,5 @@ public class ReminderService implements IReminderService {
         reminder.setStatus(ReminderStatus.SENT);
         return reminderRepository.save(reminder);
     }
-    
-    @Override
-    @Transactional
-    public void delete(UUID id) {
-        Reminder reminder = getById(id);
-        reminder.setDeletedAt(Instant.now());
-        reminder.setIsActive(false);
-        reminderRepository.save(reminder);
-    }
 }
 

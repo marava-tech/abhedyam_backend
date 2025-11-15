@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
-@Schema(description = "Request to update payment status", example = SwaggerExamples.PAYMENT_STATUS_UPDATE_REQUEST)
+@Schema(description = "Request to update payment status")
 public class PaymentStatusUpdateRequest {
     @NotNull(message = "Payment status is required")
     @Schema(description = "New payment status", example = "SUCCESS", required = true)

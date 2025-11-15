@@ -45,16 +45,14 @@ public class UpiAccountController {
         return ApiResponse.success(upiAccountManagementService.getUpiAccountById(id));
     }
     
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> deleteUpiAccount(@PathVariable UUID id) {
-        upiAccountManagementService.deleteUpiAccount(id);
-        return ApiResponse.success(null);
-    }
-    
     @PutMapping("/{id}/primary")
     public ApiResponse<UpiAccountResponse> setPrimaryUpiAccount(@PathVariable UUID id) {
         return ApiResponse.success(upiAccountManagementService.setPrimaryUpiAccount(id));
+    }
+    
+    @PostMapping("/verify/me")
+    public ApiResponse<UpiAccountResponse> verifyCurrentUserVpa() {
+        return ApiResponse.success(upiAccountManagementService.verifyCurrentUserVpa());
     }
 }
 

@@ -3,6 +3,7 @@ package com.abhedyam.service;
 import com.abhedyam.dto.PageResponse;
 import com.abhedyam.dto.ProductCreateRequest;
 import com.abhedyam.dto.ProductSearchRequest;
+import com.abhedyam.dto.ProductUpdateRequest;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Product;
@@ -115,8 +116,8 @@ public class ProductService implements IProductService {
     
     @Override
     @Transactional
-    public Product update(UUID id, ProductCreateRequest request) {
-        Product product = getById(id);
+    public Product updateProduct(ProductUpdateRequest request) {
+        Product product = getById(request.getId());
         
         if (request.getCode() != null && !request.getCode().equals(product.getCode())) {
             UUID ownerId = SecurityUtil.getCurrentUserId();
@@ -125,11 +126,25 @@ public class ProductService implements IProductService {
             }
             product.setCode(request.getCode());
         }
-        if (request.getName() != null) product.setName(request.getName());
-        if (request.getPrice() != null) product.setPrice(request.getPrice());
-        if (request.getImageUrl() != null) product.setImageUrl(request.getImageUrl());
-        if (request.getImages() != null) product.setImages(request.getImages());
-        if (request.getStock() != null) product.setStock(request.getStock());
+        if (request.getName() != null && !request.getName().trim().isEmpty()) {
+            product.setName(request.getName());
+        }
+        if (request.getPrice() != null) {
+            product.setPrice(request.getPrice());
+        }
+        if (request.getImageUrl() != null) {
+            if (request.getImageUrl().trim().isEmpty()) {
+                product.setImageUrl(null);
+            } else {
+                product.setImageUrl(request.getImageUrl());
+            }
+        }
+        if (request.getImages() != null) {
+            product.setImages(request.getImages());
+        }
+        if (request.getStock() != null) {
+            product.setStock(request.getStock());
+        }
         
         return productRepository.save(product);
     }
@@ -140,15 +155,6 @@ public class ProductService implements IProductService {
         Product product = getById(id);
         product.setIsActive(!product.getIsActive());
         return productRepository.save(product);
-    }
-    
-    @Override
-    @Transactional
-    public void delete(UUID id) {
-        Product product = getById(id);
-        product.setDeletedAt(Instant.now());
-        product.setIsActive(false);
-        productRepository.save(product);
     }
 }
 

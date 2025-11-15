@@ -3,6 +3,7 @@ package com.abhedyam.service;
 import com.abhedyam.dto.CustomerCreateRequest;
 import com.abhedyam.dto.CustomerProfileSummary;
 import com.abhedyam.dto.CustomerSearchRequest;
+import com.abhedyam.dto.CustomerUpdateRequest;
 import com.abhedyam.dto.PageResponse;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
@@ -52,7 +53,7 @@ public class CustomerService implements ICustomerService {
         
         Customer customer = new Customer();
         customer.setName(request.getName());
-        customer.setPhone(request.getPhone());
+        customer.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
         customer.setPhoneNormalized(normalizedPhone);
         customer.setType(UserType.CUSTOMER);
         customer.setOwnerId(ownerId);
@@ -61,10 +62,6 @@ public class CustomerService implements ICustomerService {
         if (request.getImageUrl() != null) {
             customer.setImageUrl(request.getImageUrl());
         }
-        if (request.getLocationDetailsId() != null) {
-            customer.setLocationDetailsId(request.getLocationDetailsId());
-        }
-        
         return customerRepository.save(customer);
     }
     
@@ -177,27 +174,25 @@ public class CustomerService implements ICustomerService {
     
     @Override
     @Transactional
-    public Customer update(UUID id, CustomerCreateRequest request) {
-        Customer customer = getById(id);
+    public Customer updateCustomer(CustomerUpdateRequest request) {
+        Customer customer = getById(request.getId());
         
-        if (request.getName() != null) customer.setName(request.getName());
-        if (request.getPhone() != null) {
-            customer.setPhone(request.getPhone());
-            customer.setPhoneNormalized(PhoneUtil.normalizePhone(request.getPhone()));
+        if (request.getName() != null && !request.getName().trim().isEmpty()) {
+            customer.setName(request.getName());
         }
-        if (request.getImageUrl() != null) customer.setImageUrl(request.getImageUrl());
-        if (request.getLocationDetailsId() != null) customer.setLocationDetailsId(request.getLocationDetailsId());
-        
+        if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
+            String normalizedPhone = PhoneUtil.normalizePhone(request.getPhone());
+            customer.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
+            customer.setPhoneNormalized(normalizedPhone);
+        }
+        if (request.getImageUrl() != null) {
+            if (request.getImageUrl().trim().isEmpty()) {
+                customer.setImageUrl(null);
+            } else {
+                customer.setImageUrl(request.getImageUrl());
+            }
+        }
         return customerRepository.save(customer);
-    }
-    
-    @Override
-    @Transactional
-    public void delete(UUID id) {
-        Customer customer = getById(id);
-        customer.setDeletedAt(Instant.now());
-        customer.setIsActive(false);
-        customerRepository.save(customer);
     }
 }
 

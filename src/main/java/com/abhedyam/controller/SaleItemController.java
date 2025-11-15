@@ -4,7 +4,6 @@ import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.model.SaleItem;
 import com.abhedyam.service.interfaces.ISaleItemService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;

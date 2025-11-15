@@ -12,7 +12,7 @@ public interface IUpiAccountManagementService {
     UpiAccountResponse updateCurrentUserUpiAccount(UpiAccountCreateRequest request);
     List<UpiAccountResponse> getOwnerUpiAccounts();
     UpiAccountResponse getUpiAccountById(UUID id);
-    void deleteUpiAccount(UUID id);
     UpiAccountResponse setPrimaryUpiAccount(UUID id);
+    UpiAccountResponse verifyCurrentUserVpa();
 }
 

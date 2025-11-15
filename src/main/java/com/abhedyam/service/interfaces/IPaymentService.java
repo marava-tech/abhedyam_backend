@@ -13,6 +13,5 @@ public interface IPaymentService {
     List<Payment> getByCustomerId(UUID customerId);
     Payment updateStatus(UUID id, PaymentStatusUpdateRequest request);
     Payment update(UUID id, Payment paymentDetails);
-    void delete(UUID id);
 }
 

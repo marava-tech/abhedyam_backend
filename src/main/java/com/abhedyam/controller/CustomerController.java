@@ -4,6 +4,7 @@ import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.CustomerCreateRequest;
 import com.abhedyam.dto.CustomerProfileSummary;
 import com.abhedyam.dto.CustomerSearchRequest;
+import com.abhedyam.dto.CustomerUpdateRequest;
 import com.abhedyam.dto.PageResponse;
 import com.abhedyam.model.Customer;
 import com.abhedyam.service.interfaces.ICustomerService;
@@ -48,16 +49,9 @@ public class CustomerController {
         return ApiResponse.success(customerService.getByOwnerId(null));
     }
     
-    @PutMapping("/{id}")
-    public ApiResponse<Customer> update(@PathVariable UUID id, @Valid @RequestBody CustomerCreateRequest request) {
-        return ApiResponse.success(customerService.update(id, request));
-    }
-    
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> delete(@PathVariable UUID id) {
-        customerService.delete(id);
-        return ApiResponse.success(null);
+    @PatchMapping("/me")
+    public ApiResponse<Customer> updateCustomer(@Valid @RequestBody CustomerUpdateRequest request) {
+        return ApiResponse.success(customerService.updateCustomer(request));
     }
 }
 

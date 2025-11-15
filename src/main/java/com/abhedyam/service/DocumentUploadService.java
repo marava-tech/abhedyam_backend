@@ -94,16 +94,5 @@ public class DocumentUploadService implements IDocumentUploadService {
         
         return documentRepository.save(document);
     }
-    
-    @Override
-    @Transactional
-    public void deleteDocument(UUID id) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
-        Document document = getDocumentById(id);
-        
-        document.setDeletedAt(Instant.now());
-        document.setIsActive(false);
-        documentRepository.save(document);
-    }
 }
 
