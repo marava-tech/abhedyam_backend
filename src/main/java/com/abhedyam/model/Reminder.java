@@ -20,11 +20,11 @@ public class Reminder extends BaseEntity {
     private String name;
     
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 50)
     private ReminderType type;
     
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 50)
     private ReminderChannel channel;
     
     @Column(nullable = false)
@@ -40,7 +40,7 @@ public class Reminder extends BaseEntity {
     private UUID ownerId;
     
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 50)
     private ReminderStatus status = ReminderStatus.PENDING;
 }
 

@@ -3,7 +3,6 @@ package com.abhedyam.controller;
 import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.NoteCreateRequest;
 import com.abhedyam.model.Note;
-import com.abhedyam.model.enums.NoteStatus;
 import com.abhedyam.service.interfaces.INoteService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -39,11 +38,6 @@ public class NoteController {
     @PutMapping("/{id}")
     public ApiResponse<Note> update(@PathVariable UUID id, @RequestParam String text) {
         return ApiResponse.success(noteService.update(id, text));
-    }
-    
-    @PatchMapping("/{id}/status")
-    public ApiResponse<Note> updateStatus(@PathVariable UUID id, @RequestParam NoteStatus status) {
-        return ApiResponse.success(noteService.updateStatus(id, status));
     }
 }
 

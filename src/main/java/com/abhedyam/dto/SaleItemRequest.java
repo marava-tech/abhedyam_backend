@@ -15,13 +15,8 @@ public class SaleItemRequest {
     @Schema(description = "UUID of the product", example = "123e4567-e89b-12d3-a456-426614174001", required = true)
     private UUID productId;
     
-    @NotNull(message = "Price is required")
     @Positive(message = "Price must be positive")
-    @Schema(description = "Price per unit", example = "1000.00", required = true)
+    @Schema(description = "Price per unit (if not provided, product price will be used)", example = "1000.00")
     private BigDecimal price;
-    
-    @Positive(message = "Quantity must be positive")
-    @Schema(description = "Quantity sold", example = "2", defaultValue = "1")
-    private BigDecimal quantity = BigDecimal.ONE;
 }
 
