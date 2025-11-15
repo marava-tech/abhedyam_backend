@@ -16,7 +16,6 @@ public interface ICallLogService {
     List<CallLog> getByOwnerId(UUID ownerId);
     List<CallLog> getByCustomerId(UUID customerId);
     CallLog update(UUID id, CallLog callLogDetails);
-    void delete(UUID id);
     boolean isCallLogSyncEnabled();
 }
 

@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 @Data
-@Schema(description = "Request to create a product", example = SwaggerExamples.PRODUCT_CREATE_REQUEST)
+@Schema(description = "Request to create a product")
 public class ProductCreateRequest {
     @NotBlank(message = "Product code/SKU is required")
     @Schema(description = "Product code/SKU", example = "PROD001", required = true)

@@ -11,6 +11,5 @@ public interface IDocumentUploadService {
     List<Document> getOwnerDocuments();
     Document getDocumentById(UUID id);
     Document updateDocument(UUID id, String name, Integer orderIndex, Boolean visibleToCustomers);
-    void deleteDocument(UUID id);
 }
 

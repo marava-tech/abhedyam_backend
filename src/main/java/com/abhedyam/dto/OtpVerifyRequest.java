@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
-@Schema(description = "Login request with email and OTP", example = SwaggerExamples.OTP_VERIFY_REQUEST)
+@Schema(description = "Login request with email and OTP")
 public class OtpVerifyRequest {
     @NotBlank(message = "Email is required")
     @Schema(description = "Email address", example = "user@example.com", required = true)

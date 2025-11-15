@@ -49,13 +49,5 @@ public class InventoryLedgerService implements IInventoryLedgerService {
         if (ledgerDetails.getNote() != null) ledger.setNote(ledgerDetails.getNote());
         return inventoryLedgerRepository.save(ledger);
     }
-    
-    @Transactional
-    public void delete(UUID id) {
-        InventoryLedger ledger = getById(id);
-        ledger.setDeletedAt(Instant.now());
-        ledger.setIsActive(false);
-        inventoryLedgerRepository.save(ledger);
-    }
 }
 

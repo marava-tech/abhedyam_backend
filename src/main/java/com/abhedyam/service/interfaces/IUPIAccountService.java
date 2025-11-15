@@ -10,6 +10,5 @@ public interface IUPIAccountService {
     UPIAccount getById(UUID id);
     List<UPIAccount> getAll();
     UPIAccount update(UUID id, UPIAccount upiAccountDetails);
-    void delete(UUID id);
 }
 

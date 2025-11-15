@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Data
-@Schema(description = "Request to create a sale with multiple items", example = SwaggerExamples.SALE_CREATE_REQUEST)
+@Schema(description = "Request to create a sale with multiple items")
 public class SaleCreateRequest {
     @NotNull(message = "Customer ID is required")
     @Schema(description = "UUID of the customer", example = "123e4567-e89b-12d3-a456-426614174000", required = true)

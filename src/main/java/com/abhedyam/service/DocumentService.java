@@ -45,13 +45,5 @@ public class DocumentService implements IDocumentService {
         if (documentDetails.getVisibleToCustomers() != null) document.setVisibleToCustomers(documentDetails.getVisibleToCustomers());
         return documentRepository.save(document);
     }
-    
-    @Transactional
-    public void delete(UUID id) {
-        Document document = getById(id);
-        document.setDeletedAt(Instant.now());
-        document.setIsActive(false);
-        documentRepository.save(document);
-    }
 }
 

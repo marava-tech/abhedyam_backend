@@ -12,6 +12,5 @@ public interface IInventoryLedgerService {
     List<InventoryLedger> getByOwnerId(UUID ownerId);
     List<InventoryLedger> getByProductId(UUID productId);
     InventoryLedger update(UUID id, InventoryLedger ledgerDetails);
-    void delete(UUID id);
 }
 

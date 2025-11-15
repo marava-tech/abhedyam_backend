@@ -12,11 +12,8 @@ import java.util.UUID;
 @Setter
 @PrimaryKeyJoinColumn(name = "id")
 public class Customer extends User {
-    
     @Column
     private UUID ownerId;
-    
-    @Column
-    private UUID locationDetailsId;
+
 }
 

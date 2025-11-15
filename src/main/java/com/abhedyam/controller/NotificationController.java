@@ -7,7 +7,6 @@ import com.abhedyam.model.Notification;
 import com.abhedyam.service.interfaces.INotificationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -49,13 +48,6 @@ public class NotificationController {
             .map(NotificationResponse::fromEntity)
             .collect(Collectors.toList());
         return ApiResponse.success(responses);
-    }
-    
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> delete(@PathVariable UUID id) {
-        notificationService.delete(id);
-        return ApiResponse.success(null);
     }
 }
 

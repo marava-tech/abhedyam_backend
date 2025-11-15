@@ -3,18 +3,18 @@ package com.abhedyam.service;
 import com.abhedyam.dto.LocationDetailsCreateRequest;
 import com.abhedyam.dto.LocationDetailsResponse;
 import com.abhedyam.dto.LocationDetailsUpdateRequest;
+import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
+import com.abhedyam.model.Customer;
 import com.abhedyam.model.LocationDetails;
-import com.abhedyam.model.Owner;
+import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.LocationDetailsRepository;
-import com.abhedyam.repository.OwnerRepository;
 import com.abhedyam.service.interfaces.ILocationDetailsService;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 public class LocationDetailsService implements ILocationDetailsService {
     
     private final LocationDetailsRepository locationDetailsRepository;
-    private final OwnerRepository ownerRepository;
+    private final CustomerRepository customerRepository;
     
     @Transactional
     public LocationDetailsResponse create(LocationDetailsCreateRequest request) {
@@ -37,12 +37,6 @@ public class LocationDetailsService implements ILocationDetailsService {
         locationDetails.setVillage(request.getVillage());
         
         LocationDetails saved = locationDetailsRepository.save(locationDetails);
-        
-        Owner owner = ownerRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
-        owner.setLocationDetailsId(saved.getId());
-        ownerRepository.save(owner);
-        
         return toResponse(saved);
     }
     
@@ -55,8 +49,26 @@ public class LocationDetailsService implements ILocationDetailsService {
     @Transactional
     public LocationDetailsResponse getCurrentUserLocation() {
         UUID userId = SecurityUtil.getCurrentUserId();
-        LocationDetails location = locationDetailsRepository.findById(userId)
+        LocationDetails location = locationDetailsRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("LocationDetails not found for current user"));
+        return toResponse(location);
+    }
+    
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public LocationDetailsResponse getCustomerLocation(UUID customerId) {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
+        
+        if (customer.getOwnerId() == null || !customer.getOwnerId().equals(ownerId)) {
+            throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer");
+        }
+        
+        LocationDetails location = locationDetailsRepository.findByUserId(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("LocationDetails not found for customer"));
+        
         return toResponse(location);
     }
     
@@ -69,7 +81,7 @@ public class LocationDetailsService implements ILocationDetailsService {
     @Transactional
     public LocationDetailsResponse update(UUID id, LocationDetailsUpdateRequest request) {
         UUID userId = SecurityUtil.getCurrentUserId();
-        LocationDetails location = locationDetailsRepository.findById(userId)
+        LocationDetails location = locationDetailsRepository.findByUserId(userId)
                 .orElseGet(() -> {
                     LocationDetails newLocation = new LocationDetails();
                     newLocation.setId(userId);
@@ -87,7 +99,7 @@ public class LocationDetailsService implements ILocationDetailsService {
     @Transactional
     public LocationDetailsResponse updateCurrentUserLocation(LocationDetailsUpdateRequest request) {
         UUID userId = SecurityUtil.getCurrentUserId();
-        LocationDetails location = locationDetailsRepository.findById(userId)
+        LocationDetails location = locationDetailsRepository.findByUserId(userId)
                 .orElseGet(() -> {
                     LocationDetails newLocation = new LocationDetails();
                     newLocation.setId(userId);
@@ -100,12 +112,42 @@ public class LocationDetailsService implements ILocationDetailsService {
         if (request.getVillage() != null) location.setVillage(request.getVillage());
         
         LocationDetails saved = locationDetailsRepository.save(location);
+        return toResponse(saved);
+    }
+    
+    @Override
+    @Transactional
+    public LocationDetailsResponse updateCustomerLocation(UUID customerId, LocationDetailsUpdateRequest request) {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
         
-        Owner owner = ownerRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
-        owner.setLocationDetailsId(saved.getId());
-        ownerRepository.save(owner);
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
         
+        if (customer.getOwnerId() == null || !customer.getOwnerId().equals(ownerId)) {
+            throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer");
+        }
+        
+        LocationDetails location = locationDetailsRepository.findByUserId(customerId).orElse(null);
+        
+        if (location == null) {
+            if (request.getLatitude() == null || request.getLongitude() == null) {
+                throw new BusinessException("MISSING_REQUIRED_FIELDS", "Latitude and longitude are required when creating location");
+            }
+            location = new LocationDetails();
+            location.setId(customerId);
+            location.setUserId(customerId);
+            location.setLatitude(request.getLatitude());
+            location.setLongitude(request.getLongitude());
+            if (request.getVillage() != null) {
+                location.setVillage(request.getVillage());
+            }
+        } else {
+            if (request.getLatitude() != null) location.setLatitude(request.getLatitude());
+            if (request.getLongitude() != null) location.setLongitude(request.getLongitude());
+            if (request.getVillage() != null) location.setVillage(request.getVillage());
+        }
+        
+        LocationDetails saved = locationDetailsRepository.save(location);
         return toResponse(saved);
     }
     
@@ -118,25 +160,6 @@ public class LocationDetailsService implements ILocationDetailsService {
         response.setCreatedAt(location.getCreatedAt());
         response.setUpdatedAt(location.getUpdatedAt());
         return response;
-    }
-    
-    @Transactional
-    public void delete(UUID id) {
-        LocationDetails location = locationDetailsRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("LocationDetails not found with id: " + id));
-        location.setDeletedAt(Instant.now());
-        location.setIsActive(false);
-        locationDetailsRepository.save(location);
-    }
-    
-    @Transactional
-    public void deleteCurrentUserLocation() {
-        UUID userId = SecurityUtil.getCurrentUserId();
-        LocationDetails location = locationDetailsRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("LocationDetails not found for current user"));
-        location.setDeletedAt(Instant.now());
-        location.setIsActive(false);
-        locationDetailsRepository.save(location);
     }
 }
 

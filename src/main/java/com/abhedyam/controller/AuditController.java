@@ -42,12 +42,5 @@ public class AuditController {
     public ApiResponse<Audit> update(@PathVariable UUID id, @RequestBody Audit audit) {
         return ApiResponse.success(auditService.update(id, audit));
     }
-    
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> delete(@PathVariable UUID id) {
-        auditService.delete(id);
-        return ApiResponse.success(null);
-    }
 }
 

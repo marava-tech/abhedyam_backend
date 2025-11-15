@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 @Data
-@Schema(description = "Request to generate UPI payment link", example = SwaggerExamples.UPI_PAYMENT_LINK_REQUEST)
+@Schema(description = "Request to generate UPI payment link")
 public class UpiPaymentLinkRequest {
     @NotNull(message = "Customer ID is required")
     @Schema(description = "UUID of the customer", example = "123e4567-e89b-12d3-a456-426614174000", required = true)

@@ -6,7 +6,6 @@ import com.abhedyam.model.DailyStats;
 import com.abhedyam.model.Product;
 import com.abhedyam.model.SaleItem;
 import com.abhedyam.model.TopProduct;
-import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.DailyStatsRepository;
 import com.abhedyam.repository.ProductRepository;
 import com.abhedyam.repository.SaleItemRepository;

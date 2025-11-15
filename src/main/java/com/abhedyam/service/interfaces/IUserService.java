@@ -11,7 +11,6 @@ public interface IUserService {
     UserResponse create(UserCreateRequest request);
     UserResponse getById(UUID id);
     List<UserResponse> getAll();
-    UserResponse update(UUID id, UserUpdateRequest request);
-    void delete(UUID id);
+    UserResponse updateCurrentUser(UserUpdateRequest request);
 }
 

@@ -45,12 +45,5 @@ public class NoteController {
     public ApiResponse<Note> updateStatus(@PathVariable UUID id, @RequestParam NoteStatus status) {
         return ApiResponse.success(noteService.updateStatus(id, status));
     }
-    
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> delete(@PathVariable UUID id) {
-        noteService.delete(id);
-        return ApiResponse.success(null);
-    }
 }
 

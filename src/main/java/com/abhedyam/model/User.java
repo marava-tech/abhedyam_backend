@@ -1,6 +1,5 @@
 package com.abhedyam.model;
 
-import com.abhedyam.exception.BusinessException;
 import com.abhedyam.model.enums.UserType;
 import jakarta.persistence.*;
 import lombok.Getter;

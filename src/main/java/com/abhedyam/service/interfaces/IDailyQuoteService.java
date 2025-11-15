@@ -11,6 +11,5 @@ public interface IDailyQuoteService {
     List<DailyQuote> getAll();
     List<DailyQuote> getActiveQuotes();
     DailyQuote update(UUID id, DailyQuote quoteDetails);
-    void delete(UUID id);
 }
 

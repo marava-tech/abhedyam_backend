@@ -1,5 +1,6 @@
 package com.abhedyam.dto;
 
+import com.abhedyam.model.enums.Subscription;
 import com.abhedyam.model.enums.UserType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -8,13 +9,16 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Data
-@Schema(description = "User response")
-public class UserResponse {
-    @Schema(description = "User ID (read-only, system-generated)", example = "3595381f-d038-4d6b-8fe0-dc76ebb7dde2", accessMode = Schema.AccessMode.READ_ONLY)
+@Schema(description = "Owner response")
+public class OwnerResponse {
+    @Schema(description = "Owner ID (read-only, system-generated)", example = "3595381f-d038-4d6b-8fe0-dc76ebb7dde2", accessMode = Schema.AccessMode.READ_ONLY)
     private UUID id;
     
-    @Schema(description = "User name", example = "John Doe")
+    @Schema(description = "Owner name", example = "John Doe")
     private String name;
+    
+    @Schema(description = "Business name", example = "My Business")
+    private String businessName;
     
     @Schema(description = "Phone number", example = "+919876543210")
     private String phone;
@@ -27,6 +31,12 @@ public class UserResponse {
     
     @Schema(description = "Profile image URL", example = "https://example.com/image.jpg")
     private String imageUrl;
+    
+    @Schema(description = "Verification status", example = "false")
+    private Boolean isVerified;
+    
+    @Schema(description = "Subscription plan", example = "GO")
+    private Subscription subscription;
     
     @Schema(description = "Creation timestamp (read-only, system-generated)", example = "2025-11-15T10:51:15.325Z", accessMode = Schema.AccessMode.READ_ONLY)
     private Instant createdAt;

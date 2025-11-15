@@ -51,13 +51,5 @@ public class SaleItemService implements ISaleItemService {
         if (saleItemDetails.getTransactionId() != null) saleItem.setTransactionId(saleItemDetails.getTransactionId());
         return saleItemRepository.save(saleItem);
     }
-    
-    @Transactional
-    public void delete(UUID id) {
-        SaleItem saleItem = getById(id);
-        saleItem.setDeletedAt(Instant.now());
-        saleItem.setIsActive(false);
-        saleItemRepository.save(saleItem);
-    }
 }
 

@@ -46,12 +46,5 @@ public class DocumentUploadController {
             @RequestParam(value = "visibleToCustomers", required = false) Boolean visibleToCustomers) {
         return ApiResponse.success(documentUploadService.updateDocument(id, name, orderIndex, visibleToCustomers));
     }
-    
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> deleteDocument(@PathVariable UUID id) {
-        documentUploadService.deleteDocument(id);
-        return ApiResponse.success(null);
-    }
 }
 

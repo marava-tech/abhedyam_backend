@@ -11,10 +11,10 @@ public interface ILocationDetailsService {
     LocationDetailsResponse create(LocationDetailsCreateRequest request);
     LocationDetailsResponse getById(UUID id);
     LocationDetailsResponse getCurrentUserLocation();
+    LocationDetailsResponse getCustomerLocation(UUID customerId);
     List<LocationDetailsResponse> getAll();
     LocationDetailsResponse update(UUID id, LocationDetailsUpdateRequest request);
     LocationDetailsResponse updateCurrentUserLocation(LocationDetailsUpdateRequest request);
-    void delete(UUID id);
-    void deleteCurrentUserLocation();
+    LocationDetailsResponse updateCustomerLocation(UUID customerId, LocationDetailsUpdateRequest request);
 }
 

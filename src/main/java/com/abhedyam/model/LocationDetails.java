@@ -10,13 +10,13 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
-@Table(name = "location_details")
+@Table(name = "location_details", uniqueConstraints = @UniqueConstraint(columnNames = "user_id"))
 @Getter
 @Setter
 public class LocationDetails extends BaseEntity {
     
     @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
+    @Column(nullable = false, unique = true, columnDefinition = "VARCHAR(36)")
     private UUID userId;
     
     @Column(nullable = false, precision = 10, scale = 7)

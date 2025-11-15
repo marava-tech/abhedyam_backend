@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/location-details")
@@ -30,6 +31,11 @@ public class LocationDetailsController {
         return ApiResponse.success(locationDetailsService.getCurrentUserLocation());
     }
     
+    @GetMapping("/customers/{customerId}")
+    public ApiResponse<LocationDetailsResponse> getCustomerLocation(@PathVariable UUID customerId) {
+        return ApiResponse.success(locationDetailsService.getCustomerLocation(customerId));
+    }
+    
     @GetMapping
     public ApiResponse<List<LocationDetailsResponse>> getAll() {
         return ApiResponse.success(locationDetailsService.getAll());
@@ -40,11 +46,11 @@ public class LocationDetailsController {
         return ApiResponse.success(locationDetailsService.updateCurrentUserLocation(request));
     }
     
-    @DeleteMapping("/me")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> delete() {
-        locationDetailsService.deleteCurrentUserLocation();
-        return ApiResponse.success(null);
+    @PatchMapping("/customers/{customerId}")
+    public ApiResponse<LocationDetailsResponse> updateCustomerLocation(
+            @PathVariable UUID customerId,
+            @Valid @RequestBody LocationDetailsUpdateRequest request) {
+        return ApiResponse.success(locationDetailsService.updateCustomerLocation(customerId, request));
     }
 }
 

@@ -2,10 +2,7 @@ package com.abhedyam.service;
 
 import com.abhedyam.dto.OwnerSettingsResponse;
 import com.abhedyam.dto.OwnerSettingsUpdateRequest;
-import com.abhedyam.exception.ResourceNotFoundException;
-import com.abhedyam.model.Owner;
 import com.abhedyam.model.OwnerSettings;
-import com.abhedyam.repository.OwnerRepository;
 import com.abhedyam.repository.OwnerSettingsRepository;
 import com.abhedyam.service.interfaces.IOwnerSettingsService;
 import com.abhedyam.util.SecurityUtil;
@@ -20,28 +17,20 @@ import java.util.UUID;
 public class OwnerSettingsService implements IOwnerSettingsService {
     
     private final OwnerSettingsRepository ownerSettingsRepository;
-    private final OwnerRepository ownerRepository;
     
     @Override
     @Transactional
     public OwnerSettingsResponse getCurrentOwnerSettings() {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
-        OwnerSettings settings = ownerSettingsRepository.findById(ownerId)
+        OwnerSettings settings = ownerSettingsRepository.findByOwnerId(ownerId)
                 .orElseGet(() -> {
                     OwnerSettings newSettings = new OwnerSettings();
                     newSettings.setId(ownerId);
                     newSettings.setOwnerId(ownerId);
                     newSettings.setDailyQuoteEnabled(true);
                     newSettings.setCallLogSyncEnabled(true);
-                    OwnerSettings saved = ownerSettingsRepository.save(newSettings);
-                    
-                    Owner owner = ownerRepository.findById(ownerId)
-                            .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
-                    owner.setUserSettingsId(saved.getId());
-                    ownerRepository.save(owner);
-                    
-                    return saved;
+                    return ownerSettingsRepository.save(newSettings);
                 });
         
         return toResponse(settings);
@@ -52,7 +41,7 @@ public class OwnerSettingsService implements IOwnerSettingsService {
     public OwnerSettingsResponse updateCurrentOwnerSettings(OwnerSettingsUpdateRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
-        OwnerSettings settings = ownerSettingsRepository.findById(ownerId)
+        OwnerSettings settings = ownerSettingsRepository.findByOwnerId(ownerId)
                 .orElseGet(() -> {
                     OwnerSettings newSettings = new OwnerSettings();
                     newSettings.setId(ownerId);
@@ -73,12 +62,6 @@ public class OwnerSettingsService implements IOwnerSettingsService {
         }
         
         OwnerSettings saved = ownerSettingsRepository.save(settings);
-        
-        Owner owner = ownerRepository.findById(ownerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
-        owner.setUserSettingsId(saved.getId());
-        ownerRepository.save(owner);
-        
         return toResponse(saved);
     }
     

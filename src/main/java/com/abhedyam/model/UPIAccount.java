@@ -10,7 +10,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "upi_accounts", uniqueConstraints = @UniqueConstraint(columnNames = "vpa"))
+@Table(name = "upi_accounts", uniqueConstraints = {
+    @UniqueConstraint(columnNames = "vpa"),
+    @UniqueConstraint(columnNames = "owner_id")
+})
 @Getter
 @Setter
 public class UPIAccount extends BaseEntity {
@@ -25,7 +28,7 @@ public class UPIAccount extends BaseEntity {
     private Instant verifiedAt;
     
     @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
+    @Column(nullable = false, unique = true, columnDefinition = "VARCHAR(36)")
     private UUID ownerId;
 }
 

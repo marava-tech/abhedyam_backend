@@ -36,16 +36,9 @@ public class UserController {
         return ApiResponse.success(userService.getAll());
     }
     
-    @PatchMapping("/{id}")
-    public ApiResponse<UserResponse> update(@PathVariable UUID id, @Valid @RequestBody UserUpdateRequest request) {
-        return ApiResponse.success(userService.update(id, request));
-    }
-    
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> delete(@PathVariable UUID id) {
-        userService.delete(id);
-        return ApiResponse.success(null);
+    @PatchMapping("/me")
+    public ApiResponse<UserResponse> updateCurrentUser(@Valid @RequestBody UserUpdateRequest request) {
+        return ApiResponse.success(userService.updateCurrentUser(request));
     }
 }
 

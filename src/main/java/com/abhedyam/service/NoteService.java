@@ -91,14 +91,5 @@ public class NoteService implements INoteService {
         note.setStatus(status);
         return noteRepository.save(note);
     }
-    
-    @Override
-    @Transactional
-    public void delete(UUID id) {
-        Note note = getById(id);
-        note.setDeletedAt(Instant.now());
-        note.setIsActive(false);
-        noteRepository.save(note);
-    }
 }
 

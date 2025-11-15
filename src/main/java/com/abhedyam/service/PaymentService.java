@@ -82,14 +82,5 @@ public class PaymentService implements IPaymentService {
         if (paymentDetails.getStatus() != null) payment.setStatus(paymentDetails.getStatus());
         return paymentRepository.save(payment);
     }
-    
-    @Override
-    @Transactional
-    public void delete(UUID id) {
-        Payment payment = getById(id);
-        payment.setDeletedAt(Instant.now());
-        payment.setIsActive(false);
-        paymentRepository.save(payment);
-    }
 }
 

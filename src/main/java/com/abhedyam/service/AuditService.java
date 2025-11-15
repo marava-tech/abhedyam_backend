@@ -115,12 +115,4 @@ public class AuditService implements IAuditService {
         if (auditDetails.getDescription() != null) audit.setDescription(auditDetails.getDescription());
         return auditRepository.save(audit);
     }
-    
-    @Transactional
-    public void delete(UUID id) {
-        Audit audit = getById(id);
-        audit.setDeletedAt(Instant.now());
-        audit.setIsActive(false);
-        auditRepository.save(audit);
-    }
 }

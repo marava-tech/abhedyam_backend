@@ -11,11 +11,11 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Data
-@Schema(description = "Request to create a reminder")
-public class ReminderCreateRequest {
-    @NotNull(message = "Customer ID is required")
-    @Schema(description = "UUID of the customer", example = "123e4567-e89b-12d3-a456-426614174000", required = true)
-    private UUID customerId;
+@Schema(description = "Request to update a reminder")
+public class ReminderUpdateRequest {
+    @NotNull(message = "Reminder ID is required")
+    @Schema(description = "Reminder ID", example = "123e4567-e89b-12d3-a456-426614174000", required = true)
+    private UUID id;
     
     @NotBlank(message = "Reminder name is required")
     @Schema(description = "Reminder name", example = "Follow up call", required = true)
@@ -37,3 +37,4 @@ public class ReminderCreateRequest {
     @Schema(description = "Reminder message text", example = "Call customer about payment", required = true)
     private String text;
 }
+

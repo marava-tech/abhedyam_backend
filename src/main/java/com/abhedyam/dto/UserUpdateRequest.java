@@ -1,5 +1,6 @@
 package com.abhedyam.dto;
 
+import com.abhedyam.model.enums.UserType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -17,5 +18,8 @@ public class UserUpdateRequest {
     
     @Schema(description = "Profile image URL", example = "https://example.com/image.jpg")
     private String imageUrl;
+    
+    @Schema(description = "User type", example = "BUSINESS", allowableValues = {"CUSTOMER", "BUSINESS"})
+    private UserType type;
 }
 

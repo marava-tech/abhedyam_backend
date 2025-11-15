@@ -10,6 +10,7 @@ import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.IUserService;
 import com.abhedyam.util.EmailUtil;
 import com.abhedyam.util.PhoneUtil;
+import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,7 +34,7 @@ public class UserService implements IUserService {
         
         if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
             String normalizedPhone = PhoneUtil.normalizePhone(request.getPhone());
-            user.setPhone(normalizedPhone.replace("+", ""));
+            user.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
             user.setPhoneNormalized(normalizedPhone);
         }
         
@@ -63,7 +64,8 @@ public class UserService implements IUserService {
     }
     
     @Transactional
-    public UserResponse update(UUID id, UserUpdateRequest request) {
+    public UserResponse updateCurrentUser(UserUpdateRequest request) {
+        UUID id = SecurityUtil.getCurrentUserId();
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         
@@ -73,7 +75,7 @@ public class UserService implements IUserService {
         
         if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
             String normalizedPhone = PhoneUtil.normalizePhone(request.getPhone());
-            user.setPhone(normalizedPhone.replace("+", ""));
+            user.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
             user.setPhoneNormalized(normalizedPhone);
         }
         
@@ -87,6 +89,10 @@ public class UserService implements IUserService {
             } else {
                 user.setImageUrl(request.getImageUrl());
             }
+        }
+        
+        if (request.getType() != null) {
+            user.setType(request.getType());
         }
         
         validateEmailOrPhone(user);
@@ -114,15 +120,6 @@ public class UserService implements IUserService {
         if (!hasEmail && !hasPhone) {
             throw new BusinessException("MISSING_IDENTIFIER", "User must have either email or phone number");
         }
-    }
-    
-    @Transactional
-    public void delete(UUID id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
-        user.setDeletedAt(Instant.now());
-        user.setIsActive(false);
-        userRepository.save(user);
     }
 }
 

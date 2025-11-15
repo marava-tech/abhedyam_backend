@@ -47,12 +47,5 @@ public class InventoryLedgerController {
     public ApiResponse<InventoryLedger> update(@PathVariable UUID id, @RequestBody InventoryLedger inventoryLedger) {
         return ApiResponse.success(inventoryLedgerService.update(id, inventoryLedger));
     }
-    
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> delete(@PathVariable UUID id) {
-        inventoryLedgerService.delete(id);
-        return ApiResponse.success(null);
-    }
 }
 

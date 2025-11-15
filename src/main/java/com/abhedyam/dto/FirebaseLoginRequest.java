@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
-@Schema(description = "Login request with phone number (Firebase token validation disabled for testing)", example = SwaggerExamples.FIREBASE_LOGIN_REQUEST)
+@Schema(description = "Login request with phone number (Firebase token validation disabled for testing)")
 public class FirebaseLoginRequest {
     @Schema(description = "Firebase ID token (optional for testing, will be validated in future)", example = "eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...")
     private String firebaseToken;

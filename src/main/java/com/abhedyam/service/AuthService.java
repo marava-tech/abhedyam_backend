@@ -152,7 +152,7 @@ public class AuthService implements IAuthService {
         owner.setSubscription(com.abhedyam.model.enums.Subscription.GO);
         owner.setIsVerified(false);
         
-        owner.setPhone(normalizedPhone.replace("+", ""));
+        owner.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
         owner.setPhoneNormalized(normalizedPhone);
         
         if (email != null && !email.trim().isEmpty()) {
