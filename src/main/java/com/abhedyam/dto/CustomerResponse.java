@@ -1,0 +1,41 @@
+package com.abhedyam.dto;
+
+import com.abhedyam.model.Customer;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.Instant;
+import java.util.UUID;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class CustomerResponse {
+    private UUID id;
+    private String name;
+    private String phone;
+    private String phoneNormalized;
+    private String email;
+    private String imageUrl;
+    private UUID ownerId;
+    private String village;
+    private Instant createdAt;
+    private Instant updatedAt;
+    
+    public static CustomerResponse fromEntity(Customer customer, String village) {
+        CustomerResponse response = new CustomerResponse();
+        response.setId(customer.getId());
+        response.setName(customer.getName());
+        response.setPhone(customer.getPhone());
+        response.setPhoneNormalized(customer.getPhoneNormalized());
+        response.setEmail(customer.getEmail());
+        response.setImageUrl(customer.getImageUrl());
+        response.setOwnerId(customer.getOwnerId());
+        response.setVillage(village);
+        response.setCreatedAt(customer.getCreatedAt());
+        response.setUpdatedAt(customer.getUpdatedAt());
+        return response;
+    }
+}
+

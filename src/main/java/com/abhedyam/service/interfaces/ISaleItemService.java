@@ -1,5 +1,6 @@
 package com.abhedyam.service.interfaces;
 
+import com.abhedyam.dto.SaleItemResponse;
 import com.abhedyam.model.SaleItem;
 
 import java.util.List;
@@ -10,7 +11,7 @@ public interface ISaleItemService {
     SaleItem getById(UUID id);
     List<SaleItem> getAll();
     List<SaleItem> getByOwnerId(UUID ownerId);
-    List<SaleItem> getByCustomerId(UUID customerId);
+    List<SaleItemResponse> getByCustomerId(UUID customerId);
     List<SaleItem> getByTransactionId(String transactionId);
     SaleItem update(UUID id, SaleItem saleItemDetails);
 }

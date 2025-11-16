@@ -1,5 +1,6 @@
 package com.abhedyam.model;
 
+import com.abhedyam.model.enums.SaleItemStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -33,6 +34,13 @@ public class SaleItem extends BaseEntity {
     
     @Column(nullable = false, precision = 18, scale = 3)
     private BigDecimal quantity = BigDecimal.ONE;
+    
+    @Column(precision = 15, scale = 2)
+    private BigDecimal remainingAmount;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
+    private SaleItemStatus status = SaleItemStatus.NOT_PAID;
     
     @Column
     private Instant dueDate;

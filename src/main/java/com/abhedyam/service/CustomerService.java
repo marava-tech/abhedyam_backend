@@ -2,6 +2,7 @@ package com.abhedyam.service;
 
 import com.abhedyam.dto.CustomerCreateRequest;
 import com.abhedyam.dto.CustomerProfileSummary;
+import com.abhedyam.dto.CustomerResponse;
 import com.abhedyam.dto.CustomerSearchRequest;
 import com.abhedyam.dto.CustomerSearchResult;
 import com.abhedyam.dto.CustomerUpdateRequest;
@@ -99,6 +100,24 @@ public class CustomerService implements ICustomerService {
             throw new BusinessException("UNAUTHORIZED", "You can only view your own customers");
         }
         return customerRepository.findByOwnerId(targetOwnerId);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<CustomerResponse> getMyCustomersWithVillage() {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        List<Customer> customers = customerRepository.findByOwnerId(ownerId);
+        
+        return customers.stream()
+            .map(customer -> {
+                String village = null;
+                LocationDetails location = locationDetailsRepository.findByUserId(customer.getId()).orElse(null);
+                if (location != null) {
+                    village = location.getVillage();
+                }
+                return CustomerResponse.fromEntity(customer, village);
+            })
+            .toList();
     }
     
     @Override
