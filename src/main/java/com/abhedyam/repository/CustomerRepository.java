@@ -24,5 +24,10 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
     Page<Customer> searchCustomers(@Param("ownerId") UUID ownerId,
                                    @Param("searchTerm") String searchTerm,
                                    Pageable pageable);
+    
+    @Query("SELECT c FROM Customer c WHERE c.ownerId = :ownerId " +
+           "AND LOWER(c.name) LIKE LOWER(CONCAT('%', :name, '%'))")
+    List<Customer> findByNameContainingIgnoreCaseAndOwnerId(@Param("name") String name, 
+                                                              @Param("ownerId") UUID ownerId);
 }
 

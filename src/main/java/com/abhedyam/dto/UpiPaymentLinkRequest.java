@@ -11,15 +11,12 @@ import java.util.UUID;
 @Data
 @Schema(description = "Request to generate UPI payment link")
 public class UpiPaymentLinkRequest {
-    @NotNull(message = "Customer ID is required")
-    @Schema(description = "UUID of the customer", example = "123e4567-e89b-12d3-a456-426614174000", required = true)
-    private UUID customerId;
+    @NotNull(message = "Sale Item ID is required")
+    @Schema(description = "UUID of the sale item", example = "123e4567-e89b-12d3-a456-426614174000", required = true)
+    private UUID saleItemId;
     
     @NotNull(message = "Amount is required")
     @Positive(message = "Amount must be positive")
     @Schema(description = "Payment amount", example = "1000.00", required = true)
     private BigDecimal amount;
-    
-    @Schema(description = "Payment description", example = "Payment for order #123")
-    private String description;
 }

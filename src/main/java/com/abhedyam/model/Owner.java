@@ -15,9 +15,6 @@ public class Owner extends User {
     @Column(nullable = false)
     private String businessName;
     
-    @Column
-    private String imageUrl;
-    
     @Column(nullable = false)
     private Boolean isVerified = false;
     

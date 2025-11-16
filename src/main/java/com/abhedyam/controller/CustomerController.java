@@ -4,6 +4,7 @@ import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.CustomerCreateRequest;
 import com.abhedyam.dto.CustomerProfileSummary;
 import com.abhedyam.dto.CustomerSearchRequest;
+import com.abhedyam.dto.CustomerSearchResult;
 import com.abhedyam.dto.CustomerUpdateRequest;
 import com.abhedyam.dto.PageResponse;
 import com.abhedyam.model.Customer;
@@ -42,6 +43,11 @@ public class CustomerController {
     @GetMapping("/search")
     public ApiResponse<PageResponse<Customer>> searchCustomers(@ModelAttribute CustomerSearchRequest request) {
         return ApiResponse.success(customerService.searchCustomers(request));
+    }
+    
+    @GetMapping("/search-by-name")
+    public ApiResponse<List<CustomerSearchResult>> searchByName(@RequestParam("name") String name) {
+        return ApiResponse.success(customerService.searchByName(name));
     }
     
     @GetMapping("/my-customers")

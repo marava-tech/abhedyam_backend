@@ -3,11 +3,13 @@ package com.abhedyam.service;
 import com.abhedyam.dto.CustomerCreateRequest;
 import com.abhedyam.dto.CustomerProfileSummary;
 import com.abhedyam.dto.CustomerSearchRequest;
+import com.abhedyam.dto.CustomerSearchResult;
 import com.abhedyam.dto.CustomerUpdateRequest;
 import com.abhedyam.dto.PageResponse;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Customer;
+import com.abhedyam.model.LocationDetails;
 import com.abhedyam.model.Note;
 import com.abhedyam.model.Payment;
 import com.abhedyam.model.Reminder;
@@ -15,6 +17,7 @@ import com.abhedyam.model.SaleItem;
 import com.abhedyam.model.enums.ReminderStatus;
 import com.abhedyam.model.enums.UserType;
 import com.abhedyam.repository.CustomerRepository;
+import com.abhedyam.repository.LocationDetailsRepository;
 import com.abhedyam.repository.NoteRepository;
 import com.abhedyam.repository.PaymentRepository;
 import com.abhedyam.repository.ReminderRepository;
@@ -31,7 +34,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,6 +42,7 @@ import java.util.UUID;
 public class CustomerService implements ICustomerService {
     
     private final CustomerRepository customerRepository;
+    private final LocationDetailsRepository locationDetailsRepository;
     private final SaleItemRepository saleItemRepository;
     private final PaymentRepository paymentRepository;
     private final NoteRepository noteRepository;
@@ -59,10 +62,18 @@ public class CustomerService implements ICustomerService {
         customer.setOwnerId(ownerId);
         customer.setIsActive(true);
         
-        if (request.getImageUrl() != null) {
-            customer.setImageUrl(request.getImageUrl());
+        Customer savedCustomer = customerRepository.save(customer);
+        
+        if (request.getVillage() != null || request.getLatitude() != null || request.getLongitude() != null) {
+            LocationDetails locationDetails = new LocationDetails();
+            locationDetails.setUserId(savedCustomer.getId());
+            locationDetails.setVillage(request.getVillage());
+            locationDetails.setLatitude(request.getLatitude() != null ? request.getLatitude() : BigDecimal.ZERO);
+            locationDetails.setLongitude(request.getLongitude() != null ? request.getLongitude() : BigDecimal.ZERO);
+            locationDetailsRepository.save(locationDetails);
         }
-        return customerRepository.save(customer);
+        
+        return savedCustomer;
     }
     
     @Override
@@ -119,6 +130,16 @@ public class CustomerService implements ICustomerService {
             page.hasNext(),
             page.hasPrevious()
         );
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<CustomerSearchResult> searchByName(String name) {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        List<Customer> customers = customerRepository.findByNameContainingIgnoreCaseAndOwnerId(name, ownerId);
+        return customers.stream()
+            .map(customer -> new CustomerSearchResult(customer.getId(), customer.getName()))
+            .toList();
     }
     
     @Override
@@ -184,13 +205,6 @@ public class CustomerService implements ICustomerService {
             String normalizedPhone = PhoneUtil.normalizePhone(request.getPhone());
             customer.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
             customer.setPhoneNormalized(normalizedPhone);
-        }
-        if (request.getImageUrl() != null) {
-            if (request.getImageUrl().trim().isEmpty()) {
-                customer.setImageUrl(null);
-            } else {
-                customer.setImageUrl(request.getImageUrl());
-            }
         }
         return customerRepository.save(customer);
     }

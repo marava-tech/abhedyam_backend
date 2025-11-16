@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.apache.tomcat.util.http.fileupload.impl.FileSizeLimitExceededException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -103,6 +105,25 @@ public class GlobalExceptionHandler {
         
         log.warn("Constraint violation: {}", message);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+    
+    @ExceptionHandler({MaxUploadSizeExceededException.class, FileSizeLimitExceededException.class})
+    public ResponseEntity<ErrorResponse> handleFileSizeLimitExceeded(Exception ex, WebRequest request) {
+        String correlationId = MDC.get("correlationId");
+        String path = ((ServletWebRequest) request).getRequest().getRequestURI();
+        
+        String message = "File size exceeds the maximum allowed limit of 15MB. Please upload a smaller file.";
+        
+        ErrorResponse error = new ErrorResponse(
+            "File Size Limit Exceeded",
+            message,
+            "FILE_SIZE_LIMIT_EXCEEDED",
+            correlationId,
+            path
+        );
+        
+        log.warn("File size limit exceeded: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(error);
     }
     
     @ExceptionHandler(Exception.class)

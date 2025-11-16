@@ -5,7 +5,6 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -23,14 +22,5 @@ public class ProductUpdateRequest {
     
     @Schema(description = "Product price", example = "500.00")
     private BigDecimal price;
-    
-    @Schema(description = "Main product image URL", example = "https://example.com/image.jpg")
-    private String imageUrl;
-    
-    @Schema(description = "List of product image URLs", example = "[\"https://example.com/image1.jpg\", \"https://example.com/image2.jpg\"]")
-    private List<String> images;
-    
-    @Schema(description = "Stock quantity", example = "100")
-    private BigDecimal stock;
 }
 

@@ -4,6 +4,7 @@ import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.LocationDetailsCreateRequest;
 import com.abhedyam.dto.LocationDetailsResponse;
 import com.abhedyam.dto.LocationDetailsUpdateRequest;
+import com.abhedyam.dto.VillageSearchResult;
 import com.abhedyam.service.interfaces.ILocationDetailsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +52,11 @@ public class LocationDetailsController {
             @PathVariable UUID customerId,
             @Valid @RequestBody LocationDetailsUpdateRequest request) {
         return ApiResponse.success(locationDetailsService.updateCustomerLocation(customerId, request));
+    }
+    
+    @GetMapping("/search-villages")
+    public ApiResponse<List<VillageSearchResult>> searchVillages(@RequestParam("name") String name) {
+        return ApiResponse.success(locationDetailsService.searchVillagesByName(name));
     }
 }
 

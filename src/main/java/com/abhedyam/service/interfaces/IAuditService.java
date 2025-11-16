@@ -16,11 +16,12 @@ public interface IAuditService {
     Audit update(UUID id, Audit auditDetails);
     void logFinancialOperation(AuditType type, AuditAction action, UUID entityId, 
                               UUID ownerId, BigDecimal amount, String details);
-    void logStockChange(UUID productId, UUID ownerId, BigDecimal oldStock, 
+    void logStockChange(UUID productId, UUID ownerId, String productName, BigDecimal oldStock, 
                        BigDecimal newStock, String source, String details);
-    void logSaleCreation(UUID saleId, UUID ownerId, UUID customerId, BigDecimal amount, String transactionId);
-    void logSaleCancellation(UUID saleId, UUID ownerId, UUID customerId, BigDecimal amount, String transactionId);
+    void logSaleCreation(UUID saleId, UUID ownerId, UUID customerId, String customerName, BigDecimal amount, String transactionId);
+    void logSaleCancellation(UUID saleId, UUID ownerId, UUID customerId, String customerName, BigDecimal amount, String transactionId);
     void logProductCreation(UUID productId, UUID ownerId, String productName, String productCode);
-    void logReminderCreation(UUID reminderId, UUID ownerId, UUID customerId, String reminderText);
+    void logReminderCreation(UUID reminderId, UUID ownerId, UUID customerId, String customerName, String reminderText);
+    void logPaymentSuccess(UUID paymentId, UUID ownerId, UUID customerId, String customerName, UUID saleItemId, String productName, BigDecimal amount, String reference);
 }
 

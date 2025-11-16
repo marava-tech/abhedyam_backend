@@ -26,6 +26,10 @@ public class Payment extends BaseEntity {
     @Column(nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID ownerId;
     
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(columnDefinition = "VARCHAR(36)")
+    private UUID saleItemId;
+    
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal amount;
     

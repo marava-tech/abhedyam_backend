@@ -347,27 +347,34 @@ public class StatsService implements IStatsService {
     public Page<RecentActivityResponse> getRecentActivities(Pageable pageable) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
-        List<AuditType> types = Arrays.asList(AuditType.SALE, AuditType.PRODUCT, AuditType.REMINDER);
+        List<AuditType> types = Arrays.asList(AuditType.SALE, AuditType.PRODUCT, AuditType.REMINDER, AuditType.PAYMENT);
         List<AuditAction> actions = Arrays.asList(
             AuditAction.CREATE,
             AuditAction.SALE_ITEM_SOLD,
             AuditAction.PRODUCT_CREATED,
-            AuditAction.REMINDER_CREATED
+            AuditAction.REMINDER_CREATED,
+            AuditAction.UPDATE
         );
         
         Page<Audit> audits = auditRepository.findRecentActivities(ownerId, types, actions, pageable);
         
         List<RecentActivityResponse> activities = audits.getContent().stream()
-            .map(audit -> new RecentActivityResponse(
-                audit.getId(),
-                audit.getType(),
-                audit.getAction(),
-                audit.getHeadline(),
-                audit.getDescription(),
-                audit.getAmount(),
-                audit.getEntityId(),
-                audit.getTimestamp()
-            ))
+            .map(audit -> {
+                BigDecimal amount = audit.getAmount();
+                if (amount != null && amount.compareTo(BigDecimal.ZERO) == 0) {
+                    amount = null;
+                }
+                return new RecentActivityResponse(
+                    audit.getId(),
+                    audit.getType(),
+                    audit.getAction(),
+                    audit.getHeadline(),
+                    audit.getDescription(),
+                    amount,
+                    audit.getEntityId(),
+                    audit.getTimestamp()
+                );
+            })
             .collect(Collectors.toList());
         
         return new PageImpl<>(activities, pageable, audits.getTotalElements());

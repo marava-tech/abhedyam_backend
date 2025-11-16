@@ -40,7 +40,6 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/actuator/**",
                                 "/api/v1/health",
-                                "/api/v1/files/**",
                                 "/error"
                         ).permitAll()
                         .anyRequest().authenticated()

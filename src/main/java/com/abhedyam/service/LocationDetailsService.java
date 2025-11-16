@@ -3,6 +3,7 @@ package com.abhedyam.service;
 import com.abhedyam.dto.LocationDetailsCreateRequest;
 import com.abhedyam.dto.LocationDetailsResponse;
 import com.abhedyam.dto.LocationDetailsUpdateRequest;
+import com.abhedyam.dto.VillageSearchResult;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Customer;
@@ -76,6 +77,16 @@ public class LocationDetailsService implements ILocationDetailsService {
         return locationDetailsRepository.findAll().stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<VillageSearchResult> searchVillagesByName(String name) {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        List<String> villages = locationDetailsRepository.findDistinctVillagesByNameContainingIgnoreCaseAndOwnerId(name, ownerId);
+        return villages.stream()
+            .map(VillageSearchResult::new)
+            .toList();
     }
     
     @Transactional

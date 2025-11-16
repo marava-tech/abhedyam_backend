@@ -3,6 +3,7 @@ package com.abhedyam.service;
 import com.abhedyam.dto.ReminderCreateRequest;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
+import com.abhedyam.model.Customer;
 import com.abhedyam.model.Reminder;
 import com.abhedyam.model.enums.ReminderStatus;
 import com.abhedyam.repository.CustomerRepository;
@@ -51,7 +52,11 @@ public class ReminderService implements IReminderService {
         
         Reminder savedReminder = reminderRepository.save(reminder);
         
-        auditService.logReminderCreation(savedReminder.getId(), ownerId, request.getCustomerId(), request.getText());
+        Customer customer = customerRepository.findById(request.getCustomerId())
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+        String customerName = customer.getName();
+        
+        auditService.logReminderCreation(savedReminder.getId(), ownerId, request.getCustomerId(), customerName, request.getText());
         
         return savedReminder;
     }

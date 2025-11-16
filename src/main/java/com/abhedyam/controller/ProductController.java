@@ -4,6 +4,7 @@ import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.PageResponse;
 import com.abhedyam.dto.ProductCreateRequest;
 import com.abhedyam.dto.ProductSearchRequest;
+import com.abhedyam.dto.ProductSearchResult;
 import com.abhedyam.dto.ProductUpdateRequest;
 import com.abhedyam.model.Product;
 import com.abhedyam.service.interfaces.IProductService;
@@ -36,6 +37,11 @@ public class ProductController {
     @GetMapping("/search")
     public ApiResponse<PageResponse<Product>> searchProducts(@ModelAttribute ProductSearchRequest request) {
         return ApiResponse.success(productService.searchProducts(request));
+    }
+    
+    @GetMapping("/search-by-name")
+    public ApiResponse<List<ProductSearchResult>> searchByName(@RequestParam("name") String name) {
+        return ApiResponse.success(productService.searchByName(name));
     }
     
     @GetMapping("/my-products")

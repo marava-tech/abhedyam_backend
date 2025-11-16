@@ -73,7 +73,7 @@ public class AuditService implements IAuditService {
     @Override
     @Async("virtualThreadExecutor")
     @Transactional
-    public void logStockChange(UUID productId, UUID ownerId, BigDecimal oldStock, 
+    public void logStockChange(UUID productId, UUID ownerId, String productName, BigDecimal oldStock, 
                                BigDecimal newStock, String source, String details) {
         try {
             Audit audit = new Audit();
@@ -82,45 +82,89 @@ public class AuditService implements IAuditService {
             audit.setAction(AuditAction.UPDATE);
             audit.setEntityId(productId);
             audit.setAmount(newStock.subtract(oldStock));
-            audit.setHeadline(String.format("Stock change: %s -> %s", oldStock, newStock));
-            audit.setDescription(String.format("Source: %s. %s", source, details));
+            
+            BigDecimal change = newStock.subtract(oldStock);
+            String changeText = change.compareTo(BigDecimal.ZERO) > 0 ? "increased" : "decreased";
+            String sourceText = getReadableSourceText(source);
+            
+            audit.setHeadline(String.format("%s stock %s from %s to %s", productName, changeText, oldStock, newStock));
+            
+            String description = String.format("Stock %s for %s: %s → %s (%s)", 
+                changeText, productName, oldStock, newStock, sourceText);
+            if (details != null && !details.trim().isEmpty()) {
+                description += String.format(". %s", details);
+            }
+            audit.setDescription(description);
             audit.setTimestamp(Instant.now());
             
             auditRepository.save(audit);
-            log.info("Stock change logged: productId={}, oldStock={}, newStock={}, source={}", 
-                productId, oldStock, newStock, source);
+            log.info("Stock change logged: productId={}, productName={}, oldStock={}, newStock={}, source={}", 
+                productId, productName, oldStock, newStock, source);
         } catch (Exception e) {
-            log.error("Failed to log stock change: productId={}, oldStock={}, newStock={}", 
-                productId, oldStock, newStock, e);
+            log.error("Failed to log stock change: productId={}, productName={}, oldStock={}, newStock={}", 
+                productId, productName, oldStock, newStock, e);
+        }
+    }
+    
+    private String getReadableSourceText(String source) {
+        if (source == null) return "Unknown";
+        return switch (source) {
+            case "PURCHASE_IN" -> "Purchase received";
+            case "SALE_OUT" -> "Sale transaction";
+            case "MANUAL_ADJUSTMENT" -> "Manual adjustment";
+            case "SYNC_FROM_LEDGER" -> "Stock sync";
+            default -> source;
+        };
+    }
+    
+    @Override
+    @Async("virtualThreadExecutor")
+    @Transactional
+    public void logSaleCreation(UUID saleId, UUID ownerId, UUID customerId, String customerName, BigDecimal amount, String transactionId) {
+        try {
+            Audit audit = new Audit();
+            audit.setOwnerId(ownerId);
+            audit.setType(AuditType.SALE);
+            audit.setAction(AuditAction.CREATE);
+            audit.setEntityId(saleId);
+            audit.setAmount(amount);
+            audit.setHeadline(String.format("Sale created for %s", customerName));
+            audit.setDescription(String.format("New sale transaction for %s with total amount ₹%s. Transaction ID: %s", 
+                customerName, amount, transactionId));
+            audit.setTimestamp(Instant.now());
+            
+            auditRepository.save(audit);
+            log.info("Sale creation logged: saleId={}, customerId={}, customerName={}, amount={}", 
+                saleId, customerId, customerName, amount);
+        } catch (Exception e) {
+            log.error("Failed to log sale creation: saleId={}, customerId={}, customerName={}", 
+                saleId, customerId, customerName, e);
         }
     }
     
     @Override
     @Async("virtualThreadExecutor")
     @Transactional
-    public void logSaleCreation(UUID saleId, UUID ownerId, UUID customerId, BigDecimal amount, String transactionId) {
-        logFinancialOperation(
-            AuditType.SALE,
-            AuditAction.CREATE,
-            saleId,
-            ownerId,
-            amount,
-            String.format("Sale created: transactionId=%s, customerId=%s", transactionId, customerId)
-        );
-    }
-    
-    @Override
-    @Async("virtualThreadExecutor")
-    @Transactional
-    public void logSaleCancellation(UUID saleId, UUID ownerId, UUID customerId, BigDecimal amount, String transactionId) {
-        logFinancialOperation(
-            AuditType.SALE,
-            AuditAction.DELETE,
-            saleId,
-            ownerId,
-            amount.negate(),
-            String.format("Sale cancelled: transactionId=%s, customerId=%s", transactionId, customerId)
-        );
+    public void logSaleCancellation(UUID saleId, UUID ownerId, UUID customerId, String customerName, BigDecimal amount, String transactionId) {
+        try {
+            Audit audit = new Audit();
+            audit.setOwnerId(ownerId);
+            audit.setType(AuditType.SALE);
+            audit.setAction(AuditAction.DELETE);
+            audit.setEntityId(saleId);
+            audit.setAmount(amount.negate());
+            audit.setHeadline(String.format("Sale cancelled for %s", customerName));
+            audit.setDescription(String.format("Sale transaction cancelled for %s. Refunded amount: ₹%s. Transaction ID: %s", 
+                customerName, amount, transactionId));
+            audit.setTimestamp(Instant.now());
+            
+            auditRepository.save(audit);
+            log.info("Sale cancellation logged: saleId={}, customerId={}, customerName={}, amount={}", 
+                saleId, customerId, customerName, amount);
+        } catch (Exception e) {
+            log.error("Failed to log sale cancellation: saleId={}, customerId={}, customerName={}", 
+                saleId, customerId, customerName, e);
+        }
     }
     
     @Override
@@ -134,8 +178,9 @@ public class AuditService implements IAuditService {
             audit.setAction(AuditAction.PRODUCT_CREATED);
             audit.setEntityId(productId);
             audit.setAmount(BigDecimal.ZERO);
-            audit.setHeadline("Product Created");
-            audit.setDescription(String.format("Product created: name=%s, code=%s", productName, productCode));
+            audit.setHeadline(String.format("%s product created", productName));
+            audit.setDescription(String.format("New product '%s' added to inventory with product code: %s", 
+                productName, productCode));
             audit.setTimestamp(Instant.now());
             
             auditRepository.save(audit);
@@ -149,7 +194,7 @@ public class AuditService implements IAuditService {
     @Override
     @Async("virtualThreadExecutor")
     @Transactional
-    public void logReminderCreation(UUID reminderId, UUID ownerId, UUID customerId, String reminderText) {
+    public void logReminderCreation(UUID reminderId, UUID ownerId, UUID customerId, String customerName, String reminderText) {
         try {
             Audit audit = new Audit();
             audit.setOwnerId(ownerId);
@@ -157,16 +202,50 @@ public class AuditService implements IAuditService {
             audit.setAction(AuditAction.REMINDER_CREATED);
             audit.setEntityId(reminderId);
             audit.setAmount(BigDecimal.ZERO);
-            audit.setHeadline("Reminder Created");
-            audit.setDescription(String.format("Reminder created: customerId=%s, text=%s", customerId, 
-                reminderText != null && reminderText.length() > 100 ? reminderText.substring(0, 100) + "..." : reminderText));
+            audit.setHeadline(String.format("Reminder created for %s", customerName));
+            
+            String reminderPreview = reminderText != null && reminderText.length() > 100 
+                ? reminderText.substring(0, 100) + "..." 
+                : (reminderText != null ? reminderText : "No text provided");
+            audit.setDescription(String.format("Reminder scheduled for customer %s. Message: %s", 
+                customerName, reminderPreview));
             audit.setTimestamp(Instant.now());
             
             auditRepository.save(audit);
-            log.info("Reminder creation logged: reminderId={}, customerId={}", reminderId, customerId);
+            log.info("Reminder creation logged: reminderId={}, customerId={}, customerName={}", reminderId, customerId, customerName);
         } catch (Exception e) {
-            log.error("Failed to log reminder creation: reminderId={}, customerId={}", 
-                reminderId, customerId, e);
+            log.error("Failed to log reminder creation: reminderId={}, customerId={}, customerName={}", 
+                reminderId, customerId, customerName, e);
+        }
+    }
+    
+    @Override
+    @Async("virtualThreadExecutor")
+    @Transactional
+    public void logPaymentSuccess(UUID paymentId, UUID ownerId, UUID customerId, String customerName, UUID saleItemId, String productName, BigDecimal amount, String reference) {
+        try {
+            Audit audit = new Audit();
+            audit.setOwnerId(ownerId);
+            audit.setType(AuditType.PAYMENT);
+            audit.setAction(AuditAction.UPDATE);
+            audit.setEntityId(paymentId);
+            audit.setAmount(amount);
+            audit.setHeadline(String.format("Payment received from %s", customerName));
+            
+            String description = String.format("Payment of ₹%s received from %s for product '%s'", 
+                amount, customerName, productName);
+            if (reference != null && !reference.isEmpty()) {
+                description += String.format(". Payment reference: %s", reference);
+            }
+            audit.setDescription(description);
+            audit.setTimestamp(Instant.now());
+            
+            auditRepository.save(audit);
+            log.info("Payment success logged: paymentId={}, customerId={}, customerName={}, amount={}", 
+                paymentId, customerId, customerName, amount);
+        } catch (Exception e) {
+            log.error("Failed to log payment success: paymentId={}, customerId={}, customerName={}", 
+                paymentId, customerId, customerName, e);
         }
     }
     
