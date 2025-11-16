@@ -94,6 +94,12 @@ public class ReminderService implements IReminderService {
         List<Reminder> reminders = reminderRepository.findByCustomerId(customerId);
         return reminders.stream()
             .filter(reminder -> reminder.getOwnerId().equals(ownerId))
+            .sorted((r1, r2) -> {
+                if (r1.getCreatedAt() == null && r2.getCreatedAt() == null) return 0;
+                if (r1.getCreatedAt() == null) return 1;
+                if (r2.getCreatedAt() == null) return -1;
+                return r2.getCreatedAt().compareTo(r1.getCreatedAt());
+            })
             .toList();
     }
     

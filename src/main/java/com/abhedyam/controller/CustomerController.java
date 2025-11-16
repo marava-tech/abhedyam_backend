@@ -3,6 +3,7 @@ package com.abhedyam.controller;
 import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.CustomerCreateRequest;
 import com.abhedyam.dto.CustomerProfileSummary;
+import com.abhedyam.dto.CustomerResponse;
 import com.abhedyam.dto.CustomerSearchRequest;
 import com.abhedyam.dto.CustomerSearchResult;
 import com.abhedyam.dto.CustomerUpdateRequest;
@@ -51,8 +52,8 @@ public class CustomerController {
     }
     
     @GetMapping("/my-customers")
-    public ApiResponse<List<Customer>> getMyCustomers() {
-        return ApiResponse.success(customerService.getByOwnerId(null));
+    public ApiResponse<List<CustomerResponse>> getMyCustomers() {
+        return ApiResponse.success(customerService.getMyCustomersWithVillage());
     }
     
     @PatchMapping("/me")

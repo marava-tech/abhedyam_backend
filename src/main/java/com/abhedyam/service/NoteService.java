@@ -70,6 +70,12 @@ public class NoteService implements INoteService {
         List<Note> notes = noteRepository.findByCustomerId(customerId);
         return notes.stream()
             .filter(note -> note.getOwnerId().equals(ownerId))
+            .sorted((n1, n2) -> {
+                if (n1.getCreatedAt() == null && n2.getCreatedAt() == null) return 0;
+                if (n1.getCreatedAt() == null) return 1;
+                if (n2.getCreatedAt() == null) return -1;
+                return n2.getCreatedAt().compareTo(n1.getCreatedAt());
+            })
             .toList();
     }
     

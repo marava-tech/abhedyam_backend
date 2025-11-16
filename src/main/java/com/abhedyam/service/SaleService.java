@@ -185,7 +185,7 @@ public class SaleService implements ISaleService {
                 throw new BusinessException("PRICE_REQUIRED", "Product price is not set and no price provided in request");
             }
             
-            BigDecimal itemTotal = itemPrice;
+            BigDecimal itemTotal = itemPrice.multiply(quantity);
             totalAmount = totalAmount.add(itemTotal);
             
             SaleItem saleItem = new SaleItem();
@@ -194,6 +194,8 @@ public class SaleService implements ISaleService {
             saleItem.setOwnerId(ownerId);
             saleItem.setPrice(itemPrice);
             saleItem.setQuantity(quantity);
+            saleItem.setRemainingAmount(itemTotal);
+            saleItem.setStatus(com.abhedyam.model.enums.SaleItemStatus.NOT_PAID);
             saleItem.setTransactionId(transactionId);
             saleItem.setDueDate(request.getDueDate());
             

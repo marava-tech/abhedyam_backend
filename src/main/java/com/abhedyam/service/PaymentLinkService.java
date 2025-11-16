@@ -10,6 +10,7 @@ import com.abhedyam.model.Product;
 import com.abhedyam.model.SaleItem;
 import com.abhedyam.model.enums.PaymentMedium;
 import com.abhedyam.model.enums.PaymentStatus;
+import java.math.BigDecimal;
 import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.PaymentRepository;
 import com.abhedyam.repository.ProductRepository;
@@ -45,6 +46,10 @@ public class PaymentLinkService implements IPaymentLinkService {
     @Transactional
     public UpiPaymentLinkResponse generateUpiPaymentLink(UpiPaymentLinkRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
+        
+        if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("INVALID_AMOUNT", "Payment amount must be greater than zero");
+        }
         
         SaleItem saleItem = saleItemRepository.findById(request.getSaleItemId())
                 .orElseThrow(() -> new ResourceNotFoundException("Sale item not found"));

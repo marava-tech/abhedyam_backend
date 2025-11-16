@@ -1,10 +1,13 @@
 package com.abhedyam.service;
 
+import com.abhedyam.dto.SaleItemResponse;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Customer;
+import com.abhedyam.model.Product;
 import com.abhedyam.model.SaleItem;
 import com.abhedyam.repository.CustomerRepository;
+import com.abhedyam.repository.ProductRepository;
 import com.abhedyam.repository.SaleItemRepository;
 import com.abhedyam.service.interfaces.ISaleItemService;
 import com.abhedyam.util.SecurityUtil;
@@ -21,6 +24,7 @@ public class SaleItemService implements ISaleItemService {
     
     private final SaleItemRepository saleItemRepository;
     private final CustomerRepository customerRepository;
+    private final ProductRepository productRepository;
     
     public SaleItem create(SaleItem saleItem) {
         return saleItemRepository.save(saleItem);
@@ -39,7 +43,8 @@ public class SaleItemService implements ISaleItemService {
         return saleItemRepository.findByOwnerId(ownerId);
     }
     
-    public List<SaleItem> getByCustomerId(UUID customerId) {
+    @Transactional(readOnly = true)
+    public List<SaleItemResponse> getByCustomerId(UUID customerId) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
         Customer customer = customerRepository.findById(customerId)
@@ -49,8 +54,34 @@ public class SaleItemService implements ISaleItemService {
             throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer's sale items");
         }
         
-        return saleItemRepository.findByCustomerId(customerId).stream()
+        List<SaleItem> saleItems = saleItemRepository.findByCustomerId(customerId).stream()
                 .filter(item -> item.getOwnerId().equals(ownerId))
+                .toList();
+        
+        return saleItems.stream()
+                .map(item -> {
+                    Product product = productRepository.findById(item.getProductId())
+                            .orElse(null);
+                    String productName = product != null ? product.getName() : "Unknown";
+                    
+                    SaleItemResponse response = new SaleItemResponse();
+                    response.setId(item.getId());
+                    response.setProductId(item.getProductId());
+                    response.setProductName(productName);
+                    response.setCustomerId(item.getCustomerId());
+                    response.setOwnerId(item.getOwnerId());
+                    response.setPrice(item.getPrice());
+                    response.setQuantity(item.getQuantity());
+                    response.setRemainingAmount(item.getRemainingAmount());
+                    response.setStatus(item.getStatus());
+                    response.setDueDate(item.getDueDate());
+                    response.setTransactionId(item.getTransactionId());
+                    response.setCreatedAt(item.getCreatedAt());
+                    response.setUpdatedAt(item.getUpdatedAt());
+                    response.setIsActive(item.getIsActive());
+                    
+                    return response;
+                })
                 .toList();
     }
     
