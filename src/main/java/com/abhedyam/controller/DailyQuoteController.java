@@ -1,8 +1,10 @@
 package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
+import com.abhedyam.dto.DailyQuoteCreateRequest;
 import com.abhedyam.model.DailyQuote;
 import com.abhedyam.service.interfaces.IDailyQuoteService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -19,8 +21,8 @@ public class DailyQuoteController {
     
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<DailyQuote> create(@RequestBody DailyQuote dailyQuote) {
-        return ApiResponse.success(dailyQuoteService.create(dailyQuote));
+    public ApiResponse<DailyQuote> create(@Valid @RequestBody DailyQuoteCreateRequest request) {
+        return ApiResponse.success(dailyQuoteService.create(request));
     }
     
     @GetMapping("/{id}")
@@ -36,6 +38,11 @@ public class DailyQuoteController {
     @GetMapping("/active")
     public ApiResponse<List<DailyQuote>> getActiveQuotes() {
         return ApiResponse.success(dailyQuoteService.getActiveQuotes());
+    }
+    
+    @GetMapping("/today")
+    public ApiResponse<DailyQuote> getTodaysQuote() {
+        return ApiResponse.success(dailyQuoteService.getTodaysQuote());
     }
     
     @PutMapping("/{id}")

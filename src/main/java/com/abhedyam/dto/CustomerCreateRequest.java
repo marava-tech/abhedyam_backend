@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
-import java.util.UUID;
+import java.math.BigDecimal;
 
 @Data
 @Schema(description = "Request to create a customer")
@@ -17,9 +17,12 @@ public class CustomerCreateRequest {
     @Schema(description = "Phone number", example = "+919876543210", required = true)
     private String phone;
     
-    @Schema(description = "Customer image URL", example = "https://example.com/image.jpg")
-    private String imageUrl;
+    @Schema(description = "Village name", example = "Koramangala")
+    private String village;
     
-    @Schema(description = "Location details ID", example = "123e4567-e89b-12d3-a456-426614174000")
-    private UUID locationDetailsId;
+    @Schema(description = "Latitude", example = "12.9352")
+    private BigDecimal latitude;
+    
+    @Schema(description = "Longitude", example = "77.6245")
+    private BigDecimal longitude;
 }

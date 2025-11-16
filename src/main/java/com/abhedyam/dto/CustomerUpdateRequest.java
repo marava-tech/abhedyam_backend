@@ -19,9 +19,6 @@ public class CustomerUpdateRequest {
     @Schema(description = "Phone number", example = "+919876543210")
     private String phone;
     
-    @Schema(description = "Customer image URL", example = "https://example.com/image.jpg")
-    private String imageUrl;
-    
     @Schema(description = "Location details ID", example = "123e4567-e89b-12d3-a456-426614174000")
     private UUID locationDetailsId;
 }

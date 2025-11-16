@@ -2,6 +2,11 @@ spring:
   application:
     name: abhedyam-backend
 
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 15MB
+
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/abhedyam?createDatabaseIfNotExist=true}
     username: ${DB_USERNAME:root}
@@ -43,10 +48,6 @@ spring:
 
 server:
   port: ${PORT:8080}
-  servlet:
-    multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
 
 springdoc:
   api-docs:
@@ -91,16 +92,10 @@ app:
   cashfree:
     client-id: ${CASHFREE_CLIENT_ID:}
     client-secret: ${CASHFREE_SECRET:}
-  storage:
-    path: ${STORAGE_PATH:./storage}
   features:
     global:
       callLogSync: ${CALL_LOG_SYNC_ENABLED:true}
       dailyQuote: ${DAILY_QUOTE_ENABLED:true}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080}
-  upload:
-    max-file-size-mb: ${MAX_FILE_SIZE_MB:10}
-    allowed-image-types: image/jpeg,image/png,image/gif,image/webp
-    allowed-document-types: application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document
 

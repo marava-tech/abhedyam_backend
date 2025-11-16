@@ -3,6 +3,7 @@ package com.abhedyam.service;
 import com.abhedyam.dto.PageResponse;
 import com.abhedyam.dto.ProductCreateRequest;
 import com.abhedyam.dto.ProductSearchRequest;
+import com.abhedyam.dto.ProductSearchResult;
 import com.abhedyam.dto.ProductUpdateRequest;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
@@ -44,16 +45,6 @@ public class ProductService implements IProductService {
         product.setPrice(request.getPrice());
         product.setOwnerId(ownerId);
         product.setIsActive(true);
-        
-        if (request.getImageUrl() != null) {
-            product.setImageUrl(request.getImageUrl());
-        }
-        if (request.getImages() != null) {
-            product.setImages(request.getImages());
-        }
-        if (request.getStock() != null) {
-            product.setStock(request.getStock());
-        }
         
         Product savedProduct = productRepository.save(product);
         
@@ -120,6 +111,16 @@ public class ProductService implements IProductService {
     }
     
     @Override
+    @Transactional(readOnly = true)
+    public List<ProductSearchResult> searchByName(String name) {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        List<Product> products = productRepository.findByNameContainingIgnoreCaseAndOwnerId(name, ownerId);
+        return products.stream()
+            .map(product -> new ProductSearchResult(product.getId(), product.getName()))
+            .toList();
+    }
+    
+    @Override
     @Transactional
     public Product updateProduct(ProductUpdateRequest request) {
         Product product = getById(request.getId());
@@ -136,19 +137,6 @@ public class ProductService implements IProductService {
         }
         if (request.getPrice() != null) {
             product.setPrice(request.getPrice());
-        }
-        if (request.getImageUrl() != null) {
-            if (request.getImageUrl().trim().isEmpty()) {
-                product.setImageUrl(null);
-            } else {
-                product.setImageUrl(request.getImageUrl());
-            }
-        }
-        if (request.getImages() != null) {
-            product.setImages(request.getImages());
-        }
-        if (request.getStock() != null) {
-            product.setStock(request.getStock());
         }
         
         return productRepository.save(product);

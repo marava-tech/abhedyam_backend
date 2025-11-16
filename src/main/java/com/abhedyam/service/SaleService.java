@@ -8,16 +8,20 @@ import com.abhedyam.dto.SaleSearchRequest;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Customer;
+import com.abhedyam.model.LocationDetails;
 import com.abhedyam.model.Payment;
 import com.abhedyam.model.Product;
 import com.abhedyam.model.SaleItem;
 import com.abhedyam.model.enums.PaymentStatus;
+import com.abhedyam.model.enums.UserType;
 import com.abhedyam.repository.CustomerRepository;
+import com.abhedyam.repository.LocationDetailsRepository;
 import com.abhedyam.repository.PaymentRepository;
 import com.abhedyam.repository.ProductRepository;
 import com.abhedyam.repository.SaleItemRepository;
 import com.abhedyam.service.interfaces.ISaleService;
 import com.abhedyam.service.interfaces.IStockService;
+import com.abhedyam.util.PhoneUtil;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,11 +34,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -44,49 +50,129 @@ public class SaleService implements ISaleService {
     private final SaleItemRepository saleItemRepository;
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
+    private final LocationDetailsRepository locationDetailsRepository;
     private final PaymentRepository paymentRepository;
     private final IStockService stockService;
     private final RedisTemplate<String, String> redisTemplate;
     private final com.abhedyam.service.interfaces.IAuditService auditService;
     
     private static final String IDEMPOTENCY_PREFIX = "sale:idempotency:";
-    private static final int IDEMPOTENCY_TTL_HOURS = 24;
+    private static final int IDEMPOTENCY_TTL_MINUTES = 1;
     
     @Override
     @Transactional
     public SaleDetailResponse createSale(SaleCreateRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
-        if (request.getIdempotencyKey() != null) {
-            String idempotencyKey = IDEMPOTENCY_PREFIX + request.getIdempotencyKey();
-            String existingTransactionId = redisTemplate.opsForValue().get(idempotencyKey);
-            if (existingTransactionId != null) {
-                log.info("Idempotent sale creation detected. Returning existing sale: {}", existingTransactionId);
-                return getSaleByTransactionId(existingTransactionId);
+        Customer customer;
+        if (request.getCustomerId() != null) {
+            customer = customerRepository.findById(request.getCustomerId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+            
+            if (customer.getOwnerId() != null && !customer.getOwnerId().equals(ownerId)) {
+                throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer");
             }
+        } else {
+            if (request.getCustomerName() == null || request.getCustomerName().trim().isEmpty()) {
+                throw new BusinessException("CUSTOMER_NAME_REQUIRED", "Customer name is required when customerId is not provided");
+            }
+            if (request.getCustomerPhone() == null || request.getCustomerPhone().trim().isEmpty()) {
+                throw new BusinessException("CUSTOMER_PHONE_REQUIRED", "Customer phone is required when customerId is not provided");
+            }
+            
+            String normalizedPhone = PhoneUtil.normalizePhone(request.getCustomerPhone());
+            customer = new Customer();
+            customer.setName(request.getCustomerName());
+            customer.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
+            customer.setPhoneNormalized(normalizedPhone);
+            customer.setType(UserType.CUSTOMER);
+            customer.setOwnerId(ownerId);
+            customer.setIsActive(true);
+            customer = customerRepository.save(customer);
+            
+            if (request.getCustomerVillage() != null && !request.getCustomerVillage().trim().isEmpty()) {
+                LocationDetails locationDetails = new LocationDetails();
+                locationDetails.setUserId(customer.getId());
+                locationDetails.setVillage(request.getCustomerVillage());
+                locationDetails.setLatitude(BigDecimal.ZERO);
+                locationDetails.setLongitude(BigDecimal.ZERO);
+                locationDetailsRepository.save(locationDetails);
+            }
+            
+            log.info("Customer created on the fly: {} ({})", customer.getName(), customer.getPhone());
         }
         
-        Customer customer = customerRepository.findById(request.getCustomerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+        List<UUID> productIds = new ArrayList<>();
+        List<Product> products = new ArrayList<>();
+        List<SaleItemRequest> processedItems = new ArrayList<>();
         
-        if (customer.getOwnerId() != null && !customer.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer");
+        for (SaleItemRequest itemRequest : request.getItems()) {
+            Product product;
+            UUID productId;
+            
+            if (itemRequest.getProductId() != null) {
+                product = productRepository.findById(itemRequest.getProductId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + itemRequest.getProductId()));
+                
+                if (!product.getOwnerId().equals(ownerId)) {
+                    throw new BusinessException("UNAUTHORIZED", "You don't have access to this product");
+                }
+                productId = itemRequest.getProductId();
+            } else {
+                if (itemRequest.getProductName() == null || itemRequest.getProductName().trim().isEmpty()) {
+                    throw new BusinessException("PRODUCT_NAME_REQUIRED", "Product name is required when productId is not provided");
+                }
+                if (itemRequest.getPrice() == null) {
+                    throw new BusinessException("PRICE_REQUIRED", "Price is required when productId is not provided");
+                }
+                
+                String productCode = "PROD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+                while (productRepository.findByOwnerIdAndCode(ownerId, productCode).isPresent()) {
+                    productCode = "PROD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+                }
+                
+                product = new Product();
+                product.setCode(productCode);
+                product.setName(itemRequest.getProductName());
+                product.setPrice(itemRequest.getPrice());
+                product.setOwnerId(ownerId);
+                product.setIsActive(true);
+                product = productRepository.save(product);
+                
+                stockService.recordPurchaseIn(product.getId(), BigDecimal.ONE, "Initial stock for product created on the fly");
+                productId = product.getId();
+                
+                auditService.logProductCreation(product.getId(), ownerId, product.getName(), product.getCode());
+                
+                log.info("Product created on the fly: {} ({})", product.getName(), product.getCode());
+            }
+            
+            productIds.add(productId);
+            products.add(product);
+            processedItems.add(itemRequest);
+        }
+        
+        String idempotencyKey = generateIdempotencyKey(customer.getId(), productIds);
+        String redisKey = IDEMPOTENCY_PREFIX + idempotencyKey;
+        String existingTransactionId = redisTemplate.opsForValue().get(redisKey);
+        
+        if (existingTransactionId != null) {
+            log.warn("Duplicate sale request detected with idempotencyKey: {}", idempotencyKey);
+            throw new BusinessException("DUPLICATE_REQUEST", 
+                "A sale with the same customer and products was created recently. Please wait a moment before retrying.");
         }
         
         String transactionId = UUID.randomUUID().toString();
         List<SaleItem> saleItems = new ArrayList<>();
         BigDecimal totalAmount = BigDecimal.ZERO;
         
-        for (SaleItemRequest itemRequest : request.getItems()) {
-            Product product = productRepository.findById(itemRequest.getProductId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + itemRequest.getProductId()));
-            
-            if (!product.getOwnerId().equals(ownerId)) {
-                throw new BusinessException("UNAUTHORIZED", "You don't have access to this product");
-            }
+        for (int i = 0; i < processedItems.size(); i++) {
+            SaleItemRequest itemRequest = processedItems.get(i);
+            Product product = products.get(i);
+            UUID productId = productIds.get(i);
             
             BigDecimal quantity = BigDecimal.ONE;
-            BigDecimal currentStock = stockService.getCurrentStock(itemRequest.getProductId());
+            BigDecimal currentStock = stockService.getCurrentStock(productId);
             
             if (currentStock.compareTo(quantity) < 0) {
                 throw new BusinessException("INSUFFICIENT_STOCK", 
@@ -103,8 +189,8 @@ public class SaleService implements ISaleService {
             totalAmount = totalAmount.add(itemTotal);
             
             SaleItem saleItem = new SaleItem();
-            saleItem.setProductId(itemRequest.getProductId());
-            saleItem.setCustomerId(request.getCustomerId());
+            saleItem.setProductId(productId);
+            saleItem.setCustomerId(customer.getId());
             saleItem.setOwnerId(ownerId);
             saleItem.setPrice(itemPrice);
             saleItem.setQuantity(quantity);
@@ -114,22 +200,50 @@ public class SaleService implements ISaleService {
             SaleItem savedItem = saleItemRepository.save(saleItem);
             saleItems.add(savedItem);
             
-            stockService.recordSaleOut(itemRequest.getProductId(), quantity, savedItem.getId(), 
+            stockService.recordSaleOut(productId, quantity, savedItem.getId(), 
                 "Sale transaction: " + transactionId);
         }
         
-        if (request.getIdempotencyKey() != null) {
-            String idempotencyKey = IDEMPOTENCY_PREFIX + request.getIdempotencyKey();
-            redisTemplate.opsForValue().set(idempotencyKey, transactionId, IDEMPOTENCY_TTL_HOURS, TimeUnit.HOURS);
-        }
+        redisTemplate.opsForValue().set(redisKey, transactionId, IDEMPOTENCY_TTL_MINUTES, TimeUnit.MINUTES);
         
         log.info("Sale created: Transaction ID {}, Total Amount: {}", transactionId, totalAmount);
         
         UUID firstSaleItemId = saleItems.isEmpty() ? null : saleItems.get(0).getId();
         auditService.logSaleCreation(firstSaleItemId != null ? firstSaleItemId : UUID.randomUUID(), 
-            ownerId, request.getCustomerId(), totalAmount, transactionId);
+            ownerId, customer.getId(), customer.getName(), totalAmount, transactionId);
         
         return buildSaleDetailResponse(transactionId, customer, saleItems, totalAmount);
+    }
+    
+    private String generateIdempotencyKey(UUID customerId, List<UUID> productIds) {
+        try {
+            List<String> sortedProductIds = productIds.stream()
+                .map(UUID::toString)
+                .sorted()
+                .collect(Collectors.toList());
+            
+            String combined = customerId.toString() + ":" + String.join(",", sortedProductIds);
+            
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = md.digest(combined.getBytes());
+            
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hashBytes) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
+                hexString.append(hex);
+            }
+            
+            return hexString.toString().substring(0, 32);
+        } catch (Exception e) {
+            log.error("Error generating idempotency key", e);
+            return customerId.toString() + "-" + productIds.stream()
+                .map(UUID::toString)
+                .sorted()
+                .collect(Collectors.joining("-"));
+        }
     }
     
     @Override
@@ -245,7 +359,7 @@ public class SaleService implements ISaleService {
         
         UUID firstSaleItemId = saleItems.isEmpty() ? null : saleItems.get(0).getId();
         auditService.logSaleCancellation(firstSaleItemId != null ? firstSaleItemId : UUID.randomUUID(), 
-            ownerId, firstItem.getCustomerId(), totalAmount, transactionId);
+            ownerId, customer.getId(), customer.getName(), totalAmount, transactionId);
         
         return buildSaleDetailResponse(transactionId, customer, saleItems, totalAmount);
     }

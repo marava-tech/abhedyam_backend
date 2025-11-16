@@ -3,15 +3,22 @@ package com.abhedyam.service;
 import com.abhedyam.dto.PaymentStatusUpdateRequest;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
+import com.abhedyam.model.Customer;
 import com.abhedyam.model.Payment;
+import com.abhedyam.model.Product;
+import com.abhedyam.model.SaleItem;
+import com.abhedyam.model.enums.PaymentStatus;
+import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.PaymentRepository;
+import com.abhedyam.repository.ProductRepository;
+import com.abhedyam.repository.SaleItemRepository;
+import com.abhedyam.service.interfaces.IAuditService;
 import com.abhedyam.service.interfaces.IPaymentService;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,6 +27,10 @@ import java.util.UUID;
 public class PaymentService implements IPaymentService {
     
     private final PaymentRepository paymentRepository;
+    private final CustomerRepository customerRepository;
+    private final ProductRepository productRepository;
+    private final SaleItemRepository saleItemRepository;
+    private final IAuditService auditService;
     
     @Override
     public Payment create(Payment payment) {
@@ -65,22 +76,84 @@ public class PaymentService implements IPaymentService {
     @Transactional
     public Payment updateStatus(UUID id, PaymentStatusUpdateRequest request) {
         Payment payment = getById(id);
+        PaymentStatus oldStatus = payment.getStatus();
         payment.setStatus(request.getStatus());
         if (request.getReference() != null) {
             payment.setReference(request.getReference());
         }
-        return paymentRepository.save(payment);
+        Payment savedPayment = paymentRepository.save(payment);
+        
+        if (oldStatus != PaymentStatus.SUCCESS && request.getStatus() == PaymentStatus.SUCCESS) {
+            Customer customer = customerRepository.findById(payment.getCustomerId())
+                    .orElse(null);
+            String customerName = customer != null ? customer.getName() : "Unknown";
+            
+            String productName = "Unknown";
+            if (payment.getSaleItemId() != null) {
+                SaleItem saleItem = saleItemRepository.findById(payment.getSaleItemId()).orElse(null);
+                if (saleItem != null) {
+                    Product product = productRepository.findById(saleItem.getProductId()).orElse(null);
+                    if (product != null) {
+                        productName = product.getName();
+                    }
+                }
+            }
+            
+            auditService.logPaymentSuccess(
+                savedPayment.getId(),
+                payment.getOwnerId(),
+                payment.getCustomerId(),
+                customerName,
+                payment.getSaleItemId(),
+                productName,
+                payment.getAmount(),
+                payment.getReference()
+            );
+        }
+        
+        return savedPayment;
     }
     
     @Override
     @Transactional
     public Payment update(UUID id, Payment paymentDetails) {
         Payment payment = getById(id);
+        PaymentStatus oldStatus = payment.getStatus();
         if (paymentDetails.getAmount() != null) payment.setAmount(paymentDetails.getAmount());
         if (paymentDetails.getMedium() != null) payment.setMedium(paymentDetails.getMedium());
         if (paymentDetails.getReference() != null) payment.setReference(paymentDetails.getReference());
         if (paymentDetails.getStatus() != null) payment.setStatus(paymentDetails.getStatus());
-        return paymentRepository.save(payment);
+        Payment savedPayment = paymentRepository.save(payment);
+        
+        if (oldStatus != PaymentStatus.SUCCESS && paymentDetails.getStatus() == PaymentStatus.SUCCESS) {
+            Customer customer = customerRepository.findById(payment.getCustomerId())
+                    .orElse(null);
+            String customerName = customer != null ? customer.getName() : "Unknown";
+            
+            String productName = "Unknown";
+            if (payment.getSaleItemId() != null) {
+                SaleItem saleItem = saleItemRepository.findById(payment.getSaleItemId()).orElse(null);
+                if (saleItem != null) {
+                    Product product = productRepository.findById(saleItem.getProductId()).orElse(null);
+                    if (product != null) {
+                        productName = product.getName();
+                    }
+                }
+            }
+            
+            auditService.logPaymentSuccess(
+                savedPayment.getId(),
+                payment.getOwnerId(),
+                payment.getCustomerId(),
+                customerName,
+                payment.getSaleItemId(),
+                productName,
+                payment.getAmount(),
+                payment.getReference()
+            );
+        }
+        
+        return savedPayment;
     }
 }
 

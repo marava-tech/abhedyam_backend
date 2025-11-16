@@ -11,5 +11,6 @@ import java.util.UUID;
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     List<Payment> findByOwnerId(UUID ownerId);
     List<Payment> findByCustomerId(UUID customerId);
+    long countBySaleItemId(UUID saleItemId);
 }
 

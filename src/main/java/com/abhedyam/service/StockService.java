@@ -35,7 +35,7 @@ public class StockService implements IStockService {
     @Transactional
     public InventoryLedger recordPurchaseIn(UUID productId, BigDecimal quantity, String note) {
         UUID ownerId = getCurrentOwnerId();
-        Product product = validateProductAccess(productId);
+        validateProductAccess(productId);
         
         BigDecimal currentStock = getCurrentStock(productId);
         BigDecimal newStock = currentStock.add(quantity);
@@ -46,10 +46,10 @@ public class StockService implements IStockService {
         );
         
         updateStockCache(productId, newStock);
-        product.setStock(newStock);
-        productRepository.save(product);
         
-        auditService.logStockChange(productId, ownerId, currentStock, newStock, "PURCHASE_IN", note);
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+        auditService.logStockChange(productId, ownerId, product.getName(), currentStock, newStock, "PURCHASE_IN", note);
         
         log.info("Purchase In recorded: Product {}, Quantity {}, New Stock {}", productId, quantity, newStock);
         return ledger;
@@ -59,7 +59,7 @@ public class StockService implements IStockService {
     @Transactional
     public InventoryLedger recordSaleOut(UUID productId, BigDecimal quantity, UUID saleItemId, String note) {
         UUID ownerId = getCurrentOwnerId();
-        Product product = validateProductAccess(productId);
+        validateProductAccess(productId);
         
         BigDecimal currentStock = getCurrentStock(productId);
         
@@ -76,10 +76,10 @@ public class StockService implements IStockService {
         );
         
         updateStockCache(productId, newStock);
-        product.setStock(newStock);
-        productRepository.save(product);
         
-        auditService.logStockChange(productId, ownerId, currentStock, newStock, "SALE_OUT", note);
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+        auditService.logStockChange(productId, ownerId, product.getName(), currentStock, newStock, "SALE_OUT", note);
         
         log.info("Sale Out recorded: Product {}, Quantity {}, New Stock {}", productId, quantity, newStock);
         return ledger;
@@ -89,7 +89,7 @@ public class StockService implements IStockService {
     @Transactional
     public InventoryLedger recordManualAdjustment(StockAdjustmentRequest request) {
         UUID ownerId = getCurrentOwnerId();
-        Product product = validateProductAccess(request.getProductId());
+        validateProductAccess(request.getProductId());
         
         BigDecimal currentStock = getCurrentStock(request.getProductId());
         BigDecimal newStock = currentStock.add(request.getChangeQty());
@@ -104,10 +104,10 @@ public class StockService implements IStockService {
         );
         
         updateStockCache(request.getProductId(), newStock);
-        product.setStock(newStock);
-        productRepository.save(product);
         
-        auditService.logStockChange(request.getProductId(), ownerId, currentStock, newStock, 
+        Product product = productRepository.findById(request.getProductId())
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+        auditService.logStockChange(request.getProductId(), ownerId, product.getName(), currentStock, newStock, 
             "MANUAL_ADJUSTMENT", request.getNote());
         
         log.info("Manual adjustment recorded: Product {}, Change {}, New Stock {}", 
@@ -118,13 +118,21 @@ public class StockService implements IStockService {
     @Override
     @Transactional(readOnly = true)
     public BigDecimal getCurrentStock(UUID productId) {
-        Product product = validateProductAccess(productId);
+        validateProductAccess(productId);
         
-        if (product.getStock() != null) {
-            return product.getStock();
+        BigDecimal inventoryStock = getStockFromInventory(productId);
+        if (inventoryStock != null) {
+            return inventoryStock;
         }
         
         return computeStockFromLedger(productId);
+    }
+    
+    private BigDecimal getStockFromInventory(UUID productId) {
+        UUID ownerId = getCurrentOwnerId();
+        return inventoryRepository.findByOwnerIdAndProductId(ownerId, productId)
+            .map(Inventory::getStock)
+            .orElse(null);
     }
     
     @Override
@@ -143,17 +151,20 @@ public class StockService implements IStockService {
     @Transactional
     public void syncStockFromLedger(UUID productId) {
         BigDecimal computedStock = computeStockFromLedger(productId);
-        Product product = validateProductAccess(productId);
+        validateProductAccess(productId);
         
-        BigDecimal oldStock = product.getStock() != null ? product.getStock() : BigDecimal.ZERO;
-        product.setStock(computedStock);
-        productRepository.save(product);
+        BigDecimal oldStock = getStockFromInventory(productId);
+        if (oldStock == null) {
+            oldStock = BigDecimal.ZERO;
+        }
         
         updateStockCache(productId, computedStock);
         
         if (!oldStock.equals(computedStock)) {
             UUID ownerId = getCurrentOwnerId();
-            auditService.logStockChange(productId, ownerId, oldStock, computedStock, 
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+            auditService.logStockChange(productId, ownerId, product.getName(), oldStock, computedStock, 
                 "SYNC_FROM_LEDGER", "Stock synced from ledger");
         }
         
