@@ -36,6 +36,7 @@ public class LocationDetailsService implements ILocationDetailsService {
         locationDetails.setLatitude(request.getLatitude());
         locationDetails.setLongitude(request.getLongitude());
         locationDetails.setVillage(request.getVillage());
+        locationDetails.setAddressText(request.getAddressText());
         
         LocationDetails saved = locationDetailsRepository.save(locationDetails);
         return toResponse(saved);
@@ -103,6 +104,7 @@ public class LocationDetailsService implements ILocationDetailsService {
         if (request.getLatitude() != null) location.setLatitude(request.getLatitude());
         if (request.getLongitude() != null) location.setLongitude(request.getLongitude());
         if (request.getVillage() != null) location.setVillage(request.getVillage());
+        if (request.getAddressText() != null) location.setAddressText(request.getAddressText());
         
         return toResponse(locationDetailsRepository.save(location));
     }
@@ -121,6 +123,7 @@ public class LocationDetailsService implements ILocationDetailsService {
         if (request.getLatitude() != null) location.setLatitude(request.getLatitude());
         if (request.getLongitude() != null) location.setLongitude(request.getLongitude());
         if (request.getVillage() != null) location.setVillage(request.getVillage());
+        if (request.getAddressText() != null) location.setAddressText(request.getAddressText());
         
         LocationDetails saved = locationDetailsRepository.save(location);
         return toResponse(saved);
@@ -152,10 +155,14 @@ public class LocationDetailsService implements ILocationDetailsService {
             if (request.getVillage() != null) {
                 location.setVillage(request.getVillage());
             }
+            if (request.getAddressText() != null) {
+                location.setAddressText(request.getAddressText());
+            }
         } else {
             if (request.getLatitude() != null) location.setLatitude(request.getLatitude());
             if (request.getLongitude() != null) location.setLongitude(request.getLongitude());
             if (request.getVillage() != null) location.setVillage(request.getVillage());
+            if (request.getAddressText() != null) location.setAddressText(request.getAddressText());
         }
         
         LocationDetails saved = locationDetailsRepository.save(location);
@@ -168,6 +175,7 @@ public class LocationDetailsService implements ILocationDetailsService {
         response.setLatitude(location.getLatitude());
         response.setLongitude(location.getLongitude());
         response.setVillage(location.getVillage());
+        response.setAddressText(location.getAddressText());
         response.setCreatedAt(location.getCreatedAt());
         response.setUpdatedAt(location.getUpdatedAt());
         return response;

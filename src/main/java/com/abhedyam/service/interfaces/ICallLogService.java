@@ -1,7 +1,9 @@
 package com.abhedyam.service.interfaces;
 
 import com.abhedyam.dto.CallLogCreateRequest;
+import com.abhedyam.dto.CallLogResponse;
 import com.abhedyam.dto.CallLogSyncRequest;
+import com.abhedyam.dto.PageResponse;
 import com.abhedyam.model.CallLog;
 
 import java.util.List;
@@ -14,7 +16,7 @@ public interface ICallLogService {
     CallLog getById(UUID id);
     List<CallLog> getAll();
     List<CallLog> getByOwnerId(UUID ownerId);
-    List<CallLog> getByCustomerId(UUID customerId);
+    PageResponse<CallLogResponse> getByCustomerId(UUID customerId, Integer page, Integer size);
     CallLog update(UUID id, CallLog callLogDetails);
     boolean isCallLogSyncEnabled();
 }

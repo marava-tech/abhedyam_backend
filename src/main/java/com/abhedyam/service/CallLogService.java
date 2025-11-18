@@ -1,13 +1,18 @@
 package com.abhedyam.service;
 
 import com.abhedyam.dto.CallLogCreateRequest;
+import com.abhedyam.dto.CallLogResponse;
 import com.abhedyam.dto.CallLogSyncRequest;
+import com.abhedyam.dto.PageResponse;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.CallLog;
 import com.abhedyam.model.Customer;
-import com.abhedyam.model.enums.CallDirection;
 import com.abhedyam.repository.CallLogRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.service.interfaces.ICallLogService;
 import com.abhedyam.service.interfaces.IOwnerSettingsService;
@@ -38,8 +43,14 @@ public class CallLogService implements ICallLogService {
             return null;
         }
         
-        if (callLog.getDirection() != CallDirection.OUTBOUND) {
-            log.debug("Only outbound calls are logged. Skipping inbound call.");
+        String key = callLog.getKey();
+        if (key == null || key.trim().isEmpty()) {
+            key = generateKey(callLog.getStartTime(), callLog.getOwnerId());
+            callLog.setKey(key);
+        }
+        
+        if (callLogRepository.existsByKey(key)) {
+            log.debug("Call log with key {} already exists. Skipping duplicate.", key);
             return null;
         }
         
@@ -54,11 +65,6 @@ public class CallLogService implements ICallLogService {
             return null;
         }
         
-        if (request.getDirection() != CallDirection.OUTBOUND) {
-            log.debug("Only outbound calls are logged. Skipping inbound call.");
-            return null;
-        }
-        
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
         Customer customer = customerRepository.findById(request.getCustomerId())
@@ -66,6 +72,16 @@ public class CallLogService implements ICallLogService {
         
         if (customer.getOwnerId() != null && !customer.getOwnerId().equals(ownerId)) {
             throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer");
+        }
+        
+        String key = request.getKey();
+        if (key == null || key.trim().isEmpty()) {
+            key = generateKey(request.getStartTime(), ownerId);
+        }
+        
+        if (callLogRepository.existsByKey(key)) {
+            log.debug("Call log with key {} already exists. Skipping duplicate.", key);
+            return null;
         }
         
         CallLog callLog = new CallLog();
@@ -76,6 +92,7 @@ public class CallLogService implements ICallLogService {
         callLog.setEndTime(request.getEndTime());
         callLog.setDurationSeconds(request.getDurationSeconds());
         callLog.setPhone(request.getPhone());
+        callLog.setKey(key);
         
         return callLogRepository.save(callLog);
     }
@@ -92,16 +109,21 @@ public class CallLogService implements ICallLogService {
         List<CallLog> savedLogs = new ArrayList<>();
         
         for (CallLogCreateRequest logRequest : request.getCallLogs()) {
-            if (logRequest.getDirection() != CallDirection.OUTBOUND) {
-                log.debug("Only outbound calls are logged. Skipping inbound call.");
-                continue;
-            }
-            
             Customer customer = customerRepository.findById(logRequest.getCustomerId())
                     .orElse(null);
             
             if (customer == null || (customer.getOwnerId() != null && !customer.getOwnerId().equals(ownerId))) {
                 log.warn("Customer not found or unauthorized for call log: {}", logRequest.getCustomerId());
+                continue;
+            }
+            
+            String key = logRequest.getKey();
+            if (key == null || key.trim().isEmpty()) {
+                key = generateKey(logRequest.getStartTime(), ownerId);
+            }
+            
+            if (callLogRepository.existsByKey(key)) {
+                log.debug("Call log with key {} already exists. Skipping duplicate.", key);
                 continue;
             }
             
@@ -113,6 +135,7 @@ public class CallLogService implements ICallLogService {
             callLog.setEndTime(logRequest.getEndTime());
             callLog.setDurationSeconds(logRequest.getDurationSeconds());
             callLog.setPhone(logRequest.getPhone());
+            callLog.setKey(key);
             
             savedLogs.add(callLogRepository.save(callLog));
         }
@@ -149,7 +172,8 @@ public class CallLogService implements ICallLogService {
     }
     
     @Override
-    public List<CallLog> getByCustomerId(UUID customerId) {
+    @Transactional(readOnly = true)
+    public PageResponse<CallLogResponse> getByCustomerId(UUID customerId, Integer page, Integer size) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
         Customer customer = customerRepository.findById(customerId)
@@ -159,10 +183,31 @@ public class CallLogService implements ICallLogService {
             throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer's call logs");
         }
         
-        return callLogRepository.findByCustomerId(customerId).stream()
-            .filter(log -> log.getOwnerId().equals(ownerId))
-            .filter(log -> log.getIsActive() != null && log.getIsActive())
+        if (page == null || page < 0) {
+            page = 0;
+        }
+        if (size == null || size < 1) {
+            size = 10;
+        }
+        
+        Sort sort = Sort.by(Sort.Direction.DESC, "startTime");
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<CallLog> callLogPage = callLogRepository.findByCustomerIdAndOwnerId(customerId, ownerId, pageable);
+        
+        List<CallLogResponse> responses = callLogPage.getContent().stream()
+            .map(CallLogResponse::fromEntity)
             .toList();
+        
+        return new PageResponse<>(
+            responses,
+            callLogPage.getNumber(),
+            callLogPage.getSize(),
+            callLogPage.getTotalElements(),
+            callLogPage.getTotalPages(),
+            callLogPage.hasNext(),
+            callLogPage.hasPrevious()
+        );
     }
     
     @Override
@@ -182,6 +227,10 @@ public class CallLogService implements ICallLogService {
             log.warn("Could not check call log sync setting, defaulting to disabled", e);
             return false;
         }
+    }
+    
+    private String generateKey(Instant timestamp, UUID ownerId) {
+        return timestamp.toEpochMilli() + "_" + ownerId.toString();
     }
 }
 

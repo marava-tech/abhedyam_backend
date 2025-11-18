@@ -29,5 +29,16 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
            "AND LOWER(c.name) LIKE LOWER(CONCAT('%', :name, '%'))")
     List<Customer> findByNameContainingIgnoreCaseAndOwnerId(@Param("name") String name, 
                                                               @Param("ownerId") UUID ownerId);
+    
+    @Query("SELECT DISTINCT c FROM Customer c " +
+           "LEFT JOIN LocationDetails ld ON ld.userId = c.id " +
+           "WHERE c.ownerId = :ownerId " +
+           "AND (:searchText IS NULL OR " +
+           "     LOWER(c.name) LIKE LOWER(CONCAT('%', :searchText, '%')) OR " +
+           "     (ld.village IS NOT NULL AND LOWER(ld.village) LIKE LOWER(CONCAT('%', :searchText, '%'))) OR " +
+           "     (:isNumeric = true AND c.phone LIKE CONCAT('%', :searchText, '%')))")
+    List<Customer> filterCustomers(@Param("ownerId") UUID ownerId,
+                                   @Param("searchText") String searchText,
+                                   @Param("isNumeric") boolean isNumeric);
 }
 

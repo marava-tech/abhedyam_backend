@@ -56,6 +56,11 @@ public class CustomerController {
         return ApiResponse.success(customerService.getMyCustomersWithVillage());
     }
     
+    @GetMapping("/filter")
+    public ApiResponse<List<CustomerResponse>> filterCustomers(@RequestParam(value = "searchText", required = false) String searchText) {
+        return ApiResponse.success(customerService.filterCustomers(searchText));
+    }
+    
     @PatchMapping("/me")
     public ApiResponse<Customer> updateCustomer(@Valid @RequestBody CustomerUpdateRequest request) {
         return ApiResponse.success(customerService.updateCustomer(request));

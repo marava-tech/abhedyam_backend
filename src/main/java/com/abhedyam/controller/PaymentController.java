@@ -37,6 +37,11 @@ public class PaymentController {
         return ApiResponse.success(paymentService.getMyPayments());
     }
     
+    @GetMapping("/filter")
+    public ApiResponse<List<PaymentResponse>> filterPayments(@RequestParam(value = "searchText", required = false) String searchText) {
+        return ApiResponse.success(paymentService.filterPayments(searchText));
+    }
+    
     @GetMapping("/customer/{customerId}")
     public ApiResponse<List<Payment>> getByCustomerId(@PathVariable UUID customerId) {
         return ApiResponse.success(paymentService.getByCustomerId(customerId));

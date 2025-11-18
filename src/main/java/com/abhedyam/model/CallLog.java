@@ -39,5 +39,8 @@ public class CallLog extends BaseEntity {
     
     @Column(nullable = false)
     private String phone;
+    
+    @Column(name = "`key`", nullable = false, unique = true, length = 100)
+    private String key;
 }
 

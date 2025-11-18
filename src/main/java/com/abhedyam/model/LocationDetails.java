@@ -27,5 +27,8 @@ public class LocationDetails extends BaseEntity {
     
     @Column
     private String village;
+    
+    @Column(columnDefinition = "TEXT")
+    private String addressText;
 }
 

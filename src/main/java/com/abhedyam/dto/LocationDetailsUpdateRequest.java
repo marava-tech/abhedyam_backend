@@ -16,5 +16,8 @@ public class LocationDetailsUpdateRequest {
     
     @Schema(description = "Village name", example = "Koramangala")
     private String village;
+    
+    @Schema(description = "Full address text", example = "123 Main Street, Koramangala, Bangalore 560095")
+    private String addressText;
 }
 

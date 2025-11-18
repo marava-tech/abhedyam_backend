@@ -4,6 +4,7 @@ import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.CallLogCreateRequest;
 import com.abhedyam.dto.CallLogResponse;
 import com.abhedyam.dto.CallLogSyncRequest;
+import com.abhedyam.dto.PageResponse;
 import com.abhedyam.model.CallLog;
 import com.abhedyam.service.interfaces.ICallLogService;
 import com.abhedyam.util.SecurityUtil;
@@ -61,12 +62,11 @@ public class CallLogController {
     }
     
     @GetMapping("/customer/{customerId}")
-    public ApiResponse<List<CallLogResponse>> getByCustomerId(@PathVariable UUID customerId) {
-        List<CallLog> callLogs = callLogService.getByCustomerId(customerId);
-        List<CallLogResponse> responses = callLogs.stream()
-            .map(CallLogResponse::fromEntity)
-            .collect(Collectors.toList());
-        return ApiResponse.success(responses);
+    public ApiResponse<PageResponse<CallLogResponse>> getByCustomerId(
+            @PathVariable UUID customerId,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "10") Integer size) {
+        return ApiResponse.success(callLogService.getByCustomerId(customerId, page, size));
     }
 }
 
