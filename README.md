@@ -131,7 +131,7 @@ Email is the **primary notification method** for OTP and reminders. SMS is used 
 ### JWT Configuration
 
 - **Secret**: Configure via `JWT_SECRET` environment variable
-- **Expiration**: 24 hours (86400000 ms)
+- **Expiration**: 15 days (1296000000 ms)
 
 ---
 

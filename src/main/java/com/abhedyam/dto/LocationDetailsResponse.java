@@ -22,6 +22,9 @@ public class LocationDetailsResponse {
     @Schema(description = "Village name", example = "Koramangala")
     private String village;
     
+    @Schema(description = "Full address text", example = "123 Main Street, Koramangala, Bangalore 560095")
+    private String addressText;
+    
     @Schema(description = "Creation timestamp (read-only, system-generated)", example = "2025-11-15T10:51:15.325Z", accessMode = Schema.AccessMode.READ_ONLY)
     private Instant createdAt;
     

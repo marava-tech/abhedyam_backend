@@ -70,7 +70,7 @@ management:
 app:
   jwt:
     secret: ${JWT_SECRET:REDACTED_JWT_SECRET}
-    expiration: ${JWT_EXPIRATION:86400000}
+    expiration: ${JWT_EXPIRATION:1296000000}
   twofactor:
     api-key: ${TWO_FACTOR_API_KEY:3f77c89e-c18d-11f0-a6b2-0200cd936042}
     otp-template: ${TWO_FACTOR_OTP_TEMPLATE:Abhedyam_OTP_Template}

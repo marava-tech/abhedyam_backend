@@ -182,6 +182,72 @@ public class PaymentService implements IPaymentService {
     
     @Override
     @Transactional(readOnly = true)
+    public List<PaymentResponse> filterPayments(String searchText) {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        boolean isNumeric = false;
+        BigDecimal amount = null;
+        
+        if (searchText != null && !searchText.trim().isEmpty()) {
+            try {
+                amount = new BigDecimal(searchText.trim());
+                isNumeric = true;
+            } catch (NumberFormatException e) {
+                isNumeric = false;
+            }
+        }
+        
+        List<Payment> payments = paymentRepository.filterPayments(
+            ownerId,
+            searchText != null && !searchText.trim().isEmpty() ? searchText.trim() : null,
+            isNumeric,
+            amount
+        );
+        
+        return payments.stream()
+                .sorted((p1, p2) -> {
+                    if (p1.getCreatedAt() == null && p2.getCreatedAt() == null) return 0;
+                    if (p1.getCreatedAt() == null) return 1;
+                    if (p2.getCreatedAt() == null) return -1;
+                    return p2.getCreatedAt().compareTo(p1.getCreatedAt());
+                })
+                .limit(15)
+                .map(payment -> {
+                    Customer customer = customerRepository.findById(payment.getCustomerId())
+                            .orElse(null);
+                    String customerName = customer != null ? customer.getName() : "Unknown";
+                    
+                    String productName = "Unknown";
+                    if (payment.getSaleItemId() != null) {
+                        SaleItem saleItem = saleItemRepository.findById(payment.getSaleItemId()).orElse(null);
+                        if (saleItem != null) {
+                            Product product = productRepository.findById(saleItem.getProductId()).orElse(null);
+                            if (product != null) {
+                                productName = product.getName();
+                            }
+                        }
+                    }
+                    
+                    return new PaymentResponse(
+                            payment.getId(),
+                            payment.getCustomerId(),
+                            customerName,
+                            payment.getOwnerId(),
+                            payment.getSaleItemId(),
+                            productName,
+                            payment.getAmount(),
+                            payment.getMedium(),
+                            payment.getTimestamp(),
+                            payment.getReference(),
+                            payment.getStatus(),
+                            payment.getCreatedAt(),
+                            payment.getUpdatedAt()
+                    );
+                })
+                .toList();
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
     public List<Payment> getByCustomerId(UUID customerId) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         List<Payment> payments = paymentRepository.findByCustomerId(customerId);

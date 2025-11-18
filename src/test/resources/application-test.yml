@@ -21,5 +21,5 @@ spring:
 app:
   jwt:
     secret: test-secret-key-for-jwt-token-generation-in-tests
-    expiration: 86400000
+    expiration: 1296000000
 

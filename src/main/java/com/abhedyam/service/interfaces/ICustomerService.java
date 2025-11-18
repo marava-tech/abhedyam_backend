@@ -17,6 +17,7 @@ public interface ICustomerService {
     Customer getById(UUID id);
     List<Customer> getByOwnerId(UUID ownerId);
     List<CustomerResponse> getMyCustomersWithVillage();
+    List<CustomerResponse> filterCustomers(String searchText);
     PageResponse<Customer> searchCustomers(CustomerSearchRequest request);
     List<CustomerSearchResult> searchByName(String name);
     CustomerProfileSummary getCustomerProfileSummary(UUID customerId);

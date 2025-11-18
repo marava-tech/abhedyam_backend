@@ -122,6 +122,40 @@ public class CustomerService implements ICustomerService {
     
     @Override
     @Transactional(readOnly = true)
+    public List<CustomerResponse> filterCustomers(String searchText) {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        boolean isNumeric = false;
+        
+        if (searchText != null && !searchText.trim().isEmpty()) {
+            try {
+                Long.parseLong(searchText.trim());
+                isNumeric = true;
+            } catch (NumberFormatException e) {
+                isNumeric = false;
+            }
+        }
+        
+        List<Customer> customers = customerRepository.filterCustomers(
+            ownerId,
+            searchText != null && !searchText.trim().isEmpty() ? searchText.trim() : null,
+            isNumeric
+        );
+        
+        return customers.stream()
+            .limit(15)
+            .map(customer -> {
+                String village = null;
+                LocationDetails location = locationDetailsRepository.findByUserId(customer.getId()).orElse(null);
+                if (location != null) {
+                    village = location.getVillage();
+                }
+                return CustomerResponse.fromEntity(customer, village);
+            })
+            .toList();
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
     public PageResponse<Customer> searchCustomers(CustomerSearchRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
