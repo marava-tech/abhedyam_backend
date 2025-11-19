@@ -1,6 +1,7 @@
 package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
+import com.abhedyam.dto.PageResponse;
 import com.abhedyam.dto.PaymentCreateRequest;
 import com.abhedyam.dto.PaymentResponse;
 import com.abhedyam.dto.PaymentStatusUpdateRequest;
@@ -33,8 +34,10 @@ public class PaymentController {
     }
     
     @GetMapping("/my-payments")
-    public ApiResponse<List<PaymentResponse>> getMyPayments() {
-        return ApiResponse.success(paymentService.getMyPayments());
+    public ApiResponse<PageResponse<PaymentResponse>> getMyPayments(
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "10") Integer size) {
+        return ApiResponse.success(paymentService.getMyPayments(page, size));
     }
     
     @GetMapping("/filter")

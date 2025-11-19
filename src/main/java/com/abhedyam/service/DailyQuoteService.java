@@ -12,7 +12,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
@@ -26,7 +28,8 @@ public class DailyQuoteService implements IDailyQuoteService {
     private final DailyQuoteRepository dailyQuoteRepository;
     private final RedisTemplate<String, String> redisTemplate;
     
-    private static final String TODAY_QUOTE_KEY = "daily-quote:today";
+    private static final String QUOTE_KEY_PREFIX = "daily-quote:";
+    private static final ZoneId IST_ZONE = ZoneId.of("Asia/Kolkata");
     
     @Override
     @Transactional
@@ -53,48 +56,69 @@ public class DailyQuoteService implements IDailyQuoteService {
     @Override
     @Transactional
     public DailyQuote getTodaysQuote() {
-        String cachedQuoteId = redisTemplate.opsForValue().get(TODAY_QUOTE_KEY);
+        LocalDate today = LocalDate.now(IST_ZONE);
+        String todayKey = QUOTE_KEY_PREFIX + today.toString();
         
-        if (cachedQuoteId != null) {
+        String cachedQuoteData = redisTemplate.opsForValue().get(todayKey);
+        
+        if (cachedQuoteData != null) {
             try {
-                UUID quoteId = UUID.fromString(cachedQuoteId);
-                DailyQuote quote = dailyQuoteRepository.findById(quoteId)
-                    .orElse(null);
-                
-                if (quote != null && quote.getIsActive()) {
-                    quote.setLastUsedAt(Instant.now());
-                    dailyQuoteRepository.save(quote);
-                    log.info("Returning cached today's quote: {}", quoteId);
-                    return quote;
+                String[] parts = cachedQuoteData.split("\\|", 2);
+                if (parts.length == 2) {
+                    UUID quoteId = UUID.fromString(parts[0]);
+                    String quoteText = parts[1];
+                    
+                    DailyQuote cachedQuote = new DailyQuote();
+                    cachedQuote.setId(quoteId);
+                    cachedQuote.setText(quoteText);
+                    cachedQuote.setIsActive(true);
+                    cachedQuote.setCreatedAt(Instant.now());
+                    cachedQuote.setUpdatedAt(Instant.now());
+                    
+                    log.info("Returning cached today's quote for {}: {} (no DB call)", today, quoteId);
+                    return cachedQuote;
                 }
             } catch (Exception e) {
-                log.warn("Error retrieving cached quote, selecting new one", e);
+                log.warn("Error parsing cached quote data, selecting new one", e);
             }
         }
         
-        List<DailyQuote> activeQuotes = dailyQuoteRepository.findActiveQuotesOrderByLastUsedAsc();
+        List<DailyQuote> unusedQuotes = dailyQuoteRepository.findUnusedActiveQuotes();
+        DailyQuote selectedQuote;
         
-        if (activeQuotes.isEmpty()) {
-            throw new ResourceNotFoundException("No active quotes available");
+        if (!unusedQuotes.isEmpty()) {
+            selectedQuote = unusedQuotes.get(0);
+            log.info("Selected unused quote for {}: {} (ID: {})", 
+                today,
+                selectedQuote.getText().substring(0, Math.min(50, selectedQuote.getText().length())), 
+                selectedQuote.getId());
+        } else {
+            List<DailyQuote> usedQuotes = dailyQuoteRepository.findUsedActiveQuotesOrderByLastUsedDesc();
+            if (usedQuotes.isEmpty()) {
+                throw new ResourceNotFoundException("No active quotes available");
+            }
+            selectedQuote = usedQuotes.get(0);
+            log.info("Selected most recently used quote for {}: {} (ID: {})", 
+                today,
+                selectedQuote.getText().substring(0, Math.min(50, selectedQuote.getText().length())), 
+                selectedQuote.getId());
         }
-        
-        DailyQuote selectedQuote = activeQuotes.get(0);
         selectedQuote.setLastUsedAt(Instant.now());
         DailyQuote savedQuote = dailyQuoteRepository.save(selectedQuote);
         
-        long secondsUntilMidnight = getSecondsUntilMidnight();
-        redisTemplate.opsForValue().set(TODAY_QUOTE_KEY, savedQuote.getId().toString(), 
+        long secondsUntilMidnight = getSecondsUntilMidnightIST();
+        String cacheValue = savedQuote.getId().toString() + "|" + savedQuote.getText();
+        redisTemplate.opsForValue().set(todayKey, cacheValue, 
             secondsUntilMidnight, TimeUnit.SECONDS);
         
-        log.info("Selected new quote for today: {} (ID: {})", 
-            savedQuote.getText().substring(0, Math.min(50, savedQuote.getText().length())), 
-            savedQuote.getId());
+        log.info("Cached quote text in Redis with key: {} (TTL: {} seconds, expires at midnight IST)", 
+            todayKey, secondsUntilMidnight);
         
         return savedQuote;
     }
     
-    private long getSecondsUntilMidnight() {
-        LocalDateTime now = LocalDateTime.now();
+    private long getSecondsUntilMidnightIST() {
+        LocalDateTime now = LocalDateTime.now(IST_ZONE);
         LocalDateTime midnight = now.toLocalDate().plusDays(1).atStartOfDay();
         return ChronoUnit.SECONDS.between(now, midnight);
     }

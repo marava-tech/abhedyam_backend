@@ -52,8 +52,10 @@ public class CustomerController {
     }
     
     @GetMapping("/my-customers")
-    public ApiResponse<List<CustomerResponse>> getMyCustomers() {
-        return ApiResponse.success(customerService.getMyCustomersWithVillage());
+    public ApiResponse<PageResponse<CustomerResponse>> getMyCustomers(
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "10") Integer size) {
+        return ApiResponse.success(customerService.getMyCustomersWithVillage(page, size));
     }
     
     @GetMapping("/filter")

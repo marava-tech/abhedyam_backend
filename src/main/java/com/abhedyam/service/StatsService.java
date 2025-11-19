@@ -291,6 +291,14 @@ public class StatsService implements IStatsService {
             }
         }
         
+        totalStockCount = totalStockCount.setScale(1, java.math.RoundingMode.HALF_UP);
+        BigDecimal stripped = totalStockCount.stripTrailingZeros();
+        if (stripped.scale() == 0) {
+            totalStockCount = BigDecimal.valueOf(stripped.intValue());
+        } else {
+            totalStockCount = stripped;
+        }
+        
         Instant now = Instant.now();
         Instant sevenDaysAgo = now.minusSeconds(7 * 24 * 60 * 60);
         
@@ -347,13 +355,22 @@ public class StatsService implements IStatsService {
     public Page<RecentActivityResponse> getRecentActivities(Pageable pageable) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
-        List<AuditType> types = Arrays.asList(AuditType.SALE, AuditType.PRODUCT, AuditType.REMINDER, AuditType.PAYMENT);
+        List<AuditType> types = Arrays.asList(
+            AuditType.SALE, 
+            AuditType.PRODUCT, 
+            AuditType.REMINDER, 
+            AuditType.PAYMENT,
+            AuditType.STOCK
+        );
         List<AuditAction> actions = Arrays.asList(
             AuditAction.CREATE,
             AuditAction.SALE_ITEM_SOLD,
             AuditAction.PRODUCT_CREATED,
             AuditAction.REMINDER_CREATED,
-            AuditAction.UPDATE
+            AuditAction.UPDATE,
+            AuditAction.PAYMENT_RECEIVED,
+            AuditAction.PRODUCT_UPDATED,
+            AuditAction.PRODUCT_DELETED
         );
         
         Page<Audit> audits = auditRepository.findRecentActivities(ownerId, types, actions, pageable);

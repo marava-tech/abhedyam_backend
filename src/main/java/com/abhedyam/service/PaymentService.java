@@ -1,5 +1,6 @@
 package com.abhedyam.service;
 
+import com.abhedyam.dto.PageResponse;
 import com.abhedyam.dto.PaymentCreateRequest;
 import com.abhedyam.dto.PaymentResponse;
 import com.abhedyam.dto.PaymentStatusUpdateRequest;
@@ -19,6 +20,10 @@ import com.abhedyam.service.interfaces.IAuditService;
 import com.abhedyam.service.interfaces.IPaymentService;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -134,17 +139,22 @@ public class PaymentService implements IPaymentService {
     
     @Override
     @Transactional(readOnly = true)
-    public List<PaymentResponse> getMyPayments() {
+    public PageResponse<PaymentResponse> getMyPayments(Integer page, Integer size) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        List<Payment> payments = paymentRepository.findByOwnerId(ownerId);
         
-        return payments.stream()
-                .sorted((p1, p2) -> {
-                    if (p1.getCreatedAt() == null && p2.getCreatedAt() == null) return 0;
-                    if (p1.getCreatedAt() == null) return 1;
-                    if (p2.getCreatedAt() == null) return -1;
-                    return p2.getCreatedAt().compareTo(p1.getCreatedAt());
-                })
+        if (page == null || page < 0) {
+            page = 0;
+        }
+        if (size == null || size < 1) {
+            size = 10;
+        }
+        
+        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<Payment> paymentPage = paymentRepository.findByOwnerIdOrderByCreatedAtDesc(ownerId, pageable);
+        
+        List<PaymentResponse> responses = paymentPage.getContent().stream()
                 .map(payment -> {
                     Customer customer = customerRepository.findById(payment.getCustomerId())
                             .orElse(null);
@@ -178,6 +188,16 @@ public class PaymentService implements IPaymentService {
                     );
                 })
                 .toList();
+        
+        return new PageResponse<>(
+            responses,
+            paymentPage.getNumber(),
+            paymentPage.getSize(),
+            paymentPage.getTotalElements(),
+            paymentPage.getTotalPages(),
+            paymentPage.hasNext(),
+            paymentPage.hasPrevious()
+        );
     }
     
     @Override

@@ -17,10 +17,10 @@ public class SaleCreateRequest {
     @Schema(description = "Customer name (required if customerId is not provided)", example = "John Doe")
     private String customerName;
     
-    @Schema(description = "Customer phone (required if customerId is not provided)", example = "+919876543210")
+    @Schema(description = "Customer phone (optional, used only if creating new customer)", example = "+919876543210")
     private String customerPhone;
     
-    @Schema(description = "Customer village (optional, used if customerId is not provided)", example = "Koramangala")
+    @Schema(description = "Customer village (optional, used only if creating new customer)", example = "Koramangala")
     private String customerVillage;
     
     @NotEmpty(message = "At least one sale item is required")

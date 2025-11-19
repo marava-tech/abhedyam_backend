@@ -1,5 +1,6 @@
 package com.abhedyam.service.interfaces;
 
+import com.abhedyam.dto.PageResponse;
 import com.abhedyam.dto.PaymentCreateRequest;
 import com.abhedyam.dto.PaymentResponse;
 import com.abhedyam.dto.PaymentStatusUpdateRequest;
@@ -13,7 +14,7 @@ public interface IPaymentService {
     PaymentResponse createManualPayment(PaymentCreateRequest request);
     Payment getById(UUID id);
     List<Payment> getByOwnerId(UUID ownerId);
-    List<PaymentResponse> getMyPayments();
+    PageResponse<PaymentResponse> getMyPayments(Integer page, Integer size);
     List<PaymentResponse> filterPayments(String searchText);
     List<Payment> getByCustomerId(UUID customerId);
     Payment updateStatus(UUID id, PaymentStatusUpdateRequest request);

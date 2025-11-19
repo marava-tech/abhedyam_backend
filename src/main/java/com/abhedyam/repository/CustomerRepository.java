@@ -40,5 +40,7 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
     List<Customer> filterCustomers(@Param("ownerId") UUID ownerId,
                                    @Param("searchText") String searchText,
                                    @Param("isNumeric") boolean isNumeric);
+    
+    Page<Customer> findByOwnerIdOrderByCreatedAtDesc(UUID ownerId, Pageable pageable);
 }
 
