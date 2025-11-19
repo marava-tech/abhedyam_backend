@@ -5,6 +5,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -18,6 +19,8 @@ import org.apache.tomcat.util.http.fileupload.impl.FileSizeLimitExceededExceptio
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -105,6 +108,67 @@ public class GlobalExceptionHandler {
         
         log.warn("Constraint violation: {}", message);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+    
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex, WebRequest request) {
+        String correlationId = MDC.get("correlationId");
+        String path = ((ServletWebRequest) request).getRequest().getRequestURI();
+        
+        String errorMessage = ex.getMessage();
+        String userMessage = "Duplicate data detected. This record already exists.";
+        String errorCode = "DUPLICATE_DATA";
+        
+        if (errorMessage != null) {
+            if (errorMessage.contains("Duplicate entry") || errorMessage.contains("duplicate key")) {
+                Pattern pattern = Pattern.compile("Duplicate entry '([^']+)' for key '([^']+)'");
+                Matcher matcher = pattern.matcher(errorMessage);
+                if (matcher.find()) {
+                    String duplicateValue = matcher.group(1);
+                    String keyName = matcher.group(2);
+                    
+                    if (keyName.contains("email") || keyName.contains("EMAIL")) {
+                        userMessage = "This email address is already registered. Please use a different email.";
+                        errorCode = "DUPLICATE_EMAIL";
+                    } else if (keyName.contains("phone") || keyName.contains("PHONE")) {
+                        userMessage = "This phone number is already registered. Please use a different phone number.";
+                        errorCode = "DUPLICATE_PHONE";
+                    } else if (keyName.contains("firebase_uid") || keyName.contains("FIREBASE_UID")) {
+                        userMessage = "This account is already registered.";
+                        errorCode = "DUPLICATE_ACCOUNT";
+                    } else if (keyName.contains("code") || keyName.contains("CODE")) {
+                        userMessage = "This product code already exists. Please use a different code.";
+                        errorCode = "DUPLICATE_PRODUCT_CODE";
+                    } else if (keyName.contains("vpa") || keyName.contains("VPA")) {
+                        userMessage = "This UPI VPA is already registered. Please use a different VPA.";
+                        errorCode = "DUPLICATE_UPI_VPA";
+                    } else if (keyName.contains("key") || keyName.contains("KEY")) {
+                        userMessage = "This record already exists.";
+                        errorCode = "DUPLICATE_RECORD";
+                    } else {
+                        userMessage = String.format("Duplicate entry for %s: %s", keyName, duplicateValue);
+                    }
+                }
+            } else if (errorMessage.contains("unique constraint") || errorMessage.contains("UNIQUE constraint")) {
+                Pattern pattern = Pattern.compile("unique constraint.*?([a-zA-Z_]+)", Pattern.CASE_INSENSITIVE);
+                Matcher matcher = pattern.matcher(errorMessage);
+                if (matcher.find()) {
+                    String constraintName = matcher.group(1);
+                    userMessage = String.format("Duplicate data detected for %s. This value already exists.", constraintName);
+                }
+            }
+        }
+        
+        ErrorResponse error = new ErrorResponse(
+            "Duplicate Data Error",
+            userMessage,
+            errorCode,
+            correlationId,
+            path
+        );
+        
+        log.warn("Data integrity violation [{}]: {}", errorCode, errorMessage);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
     
     @ExceptionHandler({MaxUploadSizeExceededException.class, FileSizeLimitExceededException.class})

@@ -28,7 +28,7 @@ public class FirebaseService {
         }
         
         if (phoneClaim == null) {
-            throw new com.abhedyam.exception.BusinessException("MISSING_PHONE", "Phone number not found in Firebase token");
+            return null;
         }
         
         return phoneClaim.toString();
@@ -36,6 +36,34 @@ public class FirebaseService {
     
     public String getEmailFromToken(FirebaseToken token) {
         return token.getEmail();
+    }
+    
+    public String getNameFromToken(FirebaseToken token) {
+        Object nameClaim = token.getClaims().get("name");
+        if (nameClaim != null) {
+            return nameClaim.toString();
+        }
+        return null;
+    }
+    
+    public String getPictureFromToken(FirebaseToken token) {
+        Object pictureClaim = token.getClaims().get("picture");
+        if (pictureClaim != null) {
+            return pictureClaim.toString();
+        }
+        return null;
+    }
+    
+    public String getUidFromToken(FirebaseToken token) {
+        return token.getUid();
+    }
+    
+    public Boolean isEmailVerifiedFromToken(FirebaseToken token) {
+        Object emailVerified = token.getClaims().get("email_verified");
+        if (emailVerified instanceof Boolean) {
+            return (Boolean) emailVerified;
+        }
+        return false;
     }
 }
 

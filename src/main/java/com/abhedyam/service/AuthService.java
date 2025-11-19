@@ -1,21 +1,13 @@
 package com.abhedyam.service;
 
 import com.abhedyam.dto.AuthResponse;
-import com.abhedyam.dto.FirebaseLoginRequest;
-import com.abhedyam.dto.OtpVerifyRequest;
-import com.abhedyam.model.Customer;
-import com.abhedyam.model.Owner;
+import com.abhedyam.dto.GoogleLoginRequest;
+import com.abhedyam.service.GoogleOAuthService.GoogleUserInfo;
 import com.abhedyam.model.User;
 import com.abhedyam.model.enums.UserType;
-import com.abhedyam.repository.CustomerRepository;
-import com.abhedyam.repository.OwnerRepository;
 import com.abhedyam.repository.UserRepository;
-import com.abhedyam.service.interfaces.IAuthService;
-import com.abhedyam.service.interfaces.IOtpService;
 import com.abhedyam.util.EmailUtil;
 import com.abhedyam.util.JwtUtil;
-import com.abhedyam.util.PhoneUtil;
-import com.google.firebase.auth.FirebaseToken;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,164 +18,73 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class AuthService implements IAuthService {
+public class AuthService {
     
-    private final IOtpService otpService;
-    private final FirebaseService firebaseService;
+    private final GoogleOAuthService googleOAuthService;
     private final UserRepository userRepository;
-    private final OwnerRepository ownerRepository;
-    private final CustomerRepository customerRepository;
     private final JwtUtil jwtUtil;
     
-    @Override
-    public void sendOtp(String identifier) {
-        if (!EmailUtil.isEmail(identifier)) {
-            throw new com.abhedyam.exception.BusinessException("INVALID_EMAIL", "OTP can only be sent to email addresses");
-        }
-        otpService.sendOtp(identifier);
-    }
-    
-    @Override
     @Transactional
-    public AuthResponse login(OtpVerifyRequest request) {
-        String email = request.getEmail();
+    public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
+        GoogleUserInfo googleUser = googleOAuthService.verifyToken(request.getIdToken());
         
-        if (!EmailUtil.isEmail(email)) {
-            throw new com.abhedyam.exception.BusinessException("INVALID_EMAIL", "Invalid email format");
-        }
-        
-        String normalizedEmail = EmailUtil.normalizeEmail(email);
+        String normalizedEmail = EmailUtil.normalizeEmail(googleUser.getEmail());
         if (!EmailUtil.isValidEmail(normalizedEmail)) {
-            throw new com.abhedyam.exception.BusinessException("INVALID_EMAIL", "Invalid email format");
+            throw new com.abhedyam.exception.BusinessException("INVALID_EMAIL", 
+                "Invalid email format from Google");
         }
         
-        if (!otpService.verifyOtp(normalizedEmail, request.getOtp())) {
-            throw new com.abhedyam.exception.BusinessException("INVALID_OTP", "Invalid or expired OTP. Please request a new OTP.");
-        }
-        
-        Optional<User> existingUser = userRepository.findByEmail(normalizedEmail);
-        boolean isNewUser = existingUser.isEmpty();
+        Optional<User> existingUserByUid = userRepository.findByFirebaseUid(googleUser.getFirebaseUid());
+        Optional<User> existingUserByEmail = userRepository.findByEmail(normalizedEmail);
         
         User user;
-        if (isNewUser) {
-            user = createNewUserWithEmail(normalizedEmail);
-            log.info("New user created with email: {}", normalizedEmail);
+        boolean isNewUser;
+        
+        if (existingUserByUid.isPresent()) {
+            user = existingUserByUid.get();
+            isNewUser = false;
+            if (user.getType() != UserType.BUSINESS) {
+                throw new com.abhedyam.exception.BusinessException("INVALID_USER_TYPE", 
+                    "Google login is only available for business owners");
+            }
+            log.info("Owner logged in with Firebase UID: {}", googleUser.getFirebaseUid());
+        } else if (existingUserByEmail.isPresent()) {
+            user = existingUserByEmail.get();
+            isNewUser = false;
+            if (user.getType() != UserType.BUSINESS) {
+                throw new com.abhedyam.exception.BusinessException("INVALID_USER_TYPE", 
+                    "Google login is only available for business owners");
+            }
+            user.setFirebaseUid(googleUser.getFirebaseUid());
+            log.info("Owner logged in with email, linked Firebase UID: {}", googleUser.getFirebaseUid());
         } else {
-            user = existingUser.get();
-            log.info("User logged in with email: {}", normalizedEmail);
+            throw new com.abhedyam.exception.BusinessException("OWNER_NOT_FOUND", 
+                "Owner account not found. Please contact support to create an account.");
         }
+        
+        if (googleUser.getName() != null && !googleUser.getName().trim().isEmpty() && 
+            (user.getName() == null || user.getName().trim().isEmpty() || user.getName().equals("User"))) {
+            user.setName(googleUser.getName());
+        }
+        if (googleUser.getPicture() != null && !googleUser.getPicture().trim().isEmpty() && 
+            (user.getImageUrl() == null || user.getImageUrl().trim().isEmpty())) {
+            user.setImageUrl(googleUser.getPicture());
+        }
+        if (user.getFirebaseUid() == null || !user.getFirebaseUid().equals(googleUser.getFirebaseUid())) {
+            user.setFirebaseUid(googleUser.getFirebaseUid());
+        }
+        userRepository.save(user);
         
         String phoneForToken = user.getPhoneNormalized() != null ? user.getPhoneNormalized() : normalizedEmail;
         String token = jwtUtil.generateToken(user.getId(), phoneForToken);
         
-        UserType userType = UserType.BUSINESS;
-        
         return new AuthResponse(
             token,
             user.getId().toString(),
             phoneForToken,
             user.getName(),
             isNewUser,
-            userType
+            UserType.BUSINESS
         );
-    }
-    
-    @Transactional
-    public AuthResponse loginWithFirebase(FirebaseLoginRequest request) {
-        String normalizedPhone = PhoneUtil.normalizePhone(request.getPhone());
-        if (!PhoneUtil.isValidPhone(normalizedPhone)) {
-            throw new com.abhedyam.exception.BusinessException("INVALID_PHONE", "Invalid phone number format");
-        }
-        
-        if (request.getFirebaseToken() != null && !request.getFirebaseToken().trim().isEmpty()) {
-            FirebaseToken firebaseToken = firebaseService.verifyIdToken(request.getFirebaseToken());
-            String tokenPhone = firebaseService.getPhoneNumberFromToken(firebaseToken);
-            String normalizedTokenPhone = PhoneUtil.normalizePhone(tokenPhone);
-            
-            if (!normalizedPhone.equals(normalizedTokenPhone)) {
-                throw new com.abhedyam.exception.BusinessException("PHONE_MISMATCH", "Phone number in request does not match Firebase token");
-            }
-            log.info("Firebase token validated for phone: {}", normalizedPhone);
-        } else {
-            log.warn("Firebase token validation skipped for testing - phone: {}", normalizedPhone);
-        }
-        
-        Optional<Customer> existingCustomer = customerRepository.findByPhoneNormalized(normalizedPhone);
-        Optional<User> existingUser = userRepository.findByPhoneNormalized(normalizedPhone);
-        
-        UserType userType;
-        boolean isNewUser;
-        User user;
-        
-        if (existingCustomer.isPresent()) {
-            user = existingCustomer.get();
-            userType = UserType.CUSTOMER;
-            isNewUser = false;
-            log.info("Customer logged in with phone: {}", normalizedPhone);
-        } else if (existingUser.isPresent()) {
-            user = existingUser.get();
-            userType = UserType.BUSINESS;
-            isNewUser = false;
-            if (request.getEmail() != null && !request.getEmail().trim().isEmpty() && user.getEmail() == null) {
-                user.setEmail(EmailUtil.normalizeEmail(request.getEmail()));
-                userRepository.save(user);
-            }
-            log.info("Business user logged in with phone: {}", normalizedPhone);
-        } else {
-            user = createNewUserWithFirebase(normalizedPhone, request.getName(), request.getEmail());
-            userType = UserType.BUSINESS;
-            isNewUser = true;
-            log.info("New business user created with phone: {}", normalizedPhone);
-        }
-        
-        String phoneForToken = user.getPhoneNormalized() != null ? user.getPhoneNormalized() : normalizedPhone;
-        String token = jwtUtil.generateToken(user.getId(), phoneForToken);
-        
-        return new AuthResponse(
-            token,
-            user.getId().toString(),
-            phoneForToken,
-            user.getName(),
-            isNewUser,
-            userType
-        );
-    }
-    
-    private User createNewUserWithEmail(String normalizedEmail) {
-        Owner owner = new Owner();
-        owner.setName("User");
-        owner.setType(UserType.BUSINESS);
-        owner.setBusinessName("My Business");
-        owner.setSubscription(com.abhedyam.model.enums.Subscription.GO);
-        owner.setIsVerified(false);
-        owner.setEmail(normalizedEmail);
-        
-        Owner savedOwner = ownerRepository.save(owner);
-        log.info("Created new user and owner with email, ID: {}", savedOwner.getId());
-        return savedOwner;
-    }
-    
-    private User createNewUserWithFirebase(String normalizedPhone, String name, String email) {
-        Owner owner = new Owner();
-        owner.setName(name != null && !name.trim().isEmpty() ? name : "User");
-        owner.setType(UserType.BUSINESS);
-        owner.setBusinessName("My Business");
-        owner.setSubscription(com.abhedyam.model.enums.Subscription.GO);
-        owner.setIsVerified(false);
-        
-        owner.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
-        owner.setPhoneNormalized(normalizedPhone);
-        
-        if (email != null && !email.trim().isEmpty()) {
-            String normalizedEmail = EmailUtil.normalizeEmail(email);
-            if (EmailUtil.isValidEmail(normalizedEmail)) {
-                owner.setEmail(normalizedEmail);
-            }
-        }
-        
-        Owner savedOwner = ownerRepository.save(owner);
-        log.info("Created new user and owner with Firebase, ID: {}", savedOwner.getId());
-        return savedOwner;
     }
 }
-
