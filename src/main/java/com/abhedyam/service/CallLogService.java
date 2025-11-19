@@ -14,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import com.abhedyam.repository.CustomerRepository;
+import com.abhedyam.service.interfaces.IAuditService;
 import com.abhedyam.service.interfaces.ICallLogService;
 import com.abhedyam.service.interfaces.IOwnerSettingsService;
 import com.abhedyam.util.SecurityUtil;
@@ -35,6 +36,7 @@ public class CallLogService implements ICallLogService {
     private final CallLogRepository callLogRepository;
     private final CustomerRepository customerRepository;
     private final IOwnerSettingsService ownerSettingsService;
+    private final IAuditService auditService;
     
     @Override
     public CallLog create(CallLog callLog) {
@@ -141,6 +143,20 @@ public class CallLogService implements ICallLogService {
         }
         
         log.info("Synced {} call logs for owner {}", savedLogs.size(), ownerId);
+        
+        try {
+            auditService.logFinancialOperation(
+                com.abhedyam.model.enums.AuditType.NOTE,
+                com.abhedyam.model.enums.AuditAction.CREATE,
+                null,
+                ownerId,
+                java.math.BigDecimal.valueOf(savedLogs.size()),
+                String.format("Call logs synced: %d call log(s) imported", savedLogs.size())
+            );
+        } catch (Exception e) {
+            log.warn("Audit logging failed for call log sync: {}", e.getMessage());
+        }
+        
         return savedLogs;
     }
     

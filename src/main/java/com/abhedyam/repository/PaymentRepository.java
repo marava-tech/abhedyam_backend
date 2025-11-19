@@ -1,6 +1,8 @@
 package com.abhedyam.repository;
 
 import com.abhedyam.model.Payment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +15,7 @@ import java.util.UUID;
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     List<Payment> findByOwnerId(UUID ownerId);
+    Page<Payment> findByOwnerIdOrderByCreatedAtDesc(UUID ownerId, Pageable pageable);
     List<Payment> findByCustomerId(UUID customerId);
     long countBySaleItemId(UUID saleItemId);
     

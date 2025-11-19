@@ -2,12 +2,12 @@ package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.StockAdjustmentRequest;
-import com.abhedyam.model.InventoryLedger;
+import com.abhedyam.dto.StockUpdateRequest;
 import com.abhedyam.model.Product;
 import com.abhedyam.service.interfaces.IStockService;
+import com.abhedyam.util.StockFormatUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -22,37 +22,40 @@ public class StockController {
     private final IStockService stockService;
     
     @PostMapping("/purchase-in")
-    public ApiResponse<InventoryLedger> recordPurchaseIn(
+    public ApiResponse<Void> recordPurchaseIn(
             @RequestParam UUID productId,
             @RequestParam BigDecimal quantity,
             @RequestParam(required = false) String note) {
-        return ApiResponse.success(stockService.recordPurchaseIn(productId, quantity, note));
+        stockService.recordPurchaseIn(productId, quantity, note);
+        return ApiResponse.success(null);
     }
     
     @PostMapping("/sale-out")
-    public ApiResponse<InventoryLedger> recordSaleOut(
+    public ApiResponse<Void> recordSaleOut(
             @RequestParam UUID productId,
             @RequestParam BigDecimal quantity,
             @RequestParam(required = false) UUID saleItemId,
             @RequestParam(required = false) String note) {
-        return ApiResponse.success(stockService.recordSaleOut(productId, quantity, saleItemId, note));
+        stockService.recordSaleOut(productId, quantity, saleItemId, note);
+        return ApiResponse.success(null);
     }
     
     @PostMapping("/adjust")
-    public ApiResponse<InventoryLedger> adjustStock(@Valid @RequestBody StockAdjustmentRequest request) {
-        return ApiResponse.success(stockService.recordManualAdjustment(request));
+    public ApiResponse<Void> adjustStock(@Valid @RequestBody StockAdjustmentRequest request) {
+        stockService.recordManualAdjustment(request);
+        return ApiResponse.success(null);
+    }
+    
+    @PutMapping("/update")
+    public ApiResponse<Void> updateStock(@Valid @RequestBody StockUpdateRequest request) {
+        stockService.updateStock(request);
+        return ApiResponse.success(null);
     }
     
     @GetMapping("/{productId}/current")
-    public ApiResponse<BigDecimal> getCurrentStock(@PathVariable UUID productId) {
-        return ApiResponse.success(stockService.getCurrentStock(productId));
-    }
-    
-    @PostMapping("/{productId}/sync")
-    @ResponseStatus(HttpStatus.OK)
-    public ApiResponse<Void> syncStockFromLedger(@PathVariable UUID productId) {
-        stockService.syncStockFromLedger(productId);
-        return ApiResponse.success(null);
+    public ApiResponse<Number> getCurrentStock(@PathVariable UUID productId) {
+        BigDecimal stock = stockService.getCurrentStock(productId);
+        return ApiResponse.success(StockFormatUtil.formatStock(stock));
     }
     
     @GetMapping("/low-stock")

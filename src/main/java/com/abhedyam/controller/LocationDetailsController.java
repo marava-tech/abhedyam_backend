@@ -1,6 +1,8 @@
 package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
+import com.abhedyam.dto.CustomerLocationRequest;
+import com.abhedyam.dto.CustomerLocationResponse;
 import com.abhedyam.dto.LocationDetailsCreateRequest;
 import com.abhedyam.dto.LocationDetailsResponse;
 import com.abhedyam.dto.LocationDetailsUpdateRequest;
@@ -57,6 +59,11 @@ public class LocationDetailsController {
     @GetMapping("/search-villages")
     public ApiResponse<List<VillageSearchResult>> searchVillages(@RequestParam("name") String name) {
         return ApiResponse.success(locationDetailsService.searchVillagesByName(name));
+    }
+    
+    @PostMapping("/customers/locations")
+    public ApiResponse<List<CustomerLocationResponse>> getCustomerLocations(@Valid @RequestBody CustomerLocationRequest request) {
+        return ApiResponse.success(locationDetailsService.getCustomerLocations(request));
     }
 }
 

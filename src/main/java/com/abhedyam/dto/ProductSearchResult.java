@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Data
@@ -17,5 +18,8 @@ public class ProductSearchResult {
     
     @Schema(description = "Product name", example = "Sample Product")
     private String name;
+    
+    @Schema(description = "Product price/amount", example = "1000.00")
+    private BigDecimal amount;
 }
 

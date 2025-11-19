@@ -104,11 +104,22 @@ public class CustomerService implements ICustomerService {
     
     @Override
     @Transactional(readOnly = true)
-    public List<CustomerResponse> getMyCustomersWithVillage() {
+    public PageResponse<CustomerResponse> getMyCustomersWithVillage(Integer page, Integer size) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        List<Customer> customers = customerRepository.findByOwnerId(ownerId);
         
-        return customers.stream()
+        if (page == null || page < 0) {
+            page = 0;
+        }
+        if (size == null || size < 1) {
+            size = 10;
+        }
+        
+        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<Customer> customerPage = customerRepository.findByOwnerIdOrderByCreatedAtDesc(ownerId, pageable);
+        
+        List<CustomerResponse> responses = customerPage.getContent().stream()
             .map(customer -> {
                 String village = null;
                 LocationDetails location = locationDetailsRepository.findByUserId(customer.getId()).orElse(null);
@@ -118,6 +129,16 @@ public class CustomerService implements ICustomerService {
                 return CustomerResponse.fromEntity(customer, village);
             })
             .toList();
+        
+        return new PageResponse<>(
+            responses,
+            customerPage.getNumber(),
+            customerPage.getSize(),
+            customerPage.getTotalElements(),
+            customerPage.getTotalPages(),
+            customerPage.hasNext(),
+            customerPage.hasPrevious()
+        );
     }
     
     @Override
@@ -191,7 +212,12 @@ public class CustomerService implements ICustomerService {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         List<Customer> customers = customerRepository.findByNameContainingIgnoreCaseAndOwnerId(name, ownerId);
         return customers.stream()
-            .map(customer -> new CustomerSearchResult(customer.getId(), customer.getName()))
+            .map(customer -> {
+                String village = locationDetailsRepository.findByUserId(customer.getId())
+                    .map(LocationDetails::getVillage)
+                    .orElse(null);
+                return new CustomerSearchResult(customer.getId(), customer.getName(), customer.getPhone(), village);
+            })
             .toList();
     }
     

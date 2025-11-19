@@ -112,7 +112,6 @@ public class AuditService implements IAuditService {
             case "PURCHASE_IN" -> "Purchase received";
             case "SALE_OUT" -> "Sale transaction";
             case "MANUAL_ADJUSTMENT" -> "Manual adjustment";
-            case "SYNC_FROM_LEDGER" -> "Stock sync";
             default -> source;
         };
     }

@@ -21,5 +21,14 @@ public interface LocationDetailsRepository extends JpaRepository<LocationDetails
            "AND LOWER(ld.village) LIKE LOWER(CONCAT('%', :name, '%'))")
     List<String> findDistinctVillagesByNameContainingIgnoreCaseAndOwnerId(@Param("name") String name,
                                                                            @Param("ownerId") UUID ownerId);
+    
+    @Query("SELECT ld FROM LocationDetails ld " +
+           "INNER JOIN Customer c ON c.id = ld.userId " +
+           "WHERE c.ownerId = :ownerId " +
+           "AND ld.userId IN :customerIds " +
+           "AND ld.latitude IS NOT NULL " +
+           "AND ld.longitude IS NOT NULL")
+    List<LocationDetails> findCustomerLocationsByCustomerIds(@Param("ownerId") UUID ownerId,
+                                                              @Param("customerIds") List<UUID> customerIds);
 }
 

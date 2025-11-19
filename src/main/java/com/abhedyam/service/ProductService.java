@@ -7,27 +7,34 @@ import com.abhedyam.dto.ProductSearchResult;
 import com.abhedyam.dto.ProductUpdateRequest;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
+import com.abhedyam.model.Inventory;
 import com.abhedyam.model.Product;
+import com.abhedyam.repository.InventoryRepository;
 import com.abhedyam.repository.ProductRepository;
 import com.abhedyam.service.interfaces.IAuditService;
 import com.abhedyam.service.interfaces.IProductService;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProductService implements IProductService {
     
     private final ProductRepository productRepository;
+    private final InventoryRepository inventoryRepository;
     private final IAuditService auditService;
     
     @Override
@@ -48,7 +55,15 @@ public class ProductService implements IProductService {
         
         Product savedProduct = productRepository.save(product);
         
+        Inventory inventory = new Inventory();
+        inventory.setProductId(savedProduct.getId());
+        inventory.setOwnerId(ownerId);
+        inventory.setStock(java.math.BigDecimal.ZERO);
+        inventoryRepository.save(inventory);
+        
         auditService.logProductCreation(savedProduct.getId(), ownerId, savedProduct.getName(), savedProduct.getCode());
+        
+        decreaseStockOnProductCreationAsync(savedProduct.getId(), ownerId);
         
         return savedProduct;
     }
@@ -116,7 +131,7 @@ public class ProductService implements IProductService {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         List<Product> products = productRepository.findByNameContainingIgnoreCaseAndOwnerId(name, ownerId);
         return products.stream()
-            .map(product -> new ProductSearchResult(product.getId(), product.getName()))
+            .map(product -> new ProductSearchResult(product.getId(), product.getName(), product.getPrice()))
             .toList();
     }
     
@@ -148,6 +163,43 @@ public class ProductService implements IProductService {
         Product product = getById(id);
         product.setIsActive(!product.getIsActive());
         return productRepository.save(product);
+    }
+    
+    @Async("virtualThreadExecutor")
+    @Transactional
+    public void decreaseStockOnProductCreationAsync(UUID productId, UUID ownerId) {
+        try {
+            Inventory inventory = inventoryRepository.findByOwnerIdAndProductId(ownerId, productId)
+                .orElse(null);
+            
+            if (inventory == null) {
+                return;
+            }
+            
+            BigDecimal currentStock = inventory.getStock();
+            if (currentStock == null || currentStock.compareTo(BigDecimal.ZERO) <= 0) {
+                return;
+            }
+            
+            BigDecimal newStock = currentStock.subtract(BigDecimal.ONE);
+            if (newStock.compareTo(BigDecimal.ZERO) < 0) {
+                newStock = BigDecimal.ZERO;
+            }
+            
+            inventory.setStock(newStock);
+            inventoryRepository.save(inventory);
+            
+            Product product = productRepository.findById(productId).orElse(null);
+            if (product != null) {
+                auditService.logStockChange(productId, ownerId, product.getName(), currentStock, newStock, 
+                    "PRODUCT_CREATION", "Stock decreased on product creation");
+            }
+            
+            log.info("Stock decreased on product creation: Product {}, Old Stock {}, New Stock {}", 
+                productId, currentStock, newStock);
+        } catch (Exception e) {
+            log.warn("Failed to decrease stock on product creation for product {}: {}", productId, e.getMessage());
+        }
     }
 }
 

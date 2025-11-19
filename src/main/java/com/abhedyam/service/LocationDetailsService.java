@@ -1,9 +1,12 @@
 package com.abhedyam.service;
 
+import com.abhedyam.dto.CustomerLocationRequest;
+import com.abhedyam.dto.CustomerLocationResponse;
 import com.abhedyam.dto.LocationDetailsCreateRequest;
 import com.abhedyam.dto.LocationDetailsResponse;
 import com.abhedyam.dto.LocationDetailsUpdateRequest;
 import com.abhedyam.dto.VillageSearchResult;
+import com.abhedyam.util.DistanceUtil;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Customer;
@@ -167,6 +170,46 @@ public class LocationDetailsService implements ILocationDetailsService {
         
         LocationDetails saved = locationDetailsRepository.save(location);
         return toResponse(saved);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<CustomerLocationResponse> getCustomerLocations(CustomerLocationRequest request) {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+        
+        List<LocationDetails> locations = locationDetailsRepository.findCustomerLocationsByCustomerIds(
+            ownerId, request.getCustomerIds());
+        
+        List<CustomerLocationResponse> responses = locations.stream()
+            .filter(location -> location.getLatitude() != null && location.getLongitude() != null)
+            .map(location -> {
+                Customer customer = customerRepository.findById(location.getUserId()).orElse(null);
+                if (customer == null) {
+                    return null;
+                }
+                return new CustomerLocationResponse(
+                    location.getUserId(),
+                    customer.getName(),
+                    location.getLatitude(),
+                    location.getLongitude()
+                );
+            })
+            .filter(response -> response != null)
+            .collect(Collectors.toList());
+        
+        if (request.getCurrentLat() != null && request.getCurrentLng() != null) {
+            responses.sort((r1, r2) -> {
+                double distance1 = DistanceUtil.calculateDistanceKm(
+                    request.getCurrentLat(), request.getCurrentLng(),
+                    r1.getLat(), r1.getLng());
+                double distance2 = DistanceUtil.calculateDistanceKm(
+                    request.getCurrentLat(), request.getCurrentLng(),
+                    r2.getLat(), r2.getLng());
+                return Double.compare(distance1, distance2);
+            });
+        }
+        
+        return responses;
     }
     
     private LocationDetailsResponse toResponse(LocationDetails location) {

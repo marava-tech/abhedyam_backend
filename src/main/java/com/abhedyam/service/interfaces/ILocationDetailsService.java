@@ -1,5 +1,7 @@
 package com.abhedyam.service.interfaces;
 
+import com.abhedyam.dto.CustomerLocationRequest;
+import com.abhedyam.dto.CustomerLocationResponse;
 import com.abhedyam.dto.LocationDetailsCreateRequest;
 import com.abhedyam.dto.LocationDetailsResponse;
 import com.abhedyam.dto.LocationDetailsUpdateRequest;
@@ -18,5 +20,6 @@ public interface ILocationDetailsService {
     LocationDetailsResponse update(UUID id, LocationDetailsUpdateRequest request);
     LocationDetailsResponse updateCurrentUserLocation(LocationDetailsUpdateRequest request);
     LocationDetailsResponse updateCustomerLocation(UUID customerId, LocationDetailsUpdateRequest request);
+    List<CustomerLocationResponse> getCustomerLocations(CustomerLocationRequest request);
 }
 

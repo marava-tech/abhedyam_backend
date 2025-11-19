@@ -190,7 +190,7 @@ src/main/java/com/abhedyam/
 - **Product Management**: CRUD, search, stock management
 - **Customer Management**: CRUD, search, profile summary
 - **Sales Flow**: Multi-item sales, stock deduction, idempotency
-- **Inventory Ledger**: Purchase In, Sale Out, Manual Adjustment
+- **Stock Management**: Purchase In, Sale Out, Manual Adjustment
 - **Stats & Analytics**: Daily aggregation, date range queries
 - **Reminders**: In-app and email notifications
 - **Notifications**: In-app notification system
