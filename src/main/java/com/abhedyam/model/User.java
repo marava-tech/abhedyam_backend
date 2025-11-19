@@ -24,6 +24,9 @@ public class User extends BaseEntity {
     @Column(unique = true)
     private String email;
     
+    @Column(unique = true, nullable = true)
+    private String firebaseUid;
+    
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserType type;
