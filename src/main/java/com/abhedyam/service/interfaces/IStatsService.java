@@ -1,5 +1,7 @@
 package com.abhedyam.service.interfaces;
 
+import com.abhedyam.dto.AnalyticsRequest;
+import com.abhedyam.dto.AnalyticsResponse;
 import com.abhedyam.dto.DashboardStatsResponse;
 import com.abhedyam.dto.RecentActivityResponse;
 import com.abhedyam.dto.StatsRequest;
@@ -17,5 +19,6 @@ public interface IStatsService {
     void recomputeStats(LocalDate startDate, LocalDate endDate);
     DashboardStatsResponse getDashboardStats();
     Page<RecentActivityResponse> getRecentActivities(Pageable pageable);
+    AnalyticsResponse getAnalytics(AnalyticsRequest request);
 }
 

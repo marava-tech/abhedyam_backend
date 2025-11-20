@@ -1,5 +1,7 @@
 package com.abhedyam.controller;
 
+import com.abhedyam.dto.AnalyticsRequest;
+import com.abhedyam.dto.AnalyticsResponse;
 import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.DashboardStatsResponse;
 import com.abhedyam.dto.RecentActivityResponse;
@@ -64,6 +66,12 @@ public class StatsController {
             @RequestParam(defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size);
         return ApiResponse.success(statsService.getRecentActivities(pageable));
+    }
+    
+    @PostMapping("/analytics")
+    @Operation(summary = "Get analytics data", description = "Get analytics data by type (WEEKLY, MONTHLY, YEARLY) and owner ID. Weekly returns last 7 days, Monthly returns weekly breakdown of last month, Yearly returns monthly breakdown of last year")
+    public ApiResponse<AnalyticsResponse> getAnalytics(@Valid @RequestBody AnalyticsRequest request) {
+        return ApiResponse.success(statsService.getAnalytics(request));
     }
 }
 

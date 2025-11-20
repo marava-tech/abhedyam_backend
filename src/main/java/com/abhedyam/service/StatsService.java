@@ -1,9 +1,12 @@
 package com.abhedyam.service;
 
+import com.abhedyam.dto.AnalyticsRequest;
+import com.abhedyam.dto.AnalyticsResponse;
 import com.abhedyam.dto.DashboardStatsResponse;
 import com.abhedyam.dto.RecentActivityResponse;
 import com.abhedyam.dto.StatsRequest;
 import com.abhedyam.dto.StatsResponse;
+import com.abhedyam.model.enums.AnalyticsType;
 import com.abhedyam.model.Audit;
 import com.abhedyam.model.DailyStats;
 import com.abhedyam.model.Product;
@@ -33,8 +36,10 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -395,6 +400,183 @@ public class StatsService implements IStatsService {
             .collect(Collectors.toList());
         
         return new PageImpl<>(activities, pageable, audits.getTotalElements());
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public AnalyticsResponse getAnalytics(AnalyticsRequest request) {
+        UUID ownerId = request.getOwnerId();
+        AnalyticsType type = request.getType();
+        
+        LocalDate endDate = LocalDate.now().minusDays(1);
+        LocalDate startDate = endDate;
+        List<AnalyticsResponse.PeriodAnalytics> periods = new ArrayList<>();
+        
+        if (type == AnalyticsType.WEEKLY) {
+            startDate = endDate.minusDays(6);
+            List<DailyStats> dailyStatsList = dailyStatsRepository
+                .findByOwnerIdAndStatDateBetween(ownerId, startDate, endDate);
+            
+            Map<LocalDate, DailyStats> statsMap = dailyStatsList.stream()
+                .collect(Collectors.toMap(DailyStats::getStatDate, stats -> stats));
+            
+            LocalDate currentDate = startDate;
+            while (!currentDate.isAfter(endDate)) {
+                DailyStats stats = statsMap.get(currentDate);
+                if (stats == null) {
+                    aggregateDailyStatsForOwner(ownerId, currentDate);
+                    stats = dailyStatsRepository.findByOwnerIdAndStatDate(ownerId, currentDate)
+                        .orElse(null);
+                }
+                
+                if (stats != null) {
+                    periods.add(new AnalyticsResponse.PeriodAnalytics(
+                        currentDate.format(DateTimeFormatter.ofPattern("MMM dd")),
+                        currentDate,
+                        currentDate,
+                        stats.getTotalSales(),
+                        stats.getTotalOrders(),
+                        stats.getTotalCustomers(),
+                        stats.getTotalProductsSold()
+                    ));
+                } else {
+                    periods.add(new AnalyticsResponse.PeriodAnalytics(
+                        currentDate.format(DateTimeFormatter.ofPattern("MMM dd")),
+                        currentDate,
+                        currentDate,
+                        BigDecimal.ZERO,
+                        0,
+                        0,
+                        0
+                    ));
+                }
+                currentDate = currentDate.plusDays(1);
+            }
+        } else if (type == AnalyticsType.MONTHLY) {
+            startDate = endDate.minusDays(29);
+            LocalDate monthEnd = endDate;
+            
+            List<DailyStats> dailyStatsList = dailyStatsRepository
+                .findByOwnerIdAndStatDateBetween(ownerId, startDate, monthEnd);
+            
+            LocalDate weekStart = startDate;
+            int weekNumber = 1;
+            
+            while (!weekStart.isAfter(monthEnd)) {
+                LocalDate weekEnd = weekStart.plusDays(6);
+                if (weekEnd.isAfter(monthEnd)) {
+                    weekEnd = monthEnd;
+                }
+                final LocalDate finalWeekEnd = weekEnd;
+                final LocalDate finalWeekStart = weekStart;
+                
+                List<DailyStats> weekStats = dailyStatsList.stream()
+                    .filter(stat -> !stat.getStatDate().isBefore(finalWeekStart) && !stat.getStatDate().isAfter(finalWeekEnd))
+                    .toList();
+                
+                if (weekStats.isEmpty()) {
+                    LocalDate currentDate = finalWeekStart;
+                    while (!currentDate.isAfter(finalWeekEnd)) {
+                        aggregateDailyStatsForOwner(ownerId, currentDate);
+                        currentDate = currentDate.plusDays(1);
+                    }
+                    weekStats = dailyStatsRepository
+                        .findByOwnerIdAndStatDateBetween(ownerId, finalWeekStart, finalWeekEnd);
+                }
+                
+                BigDecimal totalSales = weekStats.stream()
+                    .map(DailyStats::getTotalSales)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+                
+                int totalOrders = weekStats.stream()
+                    .mapToInt(DailyStats::getTotalOrders)
+                    .sum();
+                
+                int totalCustomers = weekStats.stream()
+                    .mapToInt(DailyStats::getTotalCustomers)
+                    .sum();
+                
+                int totalProductsSold = weekStats.stream()
+                    .mapToInt(DailyStats::getTotalProductsSold)
+                    .sum();
+                
+                periods.add(new AnalyticsResponse.PeriodAnalytics(
+                    "Week " + weekNumber + " (" + finalWeekStart.format(DateTimeFormatter.ofPattern("MMM dd")) + " - " + 
+                    finalWeekEnd.format(DateTimeFormatter.ofPattern("MMM dd")) + ")",
+                    finalWeekStart,
+                    finalWeekEnd,
+                    totalSales,
+                    totalOrders,
+                    totalCustomers,
+                    totalProductsSold
+                ));
+                
+                weekStart = finalWeekEnd.plusDays(1);
+                weekNumber++;
+            }
+        } else if (type == AnalyticsType.YEARLY) {
+            startDate = endDate.minusMonths(5).withDayOfMonth(1);
+            LocalDate yearEnd = endDate;
+            
+            List<DailyStats> dailyStatsList = dailyStatsRepository
+                .findByOwnerIdAndStatDateBetween(ownerId, startDate, yearEnd);
+            
+            LocalDate monthStart = startDate;
+            
+            while (!monthStart.isAfter(yearEnd)) {
+                LocalDate monthEnd = monthStart.withDayOfMonth(monthStart.lengthOfMonth());
+                if (monthEnd.isAfter(yearEnd)) {
+                    monthEnd = yearEnd;
+                }
+                final LocalDate finalMonthEnd = monthEnd;
+                final LocalDate finalMonthStart = monthStart;
+                
+                List<DailyStats> monthStats = dailyStatsList.stream()
+                    .filter(stat -> !stat.getStatDate().isBefore(finalMonthStart) && !stat.getStatDate().isAfter(finalMonthEnd))
+                    .toList();
+                
+                if (monthStats.isEmpty()) {
+                    LocalDate currentDate = finalMonthStart;
+                    while (!currentDate.isAfter(finalMonthEnd)) {
+                        aggregateDailyStatsForOwner(ownerId, currentDate);
+                        currentDate = currentDate.plusDays(1);
+                    }
+                    monthStats = dailyStatsRepository
+                        .findByOwnerIdAndStatDateBetween(ownerId, finalMonthStart, finalMonthEnd);
+                }
+                
+                BigDecimal totalSales = monthStats.stream()
+                    .map(DailyStats::getTotalSales)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+                
+                int totalOrders = monthStats.stream()
+                    .mapToInt(DailyStats::getTotalOrders)
+                    .sum();
+                
+                int totalCustomers = monthStats.stream()
+                    .mapToInt(DailyStats::getTotalCustomers)
+                    .sum();
+                
+                int totalProductsSold = monthStats.stream()
+                    .mapToInt(DailyStats::getTotalProductsSold)
+                    .sum();
+                
+                periods.add(new AnalyticsResponse.PeriodAnalytics(
+                    finalMonthStart.format(DateTimeFormatter.ofPattern("MMMM yyyy")),
+                    finalMonthStart,
+                    finalMonthEnd,
+                    totalSales,
+                    totalOrders,
+                    totalCustomers,
+                    totalProductsSold
+                ));
+                
+                monthStart = finalMonthEnd.plusDays(1);
+            }
+        }
+        
+        Collections.reverse(periods);
+        return new AnalyticsResponse(type, startDate, endDate, periods);
     }
 }
 

@@ -93,12 +93,12 @@ public class DailyQuoteService implements IDailyQuoteService {
                 selectedQuote.getText().substring(0, Math.min(50, selectedQuote.getText().length())), 
                 selectedQuote.getId());
         } else {
-            List<DailyQuote> usedQuotes = dailyQuoteRepository.findUsedActiveQuotesOrderByLastUsedDesc();
+            List<DailyQuote> usedQuotes = dailyQuoteRepository.findUsedActiveQuotesOrderByLastUsedAsc();
             if (usedQuotes.isEmpty()) {
                 throw new ResourceNotFoundException("No active quotes available");
             }
             selectedQuote = usedQuotes.get(0);
-            log.info("Selected most recently used quote for {}: {} (ID: {})", 
+            log.info("Selected quote with oldest lastUsedAt for {}: {} (ID: {})", 
                 today,
                 selectedQuote.getText().substring(0, Math.min(50, selectedQuote.getText().length())), 
                 selectedQuote.getId());
@@ -106,13 +106,22 @@ public class DailyQuoteService implements IDailyQuoteService {
         selectedQuote.setLastUsedAt(Instant.now());
         DailyQuote savedQuote = dailyQuoteRepository.save(selectedQuote);
         
-        long secondsUntilMidnight = getSecondsUntilMidnightIST();
-        String cacheValue = savedQuote.getId().toString() + "|" + savedQuote.getText();
-        redisTemplate.opsForValue().set(todayKey, cacheValue, 
-            secondsUntilMidnight, TimeUnit.SECONDS);
-        
-        log.info("Cached quote text in Redis with key: {} (TTL: {} seconds, expires at midnight IST)", 
-            todayKey, secondsUntilMidnight);
+        try {
+            long secondsUntilMidnight = getSecondsUntilMidnightIST();
+            String cacheValue = savedQuote.getId().toString() + "|" + savedQuote.getText();
+            redisTemplate.opsForValue().set(todayKey, cacheValue, 
+                secondsUntilMidnight, TimeUnit.SECONDS);
+            
+            String verifyCache = redisTemplate.opsForValue().get(todayKey);
+            if (verifyCache != null) {
+                log.info("Successfully cached quote in Redis with key: {} (TTL: {} seconds, expires at midnight IST)", 
+                    todayKey, secondsUntilMidnight);
+            } else {
+                log.error("Failed to cache quote in Redis - key: {} was not found after set operation", todayKey);
+            }
+        } catch (Exception e) {
+            log.error("Error caching quote in Redis with key: {}", todayKey, e);
+        }
         
         return savedQuote;
     }
