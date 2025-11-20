@@ -3,8 +3,10 @@ package com.abhedyam.service;
 import com.abhedyam.model.Reminder;
 import com.abhedyam.model.enums.ReminderChannel;
 import com.abhedyam.model.enums.ReminderStatus;
+import com.abhedyam.model.enums.UserType;
 import com.abhedyam.repository.ReminderRepository;
 import com.abhedyam.service.interfaces.IReminderSchedulerService;
+import com.abhedyam.util.PackageConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -12,7 +14,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -21,24 +25,26 @@ public class ReminderSchedulerService implements IReminderSchedulerService {
     
     private final ReminderRepository reminderRepository;
     private final NotificationService notificationService;
+    private final FcmService fcmService;
     
     @Scheduled(fixedRate = 60000)
     @Override
     @Transactional
     public void processDueReminders() {
         Instant now = Instant.now();
-        List<Reminder> dueReminders = reminderRepository.findAll().stream()
-            .filter(r -> r.getStatus() == ReminderStatus.PENDING)
-            .filter(r -> r.getTime().isBefore(now) || r.getTime().equals(now))
-            .filter(r -> r.getIsActive() != null && r.getIsActive())
-            .toList();
+        Instant maxTime = now.plus(1, ChronoUnit.MINUTES);
+        
+        List<Reminder> dueReminders = reminderRepository.findDueReminders(
+            ReminderStatus.PENDING, 
+            maxTime
+        );
         
         for (Reminder reminder : dueReminders) {
             try {
                 sendReminder(reminder);
                 reminder.setStatus(ReminderStatus.SENT);
                 reminderRepository.save(reminder);
-                log.info("Reminder sent: {}", reminder.getId());
+                log.info("Reminder sent and saved: {}", reminder.getId());
             } catch (Exception e) {
                 log.error("Error sending reminder: {}", reminder.getId(), e);
             }
@@ -58,8 +64,87 @@ public class ReminderSchedulerService implements IReminderSchedulerService {
             notification.setRelatedEntityType("REMINDER");
             notification.setRetryCount(0);
             notificationService.create(notification);
+            
+            List<String> packages = reminder.getPackages();
+            if (packages == null || packages.isEmpty()) {
+                if (reminder.getCustomerId() != null) {
+                    packages = List.of(PackageConstants.CUSTOMER_APP_PACKAGE);
+                } else if (reminder.getOwnerId() != null) {
+                    packages = List.of(PackageConstants.BUSINESS_APP_PACKAGE);
+                } else {
+                    packages = PackageConstants.ALL_PACKAGES;
+                }
+            }
+            
+            String title = reminder.getName();
+            String body = reminder.getText();
+            
+            if (reminder.getCustomerId() != null) {
+                for (String packageName : packages) {
+                    try {
+                        fcmService.sendNotificationToUser(
+                            reminder.getCustomerId(),
+                            title,
+                            body,
+                            packageName
+                        );
+                        log.info("FCM notification sent for reminder {} to customer {} with package {}", 
+                            reminder.getId(), reminder.getCustomerId(), packageName);
+                    } catch (Exception e) {
+                        log.error("Failed to send FCM notification for reminder {} to customer {} with package {}: {}", 
+                            reminder.getId(), reminder.getCustomerId(), packageName, e.getMessage());
+                    }
+                }
+            } else if (reminder.getOwnerId() != null) {
+                for (String packageName : packages) {
+                    try {
+                        fcmService.sendNotificationToUser(
+                            reminder.getOwnerId(),
+                            title,
+                            body,
+                            packageName
+                        );
+                        log.info("FCM notification sent for reminder {} to owner {} with package {}", 
+                            reminder.getId(), reminder.getOwnerId(), packageName);
+                    } catch (Exception e) {
+                        log.error("Failed to send FCM notification for reminder {} to owner {} with package {}: {}", 
+                            reminder.getId(), reminder.getOwnerId(), packageName, e.getMessage());
+                    }
+                }
+            } else {
+                sendBroadcastNotifications(reminder.getId(), packages, title, body);
+            }
         } else {
             log.debug("Skipping reminder send for non-IN_APP channel: {} (reminder: {})", reminder.getChannel(), reminder.getId());
+        }
+    }
+    
+    private void sendBroadcastNotifications(UUID reminderId, List<String> packages, String title, String body) {
+        boolean hasBusinessApp = packages.contains(PackageConstants.BUSINESS_APP_PACKAGE);
+        boolean hasCustomerApp = packages.contains(PackageConstants.CUSTOMER_APP_PACKAGE);
+        
+        if (hasBusinessApp && hasCustomerApp) {
+            sendNotificationToAllUsers(reminderId, UserType.BUSINESS, PackageConstants.BUSINESS_APP_PACKAGE, title, body);
+            sendNotificationToAllUsers(reminderId, UserType.CUSTOMER, PackageConstants.CUSTOMER_APP_PACKAGE, title, body);
+        } else if (hasBusinessApp) {
+            sendNotificationToAllUsers(reminderId, UserType.BUSINESS, PackageConstants.BUSINESS_APP_PACKAGE, title, body);
+        } else if (hasCustomerApp) {
+            sendNotificationToAllUsers(reminderId, UserType.CUSTOMER, PackageConstants.CUSTOMER_APP_PACKAGE, title, body);
+        } else {
+            log.warn("No valid package found for reminder {} with packages: {}", reminderId, packages);
+        }
+    }
+    
+    private void sendNotificationToAllUsers(UUID reminderId, UserType userType, String packageName, String title, String body) {
+        try {
+            fcmService.sendNotificationToAllUsersByType(userType, title, body, packageName);
+            String userTypeName = userType == UserType.BUSINESS ? "owners" : "customers";
+            log.info("FCM notification sent for reminder {} to all {} with package {}", 
+                reminderId, userTypeName, packageName);
+        } catch (Exception e) {
+            String userTypeName = userType == UserType.BUSINESS ? "owners" : "customers";
+            log.error("Failed to send FCM notification for reminder {} to all {}: {}", 
+                reminderId, userTypeName, e.getMessage());
         }
     }
 }

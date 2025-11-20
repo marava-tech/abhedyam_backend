@@ -5,6 +5,9 @@ import com.abhedyam.dto.NotificationMarkReadRequest;
 import com.abhedyam.dto.NotificationResponse;
 import com.abhedyam.model.Notification;
 import com.abhedyam.service.interfaces.INotificationService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -16,12 +19,17 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
+@Tag(name = "Notifications", description = "Notification management endpoints")
 public class NotificationController {
     
     private final INotificationService notificationService;
     
     @GetMapping("/me")
-    public ApiResponse<List<NotificationResponse>> getMyNotifications(@RequestParam(required = false) Boolean unreadOnly) {
+    @Operation(summary = "Get my notifications", 
+               description = "Get all notifications for the current user (owner or customer). Supports filtering by unread status.")
+    public ApiResponse<List<NotificationResponse>> getMyNotifications(
+            @Parameter(description = "Filter to show only unread notifications", example = "true")
+            @RequestParam(required = false) Boolean unreadOnly) {
         List<Notification> notifications = notificationService.getMyNotifications(unreadOnly);
         List<NotificationResponse> responses = notifications.stream()
             .map(NotificationResponse::fromEntity)

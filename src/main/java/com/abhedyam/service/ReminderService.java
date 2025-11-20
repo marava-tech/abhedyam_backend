@@ -10,6 +10,7 @@ import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.ReminderRepository;
 import com.abhedyam.service.interfaces.IAuditService;
 import com.abhedyam.service.interfaces.IReminderService;
+import com.abhedyam.util.PackageConstants;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,7 +33,7 @@ public class ReminderService implements IReminderService {
     public Reminder create(ReminderCreateRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
-        if (!customerRepository.existsById(request.getCustomerId())) {
+        if (request.getCustomerId() != null && !customerRepository.existsById(request.getCustomerId())) {
             throw new ResourceNotFoundException("Customer not found");
         }
         
@@ -50,13 +51,23 @@ public class ReminderService implements IReminderService {
         reminder.setText(request.getText());
         reminder.setStatus(ReminderStatus.PENDING);
         
+        List<String> packages = request.getPackages();
+        if (packages == null || packages.isEmpty()) {
+            packages = determinePackages(request.getCustomerId(), ownerId);
+        }
+        reminder.setPackages(packages);
+        
         Reminder savedReminder = reminderRepository.save(reminder);
         
-        Customer customer = customerRepository.findById(request.getCustomerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
-        String customerName = customer.getName();
+        String customerName = null;
+        if (request.getCustomerId() != null) {
+            Customer customer = customerRepository.findById(request.getCustomerId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+            customerName = customer.getName();
+        }
         
-        auditService.logReminderCreation(savedReminder.getId(), ownerId, request.getCustomerId(), customerName, request.getText());
+        auditService.logReminderCreation(savedReminder.getId(), ownerId, request.getCustomerId(), 
+            customerName, request.getName(), request.getText(), request.getDueAt());
         
         return savedReminder;
     }
@@ -128,6 +139,12 @@ public class ReminderService implements IReminderService {
         }
         if (request.getText() != null) reminder.setText(request.getText());
         
+        List<String> packages = request.getPackages();
+        if (packages == null || packages.isEmpty()) {
+            packages = determinePackages(reminder.getCustomerId(), reminder.getOwnerId());
+        }
+        reminder.setPackages(packages);
+        
         return reminderRepository.save(reminder);
     }
     
@@ -137,6 +154,16 @@ public class ReminderService implements IReminderService {
         Reminder reminder = getById(id);
         reminder.setStatus(ReminderStatus.SENT);
         return reminderRepository.save(reminder);
+    }
+    
+    private List<String> determinePackages(UUID customerId, UUID ownerId) {
+        if (customerId != null) {
+            return List.of(PackageConstants.CUSTOMER_APP_PACKAGE);
+        } else if (ownerId != null) {
+            return List.of(PackageConstants.BUSINESS_APP_PACKAGE);
+        } else {
+            return PackageConstants.ALL_PACKAGES;
+        }
     }
 }
 

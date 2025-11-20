@@ -34,11 +34,11 @@ public class NotificationService implements INotificationService {
     
     @Override
     public Notification getById(UUID id) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
+        UUID currentUserId = SecurityUtil.getCurrentUserId();
         Notification notification = notificationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Notification not found with id: " + id));
         
-        if (!notification.getOwnerId().equals(ownerId)) {
+        if (!notification.getOwnerId().equals(currentUserId) && !notification.getUserId().equals(currentUserId)) {
             throw new BusinessException("UNAUTHORIZED", "You don't have access to this notification");
         }
         
@@ -70,19 +70,13 @@ public class NotificationService implements INotificationService {
     
     @Override
     public List<Notification> getMyNotifications(Boolean unreadOnly) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
-        List<Notification> notifications = notificationRepository.findByOwnerId(ownerId);
+        UUID currentUserId = SecurityUtil.getCurrentUserId();
         
         if (unreadOnly != null && unreadOnly) {
-            return notifications.stream()
-                .filter(n -> n.getIsActive() != null && n.getIsActive())
-                .filter(n -> n.getIsRead() == null || !n.getIsRead())
-                .toList();
+            return notificationRepository.findUnreadByOwnerIdOrUserId(currentUserId);
         }
         
-        return notifications.stream()
-            .filter(n -> n.getIsActive() != null && n.getIsActive())
-            .toList();
+        return notificationRepository.findByOwnerIdOrUserId(currentUserId);
     }
     
     @Override
@@ -97,14 +91,11 @@ public class NotificationService implements INotificationService {
     @Override
     @Transactional
     public List<Notification> markMultipleAsRead(NotificationMarkReadRequest request) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
+        UUID currentUserId = SecurityUtil.getCurrentUserId();
         Instant now = Instant.now();
         
         if (request.getMarkAllAsRead() != null && request.getMarkAllAsRead()) {
-            List<Notification> notifications = notificationRepository.findByOwnerId(ownerId).stream()
-                .filter(n -> n.getIsActive() != null && n.getIsActive())
-                .filter(n -> n.getIsRead() == null || !n.getIsRead())
-                .toList();
+            List<Notification> notifications = notificationRepository.findUnreadByOwnerIdOrUserId(currentUserId);
             
             notifications.forEach(n -> {
                 n.setIsRead(true);
@@ -116,7 +107,7 @@ public class NotificationService implements INotificationService {
         
         if (request.getNotificationIds() != null && !request.getNotificationIds().isEmpty()) {
             List<Notification> notifications = notificationRepository.findAllById(request.getNotificationIds()).stream()
-                .filter(n -> n.getOwnerId().equals(ownerId))
+                .filter(n -> n.getOwnerId().equals(currentUserId) || n.getUserId().equals(currentUserId))
                 .toList();
             
             notifications.forEach(n -> {

@@ -36,15 +36,20 @@ public class Reminder extends BaseEntity {
     private String text;
     
     @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
+    @Column(nullable = true, columnDefinition = "VARCHAR(36)")
     private UUID customerId;
     
     @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(nullable = false, columnDefinition = "VARCHAR(36)")
+    @Column(nullable = true, columnDefinition = "VARCHAR(36)")
     private UUID ownerId;
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     private ReminderStatus status = ReminderStatus.PENDING;
+    
+    @ElementCollection
+    @CollectionTable(name = "reminder_packages", joinColumns = @JoinColumn(name = "reminder_id"))
+    @Column(name = "package_name")
+    private java.util.List<String> packages;
 }
 
