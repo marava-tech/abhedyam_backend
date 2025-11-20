@@ -36,11 +36,12 @@ public class Reminder extends BaseEntity {
     private String text;
     
     @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(nullable = true, columnDefinition = "VARCHAR(36)")
+    @Column(
+            columnDefinition = "VARCHAR(36)")
     private UUID customerId;
     
     @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(nullable = true, columnDefinition = "VARCHAR(36)")
+    @Column(columnDefinition = "VARCHAR(36)")
     private UUID ownerId;
     
     @Enumerated(EnumType.STRING)
