@@ -5,6 +5,7 @@ import com.abhedyam.model.enums.AuditAction;
 import com.abhedyam.model.enums.AuditType;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,7 +22,7 @@ public interface IAuditService {
     void logSaleCreation(UUID saleId, UUID ownerId, UUID customerId, String customerName, BigDecimal amount, String transactionId);
     void logSaleCancellation(UUID saleId, UUID ownerId, UUID customerId, String customerName, BigDecimal amount, String transactionId);
     void logProductCreation(UUID productId, UUID ownerId, String productName, String productCode);
-    void logReminderCreation(UUID reminderId, UUID ownerId, UUID customerId, String customerName, String reminderText);
+    void logReminderCreation(UUID reminderId, UUID ownerId, UUID customerId, String customerName, String reminderName, String reminderText, Instant reminderTime);
     void logPaymentSuccess(UUID paymentId, UUID ownerId, UUID customerId, String customerName, UUID saleItemId, String productName, BigDecimal amount, String reference);
 }
 

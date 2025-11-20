@@ -13,8 +13,7 @@ import java.util.UUID;
 @Data
 @Schema(description = "Request to create a reminder")
 public class ReminderCreateRequest {
-    @NotNull(message = "Customer ID is required")
-    @Schema(description = "UUID of the customer", example = "123e4567-e89b-12d3-a456-426614174000", required = true)
+    @Schema(description = "UUID of the customer (optional)", example = "123e4567-e89b-12d3-a456-426614174000")
     private UUID customerId;
     
     @NotBlank(message = "Reminder name is required")
@@ -36,4 +35,7 @@ public class ReminderCreateRequest {
     @NotBlank(message = "Reminder text is required")
     @Schema(description = "Reminder message text", example = "Call customer about payment", required = true)
     private String text;
+    
+    @Schema(description = "Package names for targeting notifications", example = "[\"tech.marava.abhedyam\", \"tech.marava.abhedyamc\"]")
+    private java.util.List<String> packages;
 }

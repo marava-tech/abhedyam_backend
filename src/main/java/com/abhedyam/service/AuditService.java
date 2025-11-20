@@ -2,9 +2,11 @@ package com.abhedyam.service;
 
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Audit;
+import com.abhedyam.model.User;
 import com.abhedyam.model.enums.AuditAction;
 import com.abhedyam.model.enums.AuditType;
 import com.abhedyam.repository.AuditRepository;
+import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.IAuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -23,6 +28,7 @@ import java.util.UUID;
 public class AuditService implements IAuditService {
     
     private final AuditRepository auditRepository;
+    private final UserRepository userRepository;
     
     @Override
     public Audit create(Audit audit) {
@@ -193,7 +199,8 @@ public class AuditService implements IAuditService {
     @Override
     @Async("virtualThreadExecutor")
     @Transactional
-    public void logReminderCreation(UUID reminderId, UUID ownerId, UUID customerId, String customerName, String reminderText) {
+    public void logReminderCreation(UUID reminderId, UUID ownerId, UUID customerId, String customerName, 
+                                   String reminderName, String reminderText, Instant reminderTime) {
         try {
             Audit audit = new Audit();
             audit.setOwnerId(ownerId);
@@ -201,20 +208,56 @@ public class AuditService implements IAuditService {
             audit.setAction(AuditAction.REMINDER_CREATED);
             audit.setEntityId(reminderId);
             audit.setAmount(BigDecimal.ZERO);
-            audit.setHeadline(String.format("Reminder created for %s", customerName));
             
-            String reminderPreview = reminderText != null && reminderText.length() > 100 
-                ? reminderText.substring(0, 100) + "..." 
-                : (reminderText != null ? reminderText : "No text provided");
-            audit.setDescription(String.format("Reminder scheduled for customer %s. Message: %s", 
-                customerName, reminderPreview));
+            String headline;
+            String description;
+            
+            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' hh:mm a", Locale.ENGLISH)
+                .withZone(ZoneId.systemDefault());
+            String formattedTime = reminderTime != null ? timeFormatter.format(reminderTime) : "scheduled time";
+            
+            String reminderNameDisplay = reminderName != null && !reminderName.trim().isEmpty() 
+                ? reminderName 
+                : "Reminder";
+            
+            String reminderPreview = reminderText != null && reminderText.length() > 150 
+                ? reminderText.substring(0, 150) + "..." 
+                : (reminderText != null && !reminderText.trim().isEmpty() ? reminderText : "No message provided");
+            
+            if (customerId != null && customerName != null) {
+                headline = String.format("Reminder '%s' created for %s", reminderNameDisplay, customerName);
+                description = String.format("A reminder has been scheduled for customer %s on %s. " +
+                    "The reminder message: \"%s\"", customerName, formattedTime, reminderPreview);
+            } else if (ownerId != null) {
+                String ownerName = "You";
+                try {
+                    User owner = userRepository.findById(ownerId).orElse(null);
+                    if (owner != null && owner.getName() != null && !owner.getName().trim().isEmpty()) {
+                        ownerName = owner.getName();
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not fetch owner name for reminder audit: {}", e.getMessage());
+                }
+                headline = String.format("Personal reminder '%s' created", reminderNameDisplay);
+                String verb = "You".equals(ownerName) ? "have" : "has";
+                description = String.format("%s %s created a personal reminder scheduled for %s. " +
+                    "Reminder message: \"%s\"", ownerName, verb, formattedTime, reminderPreview);
+            } else {
+                headline = String.format("Broadcast reminder '%s' created", reminderNameDisplay);
+                description = String.format("A broadcast reminder has been scheduled for all users on %s. " +
+                    "Message: \"%s\"", formattedTime, reminderPreview);
+            }
+            
+            audit.setHeadline(headline);
+            audit.setDescription(description);
             audit.setTimestamp(Instant.now());
             
             auditRepository.save(audit);
-            log.info("Reminder creation logged: reminderId={}, customerId={}, customerName={}", reminderId, customerId, customerName);
+            log.info("Reminder creation logged: reminderId={}, name={}, customerId={}, ownerId={}", 
+                reminderId, reminderName, customerId, ownerId);
         } catch (Exception e) {
-            log.error("Failed to log reminder creation: reminderId={}, customerId={}, customerName={}", 
-                reminderId, customerId, customerName, e);
+            log.error("Failed to log reminder creation: reminderId={}, customerId={}, ownerId={}", 
+                reminderId, customerId, ownerId, e);
         }
     }
     

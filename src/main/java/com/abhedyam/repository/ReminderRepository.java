@@ -1,9 +1,13 @@
 package com.abhedyam.repository;
 
 import com.abhedyam.model.Reminder;
+import com.abhedyam.model.enums.ReminderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -11,5 +15,11 @@ import java.util.UUID;
 public interface ReminderRepository extends JpaRepository<Reminder, UUID> {
     List<Reminder> findByOwnerId(UUID ownerId);
     List<Reminder> findByCustomerId(UUID customerId);
+    
+    @Query("SELECT r FROM Reminder r WHERE r.status = :status " +
+           "AND r.time <= :maxTime " +
+           "AND r.isActive = true")
+    List<Reminder> findDueReminders(@Param("status") ReminderStatus status, 
+                                    @Param("maxTime") Instant maxTime);
 }
 
