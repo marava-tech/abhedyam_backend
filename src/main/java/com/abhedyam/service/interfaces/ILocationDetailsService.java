@@ -15,6 +15,7 @@ public interface ILocationDetailsService {
     LocationDetailsResponse getById(UUID id);
     LocationDetailsResponse getCurrentUserLocation();
     LocationDetailsResponse getCustomerLocation(UUID customerId);
+    LocationDetailsResponse getLocationByUserId(UUID userId);
     List<LocationDetailsResponse> getAll();
     List<VillageSearchResult> searchVillagesByName(String name);
     LocationDetailsResponse update(UUID id, LocationDetailsUpdateRequest request);

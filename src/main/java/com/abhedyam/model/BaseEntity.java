@@ -26,13 +26,16 @@ public abstract class BaseEntity {
 
     @CreatedDate
     @Column(nullable = false, updatable = false)
+    @Convert(converter = com.abhedyam.config.IstInstantConverter.class)
     private Instant createdAt;
 
     @LastModifiedDate
     @Column(nullable = false)
+    @Convert(converter = com.abhedyam.config.IstInstantConverter.class)
     private Instant updatedAt;
 
     @Column
+    @Convert(converter = com.abhedyam.config.IstInstantConverter.class)
     private Instant deletedAt;
 
     @Column(nullable = false)

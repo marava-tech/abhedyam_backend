@@ -6,9 +6,12 @@ import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Customer;
 import com.abhedyam.model.Product;
 import com.abhedyam.model.SaleItem;
+import com.abhedyam.model.User;
+import com.abhedyam.model.enums.UserType;
 import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.ProductRepository;
 import com.abhedyam.repository.SaleItemRepository;
+import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.ISaleItemService;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +28,7 @@ public class SaleItemService implements ISaleItemService {
     private final SaleItemRepository saleItemRepository;
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
+    private final UserRepository userRepository;
     
     public SaleItem create(SaleItem saleItem) {
         return saleItemRepository.save(saleItem);
@@ -45,17 +49,38 @@ public class SaleItemService implements ISaleItemService {
     
     @Transactional(readOnly = true)
     public List<SaleItemResponse> getByCustomerId(UUID customerId) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
+        UUID currentUserId = SecurityUtil.getCurrentUserId();
         
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
         
-        if (customer.getOwnerId() == null || !customer.getOwnerId().equals(ownerId)) {
+        UUID ownerId = customer.getOwnerId();
+        
+        // Allow access if:
+        // 1. Current user is the customer themselves
+        // 2. Current user is the owner of this customer
+        boolean hasAccess = false;
+        
+        if (currentUserId.equals(customerId)) {
+            hasAccess = true;
+        } else if (ownerId != null) {
+            User currentUser = userRepository.findById(currentUserId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
+            
+            if (currentUser.getType() == UserType.BUSINESS && ownerId.equals(currentUserId)) {
+                hasAccess = true;
+            }
+        }
+        
+        if (!hasAccess) {
             throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer's sale items");
         }
         
+        // If customer is accessing, use their ownerId; if owner is accessing, use currentUserId
+        UUID filterOwnerId = currentUserId.equals(customerId) ? ownerId : currentUserId;
+        
         List<SaleItem> saleItems = saleItemRepository.findByCustomerId(customerId).stream()
-                .filter(item -> item.getOwnerId().equals(ownerId))
+                .filter(item -> filterOwnerId != null && item.getOwnerId().equals(filterOwnerId))
                 .toList();
         
         return saleItems.stream()

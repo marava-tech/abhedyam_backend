@@ -8,10 +8,12 @@ spring:
       max-request-size: 15MB
 
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/abhedyam?createDatabaseIfNotExist=true}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/abhedyam?createDatabaseIfNotExist=true&serverTimezone=Asia/Kolkata}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  jackson:
+    time-zone: Asia/Kolkata
 
   jpa:
     hibernate:
@@ -23,6 +25,7 @@ spring:
         format_sql: true
         jdbc:
           use_get_generated_keys: true
+          time_zone: Asia/Kolkata
         id:
           new_generator_mappings: true
 
@@ -71,6 +74,7 @@ app:
   jwt:
     secret: ${JWT_SECRET:REDACTED_JWT_SECRET}
     expiration: ${JWT_EXPIRATION:1296000000}
+    customer-expiration: ${JWT_CUSTOMER_EXPIRATION:2592000000}
   twofactor:
     api-key: ${TWO_FACTOR_API_KEY:3f77c89e-c18d-11f0-a6b2-0200cd936042}
     otp-template: ${TWO_FACTOR_OTP_TEMPLATE:Abhedyam_OTP_Template}

@@ -5,6 +5,7 @@ import com.abhedyam.dto.ProductCreateRequest;
 import com.abhedyam.dto.ProductSearchRequest;
 import com.abhedyam.dto.ProductSearchResult;
 import com.abhedyam.dto.ProductUpdateRequest;
+import com.abhedyam.dto.ProductWithStockResponse;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Inventory;
@@ -91,6 +92,57 @@ public class ProductService implements IProductService {
         }
         UUID targetOwnerId = ownerId != null ? ownerId : currentOwnerId;
         return productRepository.findByOwnerId(targetOwnerId);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductWithStockResponse> getProductsWithStockByOwnerId(UUID ownerId) {
+        if (ownerId == null) {
+            throw new BusinessException("INVALID_REQUEST", "Owner ID is required");
+        }
+        
+        List<Product> products = productRepository.findByOwnerId(ownerId).stream()
+                .filter(p -> p.getIsActive() != null && p.getIsActive())
+                .toList();
+        
+        return products.stream()
+                .map(product -> {
+                    BigDecimal stock = inventoryRepository.findByOwnerIdAndProductId(ownerId, product.getId())
+                            .map(Inventory::getStock)
+                            .orElse(BigDecimal.ZERO);
+                    
+                    ProductWithStockResponse response = new ProductWithStockResponse();
+                    response.setId(product.getId());
+                    response.setCode(product.getCode());
+                    response.setName(product.getName());
+                    response.setPrice(product.getPrice());
+                    response.setOwnerId(product.getOwnerId());
+                    response.setIsActive(product.getIsActive());
+                    response.setStock(formatStock(stock));
+                    response.setCreatedAt(product.getCreatedAt());
+                    response.setUpdatedAt(product.getUpdatedAt());
+                    
+                    return response;
+                })
+                .sorted((p1, p2) -> {
+                    int stockCompare = p2.getStock().compareTo(p1.getStock());
+                    if (stockCompare != 0) {
+                        return stockCompare;
+                    }
+                    return p1.getPrice().compareTo(p2.getPrice());
+                })
+                .toList();
+    }
+    
+    private BigDecimal formatStock(BigDecimal stock) {
+        if (stock == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal stripped = stock.stripTrailingZeros();
+        if (stripped.scale() <= 0) {
+            return stripped.setScale(0);
+        }
+        return stripped;
     }
     
     @Override

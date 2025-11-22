@@ -39,6 +39,11 @@ public class LocationDetailsController {
         return ApiResponse.success(locationDetailsService.getCustomerLocation(customerId));
     }
     
+    @GetMapping("/users/{userId}")
+    public ApiResponse<LocationDetailsResponse> getLocationByUserId(@PathVariable UUID userId) {
+        return ApiResponse.success(locationDetailsService.getLocationByUserId(userId));
+    }
+    
     @GetMapping
     public ApiResponse<List<LocationDetailsResponse>> getAll() {
         return ApiResponse.success(locationDetailsService.getAll());

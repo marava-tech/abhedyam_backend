@@ -13,6 +13,9 @@ public class LocationDetailsResponse {
     @Schema(description = "Location details ID (read-only, system-generated)", example = "3595381f-d038-4d6b-8fe0-dc76ebb7dde2", accessMode = Schema.AccessMode.READ_ONLY)
     private UUID id;
     
+    @Schema(description = "User ID", example = "3595381f-d038-4d6b-8fe0-dc76ebb7dde2")
+    private UUID userId;
+    
     @Schema(description = "Latitude coordinate", example = "12.9309220")
     private BigDecimal latitude;
     

@@ -3,6 +3,7 @@ package com.abhedyam.controller;
 import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.AuthResponse;
 import com.abhedyam.dto.GoogleLoginRequest;
+import com.abhedyam.dto.PhoneLoginRequest;
 import com.abhedyam.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,13 @@ public class AuthController {
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<AuthResponse> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
         AuthResponse response = authService.loginWithGoogle(request);
+        return ApiResponse.success(response);
+    }
+    
+    @PostMapping("/phone/login")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<AuthResponse> loginWithPhone(@Valid @RequestBody PhoneLoginRequest request) {
+        AuthResponse response = authService.loginWithPhone(request);
         return ApiResponse.success(response);
     }
 }

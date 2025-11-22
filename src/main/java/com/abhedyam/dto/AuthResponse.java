@@ -6,6 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -28,5 +30,8 @@ public class AuthResponse {
     
     @Schema(description = "User type", example = "BUSINESS", allowableValues = {"CUSTOMER", "BUSINESS"})
     private UserType userType;
+    
+    @Schema(description = "Owner ID (for customers)", example = "3595381f-d038-4d6b-8fe0-dc76ebb7dde2")
+    private UUID ownerId;
 }
 

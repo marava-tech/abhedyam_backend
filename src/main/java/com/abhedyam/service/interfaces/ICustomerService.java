@@ -21,6 +21,7 @@ public interface ICustomerService {
     PageResponse<Customer> searchCustomers(CustomerSearchRequest request);
     List<CustomerSearchResult> searchByName(String name);
     CustomerProfileSummary getCustomerProfileSummary(UUID customerId);
+    CustomerProfileSummary getMyCustomerSummary();
     Customer updateCustomer(CustomerUpdateRequest request);
 }
 

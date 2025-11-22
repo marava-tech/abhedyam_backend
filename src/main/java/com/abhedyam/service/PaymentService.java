@@ -10,12 +10,15 @@ import com.abhedyam.model.Customer;
 import com.abhedyam.model.Payment;
 import com.abhedyam.model.Product;
 import com.abhedyam.model.SaleItem;
+import com.abhedyam.model.User;
 import com.abhedyam.model.enums.PaymentStatus;
 import com.abhedyam.model.enums.SaleItemStatus;
+import com.abhedyam.model.enums.UserType;
 import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.PaymentRepository;
 import com.abhedyam.repository.ProductRepository;
 import com.abhedyam.repository.SaleItemRepository;
+import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.IAuditService;
 import com.abhedyam.service.interfaces.IPaymentService;
 import com.abhedyam.util.SecurityUtil;
@@ -40,6 +43,7 @@ public class PaymentService implements IPaymentService {
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
     private final SaleItemRepository saleItemRepository;
+    private final UserRepository userRepository;
     private final IAuditService auditService;
     
     @Override
@@ -50,7 +54,7 @@ public class PaymentService implements IPaymentService {
     @Override
     @Transactional
     public PaymentResponse createManualPayment(PaymentCreateRequest request) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
+        UUID currentUserId = SecurityUtil.getCurrentUserId();
         
         if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("INVALID_AMOUNT", "Payment amount must be greater than zero");
@@ -59,7 +63,28 @@ public class PaymentService implements IPaymentService {
         SaleItem saleItem = saleItemRepository.findById(request.getSaleItemId())
                 .orElseThrow(() -> new ResourceNotFoundException("Sale item not found"));
         
-        if (!saleItem.getOwnerId().equals(ownerId)) {
+        UUID saleItemOwnerId = saleItem.getOwnerId();
+        UUID saleItemCustomerId = saleItem.getCustomerId();
+        
+        // Allow access if:
+        // 1. Current user is the customer of the sale item
+        // 2. Current user is the owner of the sale item
+        boolean hasAccess = false;
+        UUID paymentOwnerId = saleItemOwnerId;
+        
+        if (currentUserId.equals(saleItemCustomerId)) {
+            hasAccess = true;
+            paymentOwnerId = saleItemOwnerId;
+        } else if (saleItemOwnerId != null && saleItemOwnerId.equals(currentUserId)) {
+            User currentUser = userRepository.findById(currentUserId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
+            if (currentUser.getType() == UserType.BUSINESS) {
+                hasAccess = true;
+                paymentOwnerId = currentUserId;
+            }
+        }
+        
+        if (!hasAccess) {
             throw new BusinessException("UNAUTHORIZED", "You don't have access to this sale item");
         }
         
@@ -71,7 +96,7 @@ public class PaymentService implements IPaymentService {
         
         Payment payment = new Payment();
         payment.setCustomerId(saleItem.getCustomerId());
-        payment.setOwnerId(ownerId);
+        payment.setOwnerId(paymentOwnerId);
         payment.setSaleItemId(request.getSaleItemId());
         payment.setAmount(request.getAmount());
         payment.setMedium(request.getMedium());
@@ -85,7 +110,7 @@ public class PaymentService implements IPaymentService {
             updateSaleItemBalance(saleItem, savedPayment.getAmount(), true);
             auditService.logPaymentSuccess(
                 savedPayment.getId(),
-                ownerId,
+                paymentOwnerId,
                 customer.getId(),
                 customer.getName(),
                 request.getSaleItemId(),
@@ -115,11 +140,29 @@ public class PaymentService implements IPaymentService {
     @Override
     @Transactional(readOnly = true)
     public Payment getById(UUID id) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
+        UUID currentUserId = SecurityUtil.getCurrentUserId();
         Payment payment = paymentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment not found with id: " + id));
         
-        if (!payment.getOwnerId().equals(ownerId)) {
+        UUID paymentOwnerId = payment.getOwnerId();
+        UUID paymentCustomerId = payment.getCustomerId();
+        
+        // Allow access if:
+        // 1. Current user is the customer of the payment
+        // 2. Current user is the owner of the payment
+        boolean hasAccess = false;
+        
+        if (currentUserId.equals(paymentCustomerId)) {
+            hasAccess = true;
+        } else if (paymentOwnerId != null && paymentOwnerId.equals(currentUserId)) {
+            User currentUser = userRepository.findById(currentUserId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
+            if (currentUser.getType() == UserType.BUSINESS) {
+                hasAccess = true;
+            }
+        }
+        
+        if (!hasAccess) {
             throw new BusinessException("UNAUTHORIZED", "You don't have access to this payment");
         }
         
@@ -269,10 +312,39 @@ public class PaymentService implements IPaymentService {
     @Override
     @Transactional(readOnly = true)
     public List<Payment> getByCustomerId(UUID customerId) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
+        UUID currentUserId = SecurityUtil.getCurrentUserId();
+        
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
+        
+        UUID ownerId = customer.getOwnerId();
+        
+        // Allow access if:
+        // 1. Current user is the customer themselves
+        // 2. Current user is the owner of this customer
+        boolean hasAccess = false;
+        
+        if (currentUserId.equals(customerId)) {
+            hasAccess = true;
+        } else if (ownerId != null) {
+            User currentUser = userRepository.findById(currentUserId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
+            
+            if (currentUser.getType() == UserType.BUSINESS && ownerId.equals(currentUserId)) {
+                hasAccess = true;
+            }
+        }
+        
+        if (!hasAccess) {
+            throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer's payments");
+        }
+        
+        // If customer is accessing, use their ownerId; if owner is accessing, use currentUserId
+        UUID filterOwnerId = currentUserId.equals(customerId) ? ownerId : currentUserId;
+        
         List<Payment> payments = paymentRepository.findByCustomerId(customerId);
         return payments.stream()
-            .filter(p -> p.getOwnerId().equals(ownerId))
+            .filter(p -> filterOwnerId != null && p.getOwnerId().equals(filterOwnerId))
             .sorted((p1, p2) -> {
                 if (p1.getCreatedAt() == null && p2.getCreatedAt() == null) return 0;
                 if (p1.getCreatedAt() == null) return 1;

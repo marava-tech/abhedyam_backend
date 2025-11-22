@@ -15,6 +15,7 @@ import com.abhedyam.model.Note;
 import com.abhedyam.model.Payment;
 import com.abhedyam.model.Reminder;
 import com.abhedyam.model.SaleItem;
+import com.abhedyam.model.User;
 import com.abhedyam.model.enums.ReminderStatus;
 import com.abhedyam.model.enums.UserType;
 import com.abhedyam.repository.CustomerRepository;
@@ -23,6 +24,7 @@ import com.abhedyam.repository.NoteRepository;
 import com.abhedyam.repository.PaymentRepository;
 import com.abhedyam.repository.ReminderRepository;
 import com.abhedyam.repository.SaleItemRepository;
+import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.ICustomerService;
 import com.abhedyam.util.PhoneUtil;
 import com.abhedyam.util.SecurityUtil;
@@ -48,6 +50,7 @@ public class CustomerService implements ICustomerService {
     private final PaymentRepository paymentRepository;
     private final NoteRepository noteRepository;
     private final ReminderRepository reminderRepository;
+    private final UserRepository userRepository;
     
     @Override
     @Transactional
@@ -80,15 +83,27 @@ public class CustomerService implements ICustomerService {
     @Override
     @Transactional(readOnly = true)
     public Customer getById(UUID id) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
+        UUID currentUserId = SecurityUtil.getCurrentUserId();
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + id));
         
-        if (customer.getOwnerId() != null && !customer.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer");
+        // Allow access if:
+        // 1. Current user is the customer themselves
+        // 2. Current user is the owner of this customer
+        if (currentUserId.equals(id)) {
+            return customer;
         }
         
-        return customer;
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
+        
+        if (currentUser.getType() == UserType.BUSINESS && 
+            customer.getOwnerId() != null && 
+            customer.getOwnerId().equals(currentUserId)) {
+            return customer;
+        }
+        
+        throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer");
     }
     
     @Override
@@ -269,6 +284,75 @@ public class CustomerService implements ICustomerService {
             (long) notes.size(),
             totalReminders,
             pendingReminders
+        );
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public CustomerProfileSummary getMyCustomerSummary() {
+        UUID customerId = SecurityUtil.getCurrentUserId();
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+        
+        UUID ownerId = customer.getOwnerId();
+        if (ownerId == null) {
+            return new CustomerProfileSummary(
+                    customerId,
+                    customer.getName(),
+                    customer.getPhone(),
+                    customer.getImageUrl(),
+                    0L,
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    0L,
+                    0L,
+                    0L
+            );
+        }
+        
+        List<SaleItem> saleItems = saleItemRepository.findByCustomerId(customerId).stream()
+                .filter(item -> item.getOwnerId().equals(ownerId))
+                .toList();
+        List<Payment> payments = paymentRepository.findByCustomerId(customerId).stream()
+                .filter(p -> p.getOwnerId().equals(ownerId))
+                .toList();
+        List<Note> notes = noteRepository.findByCustomerId(customerId).stream()
+                .filter(n -> n.getOwnerId().equals(ownerId))
+                .toList();
+        List<Reminder> reminders = reminderRepository.findByCustomerId(customerId).stream()
+                .filter(r -> r.getOwnerId().equals(ownerId))
+                .toList();
+        
+        long totalSales = saleItems.size();
+        BigDecimal totalAmount = saleItems.stream()
+                .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        BigDecimal totalPaid = payments.stream()
+                .filter(p -> p.getStatus() == com.abhedyam.model.enums.PaymentStatus.SUCCESS)
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        BigDecimal totalDue = totalAmount.subtract(totalPaid);
+        
+        long totalReminders = reminders.size();
+        long pendingReminders = reminders.stream()
+                .filter(r -> r.getStatus() == ReminderStatus.PENDING)
+                .count();
+        
+        return new CustomerProfileSummary(
+                customerId,
+                customer.getName(),
+                customer.getPhone(),
+                customer.getImageUrl(),
+                totalSales,
+                totalAmount,
+                totalPaid,
+                totalDue,
+                (long) notes.size(),
+                totalReminders,
+                pendingReminders
         );
     }
     
