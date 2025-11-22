@@ -1,20 +1,13 @@
-FROM eclipse-temurin:21-jdk-alpine AS build
-
-WORKDIR /app
-
-COPY pom.xml .
-COPY src ./src
-
-RUN apk add --no-cache maven
-RUN mvn clean package -DskipTests
-
 FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-COPY --from=build /app/target/*.jar app.jar
+# Install wget for health checks
+RUN apk add --no-cache wget
+
+# Copy JAR from target folder
+COPY target/abhedyam-backend-*.jar app.jar
 
 EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
-

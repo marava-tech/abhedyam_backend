@@ -1,0 +1,17 @@
+.git/
+.gitignore
+*.md
+logs/
+.env
+.env.*
+.idea/
+.vscode/
+*.iml
+.DS_Store
+node_modules/
+*.log
+docker-compose.yml
+build-and-push.sh
+src/
+pom.xml
+

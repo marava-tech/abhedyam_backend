@@ -11,8 +11,11 @@ import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Customer;
 import com.abhedyam.model.LocationDetails;
+import com.abhedyam.model.User;
+import com.abhedyam.model.enums.UserType;
 import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.LocationDetailsRepository;
+import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.ILocationDetailsService;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +32,7 @@ public class LocationDetailsService implements ILocationDetailsService {
     
     private final LocationDetailsRepository locationDetailsRepository;
     private final CustomerRepository customerRepository;
+    private final UserRepository userRepository;
     
     @Transactional
     public LocationDetailsResponse create(LocationDetailsCreateRequest request) {
@@ -75,6 +79,39 @@ public class LocationDetailsService implements ILocationDetailsService {
                 .orElseThrow(() -> new ResourceNotFoundException("LocationDetails not found for customer"));
         
         return toResponse(location);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public LocationDetailsResponse getLocationByUserId(UUID userId) {
+        UUID currentUserId = SecurityUtil.getCurrentUserId();
+        
+        if (userId.equals(currentUserId)) {
+            LocationDetails location = locationDetailsRepository.findByUserId(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("LocationDetails not found for user"));
+            return toResponse(location);
+        }
+        
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
+        
+        if (currentUser.getType() == UserType.BUSINESS) {
+            User targetUser = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+            
+            if (targetUser.getType() == UserType.CUSTOMER) {
+                Customer customer = customerRepository.findById(userId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+                
+                if (customer.getOwnerId() != null && customer.getOwnerId().equals(currentUserId)) {
+                    LocationDetails location = locationDetailsRepository.findByUserId(userId)
+                            .orElseThrow(() -> new ResourceNotFoundException("LocationDetails not found for user"));
+                    return toResponse(location);
+                }
+            }
+        }
+        
+        throw new BusinessException("UNAUTHORIZED", "You don't have access to this user's location");
     }
     
     public List<LocationDetailsResponse> getAll() {
@@ -215,6 +252,7 @@ public class LocationDetailsService implements ILocationDetailsService {
     private LocationDetailsResponse toResponse(LocationDetails location) {
         LocationDetailsResponse response = new LocationDetailsResponse();
         response.setId(location.getId());
+        response.setUserId(location.getUserId());
         response.setLatitude(location.getLatitude());
         response.setLongitude(location.getLongitude());
         response.setVillage(location.getVillage());

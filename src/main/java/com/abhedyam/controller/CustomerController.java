@@ -63,6 +63,11 @@ public class CustomerController {
         return ApiResponse.success(customerService.filterCustomers(searchText));
     }
     
+    @GetMapping("/me/summary")
+    public ApiResponse<CustomerProfileSummary> getMySummary() {
+        return ApiResponse.success(customerService.getMyCustomerSummary());
+    }
+    
     @PatchMapping("/me")
     public ApiResponse<Customer> updateCustomer(@Valid @RequestBody CustomerUpdateRequest request) {
         return ApiResponse.success(customerService.updateCustomer(request));

@@ -49,6 +49,11 @@ public class ProductController {
         return ApiResponse.success(productService.getByOwnerId(null));
     }
     
+    @GetMapping("/owner/{ownerId}/with-stock")
+    public ApiResponse<List<com.abhedyam.dto.ProductWithStockResponse>> getProductsWithStockByOwnerId(@PathVariable UUID ownerId) {
+        return ApiResponse.success(productService.getProductsWithStockByOwnerId(ownerId));
+    }
+    
     @PatchMapping("/me")
     public ApiResponse<Product> updateProduct(@Valid @RequestBody ProductUpdateRequest request) {
         return ApiResponse.success(productService.updateProduct(request));
