@@ -88,6 +88,24 @@ public class PaymentService implements IPaymentService {
             throw new BusinessException("UNAUTHORIZED", "You don't have access to this sale item");
         }
         
+        BigDecimal remainingAmount = saleItem.getRemainingAmount();
+        if (remainingAmount == null) {
+            BigDecimal totalAmount = saleItem.getPrice().multiply(
+                saleItem.getQuantity() != null ? saleItem.getQuantity() : BigDecimal.ONE
+            );
+            remainingAmount = totalAmount;
+        }
+        
+        if (remainingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("NO_DUE_AMOUNT", "No due amount exists for this sale item. Payment cannot be processed.");
+        }
+        
+        if (request.getAmount().compareTo(remainingAmount) > 0) {
+            throw new BusinessException("PAYMENT_EXCEEDS_DUE", 
+                String.format("Payment amount (₹%s) cannot exceed the due amount (₹%s). You can pay maximum ₹%s.", 
+                    request.getAmount(), remainingAmount, remainingAmount));
+        }
+        
         Customer customer = customerRepository.findById(saleItem.getCustomerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
         
@@ -366,6 +384,24 @@ public class PaymentService implements IPaymentService {
                 if (oldStatus == PaymentStatus.SUCCESS && request.getStatus() != PaymentStatus.SUCCESS) {
                     updateSaleItemBalance(saleItem, payment.getAmount(), false);
                 } else if (oldStatus != PaymentStatus.SUCCESS && request.getStatus() == PaymentStatus.SUCCESS) {
+                    BigDecimal remainingAmount = saleItem.getRemainingAmount();
+                    if (remainingAmount == null) {
+                        BigDecimal totalAmount = saleItem.getPrice().multiply(
+                            saleItem.getQuantity() != null ? saleItem.getQuantity() : BigDecimal.ONE
+                        );
+                        remainingAmount = totalAmount;
+                    }
+                    
+                    if (remainingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new BusinessException("NO_DUE_AMOUNT", "No due amount exists for this sale item. Payment cannot be processed.");
+                    }
+                    
+                    if (payment.getAmount().compareTo(remainingAmount) > 0) {
+                        throw new BusinessException("PAYMENT_EXCEEDS_DUE", 
+                            String.format("Payment amount (₹%s) cannot exceed the due amount (₹%s). You can pay maximum ₹%s.", 
+                                payment.getAmount(), remainingAmount, remainingAmount));
+                    }
+                    
                     updateSaleItemBalance(saleItem, payment.getAmount(), true);
                 }
             }
@@ -432,11 +468,52 @@ public class PaymentService implements IPaymentService {
                         updateSaleItemBalance(saleItem, oldAmount, false);
                     } else if (oldStatus != PaymentStatus.SUCCESS && paymentDetails.getStatus() == PaymentStatus.SUCCESS) {
                         BigDecimal amountToProcess = paymentDetails.getAmount() != null ? paymentDetails.getAmount() : oldAmount;
+                        
+                        BigDecimal remainingAmount = saleItem.getRemainingAmount();
+                        if (remainingAmount == null) {
+                            BigDecimal totalAmount = saleItem.getPrice().multiply(
+                                saleItem.getQuantity() != null ? saleItem.getQuantity() : BigDecimal.ONE
+                            );
+                            remainingAmount = totalAmount;
+                        }
+                        
+                        if (remainingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                            throw new BusinessException("NO_DUE_AMOUNT", "No due amount exists for this sale item. Payment cannot be processed.");
+                        }
+                        
+                        if (amountToProcess.compareTo(remainingAmount) > 0) {
+                            throw new BusinessException("PAYMENT_EXCEEDS_DUE", 
+                                String.format("Payment amount (₹%s) cannot exceed the due amount (₹%s). You can pay maximum ₹%s.", 
+                                    amountToProcess, remainingAmount, remainingAmount));
+                        }
+                        
                         updateSaleItemBalance(saleItem, amountToProcess, true);
                     }
                 } else if (amountChanged && oldStatus == PaymentStatus.SUCCESS) {
+                    BigDecimal newAmount = paymentDetails.getAmount();
+                    
+                    BigDecimal remainingAmount = saleItem.getRemainingAmount();
+                    if (remainingAmount == null) {
+                        BigDecimal totalAmount = saleItem.getPrice().multiply(
+                            saleItem.getQuantity() != null ? saleItem.getQuantity() : BigDecimal.ONE
+                        );
+                        remainingAmount = totalAmount;
+                    }
+                    
+                    BigDecimal availableDueAmount = remainingAmount.add(oldAmount);
+                    
+                    if (availableDueAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new BusinessException("NO_DUE_AMOUNT", "No due amount exists for this sale item. Payment cannot be updated.");
+                    }
+                    
+                    if (newAmount.compareTo(availableDueAmount) > 0) {
+                        throw new BusinessException("PAYMENT_EXCEEDS_DUE", 
+                            String.format("Updated payment amount (₹%s) cannot exceed the available due amount (₹%s). You can pay maximum ₹%s.", 
+                                newAmount, availableDueAmount, availableDueAmount));
+                    }
+                    
                     updateSaleItemBalance(saleItem, oldAmount, false);
-                    updateSaleItemBalance(saleItem, paymentDetails.getAmount(), true);
+                    updateSaleItemBalance(saleItem, newAmount, true);
                 }
             }
         }

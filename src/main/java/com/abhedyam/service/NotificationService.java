@@ -23,6 +23,12 @@ public class NotificationService implements INotificationService {
     
     @Override
     public Notification create(Notification notification) {
+        if (notification.getOwnerId() == null) {
+            throw new BusinessException("INVALID_NOTIFICATION", "Notification ownerId cannot be null");
+        }
+        if (notification.getUserId() == null) {
+            throw new BusinessException("INVALID_NOTIFICATION", "Notification userId cannot be null");
+        }
         if (notification.getRetryCount() == null) {
             notification.setRetryCount(0);
         }

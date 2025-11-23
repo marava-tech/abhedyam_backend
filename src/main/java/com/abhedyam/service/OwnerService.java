@@ -3,6 +3,7 @@ package com.abhedyam.service;
 import com.abhedyam.dto.LocationDetailsResponse;
 import com.abhedyam.dto.OwnerCreateRequest;
 import com.abhedyam.dto.OwnerDetailsResponse;
+import com.abhedyam.dto.OwnerPublicResponse;
 import com.abhedyam.dto.OwnerResponse;
 import com.abhedyam.dto.OwnerSettingsResponse;
 import com.abhedyam.dto.OwnerUpdateRequest;
@@ -25,7 +26,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -80,7 +83,7 @@ public class OwnerService implements IOwnerService {
         OwnerDetailsResponse response = new OwnerDetailsResponse();
         response.setOwner(toResponse(owner));
         
-        LocationDetails location = locationDetailsRepository.findById(id).orElse(null);
+        LocationDetails location = locationDetailsRepository.findByUserId(id).orElse(null);
         if (location != null) {
             response.setLocation(toLocationResponse(location));
         }
@@ -102,6 +105,79 @@ public class OwnerService implements IOwnerService {
         return ownerRepository.findAll().stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<OwnerPublicResponse> getAllPublic(BigDecimal latitude, BigDecimal longitude) {
+        List<Owner> owners = ownerRepository.findAll();
+        List<OwnerPublicResponse> responses = owners.stream()
+                .map(owner -> {
+                    LocationDetails location = locationDetailsRepository.findByUserId(owner.getId()).orElse(null);
+                    
+                    OwnerPublicResponse response = new OwnerPublicResponse();
+                    response.setId(owner.getId());
+                    response.setName(owner.getName());
+                    response.setBusinessName(owner.getBusinessName());
+                    response.setPhone(owner.getPhone());
+                    response.setEmail(owner.getEmail());
+                    response.setImageUrl(owner.getImageUrl());
+                    response.setIsVerified(owner.getIsVerified());
+                    
+                    if (location != null) {
+                        response.setLatitude(location.getLatitude());
+                        response.setLongitude(location.getLongitude());
+                        response.setVillage(location.getVillage());
+                        response.setAddressText(location.getAddressText());
+                        
+                        if (latitude != null && longitude != null && 
+                            location.getLatitude() != null && location.getLongitude() != null) {
+                            BigDecimal distance = calculateDistance(
+                                latitude, longitude,
+                                location.getLatitude(), location.getLongitude()
+                            );
+                            response.setDistance(distance);
+                        }
+                    }
+                    
+                    return response;
+                })
+                .collect(Collectors.toList());
+        
+        if (latitude != null && longitude != null) {
+            responses.sort(Comparator
+                .comparing((OwnerPublicResponse r) -> r.getDistance() != null ? 0 : 1)
+                .thenComparing((OwnerPublicResponse r) -> r.getDistance(), 
+                    Comparator.nullsLast(Comparator.naturalOrder()))
+            );
+        } else {
+            responses.sort(Comparator.comparing(
+                (OwnerPublicResponse r) -> r.getLatitude() != null && r.getLongitude() != null ? 0 : 1
+            ));
+        }
+        
+        return responses;
+    }
+    
+    private BigDecimal calculateDistance(BigDecimal lat1, BigDecimal lon1, BigDecimal lat2, BigDecimal lon2) {
+        final int EARTH_RADIUS_KM = 6371;
+        
+        double lat1Rad = Math.toRadians(lat1.doubleValue());
+        double lon1Rad = Math.toRadians(lon1.doubleValue());
+        double lat2Rad = Math.toRadians(lat2.doubleValue());
+        double lon2Rad = Math.toRadians(lon2.doubleValue());
+        
+        double dLat = lat2Rad - lat1Rad;
+        double dLon = lon2Rad - lon1Rad;
+        
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                   Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+                   Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        double distanceKm = EARTH_RADIUS_KM * c;
+        
+        return BigDecimal.valueOf(distanceKm).setScale(2, RoundingMode.HALF_UP);
     }
     
     @Transactional
