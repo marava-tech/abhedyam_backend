@@ -69,10 +69,13 @@ public class ReminderService implements IReminderService {
         auditService.logReminderCreation(savedReminder.getId(), ownerId, request.getCustomerId(), 
             customerName, request.getName(), request.getText(), request.getDueAt());
         
+        savedReminder.getPackages().size();
+        
         return savedReminder;
     }
     
     @Override
+    @Transactional(readOnly = true)
     public Reminder getById(UUID id) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         Reminder reminder = reminderRepository.findById(id)
@@ -82,28 +85,37 @@ public class ReminderService implements IReminderService {
             throw new BusinessException("UNAUTHORIZED", "You don't have access to this reminder");
         }
         
+        reminder.getPackages().size();
+        
         return reminder;
     }
     
     @Override
+    @Transactional(readOnly = true)
     public List<Reminder> getAll() {
-        return reminderRepository.findAll();
+        List<Reminder> reminders = reminderRepository.findAll();
+        reminders.forEach(r -> r.getPackages().size());
+        return reminders;
     }
     
     @Override
+    @Transactional(readOnly = true)
     public List<Reminder> getByOwnerId(UUID ownerId) {
         UUID currentOwnerId = SecurityUtil.getCurrentUserId();
         if (!currentOwnerId.equals(ownerId)) {
             throw new BusinessException("UNAUTHORIZED", "You can only view your own reminders");
         }
-        return reminderRepository.findByOwnerId(ownerId);
+        List<Reminder> reminders = reminderRepository.findByOwnerId(ownerId);
+        reminders.forEach(r -> r.getPackages().size());
+        return reminders;
     }
     
     @Override
+    @Transactional(readOnly = true)
     public List<Reminder> getByCustomerId(UUID customerId) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         List<Reminder> reminders = reminderRepository.findByCustomerId(customerId);
-        return reminders.stream()
+        List<Reminder> filtered = reminders.stream()
             .filter(reminder -> reminder.getOwnerId().equals(ownerId))
             .sorted((r1, r2) -> {
                 if (r1.getCreatedAt() == null && r2.getCreatedAt() == null) return 0;
@@ -112,15 +124,20 @@ public class ReminderService implements IReminderService {
                 return r2.getCreatedAt().compareTo(r1.getCreatedAt());
             })
             .toList();
+        filtered.forEach(r -> r.getPackages().size());
+        return filtered;
     }
     
     @Override
+    @Transactional(readOnly = true)
     public List<Reminder> getPendingReminders() {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        return reminderRepository.findByOwnerId(ownerId).stream()
+        List<Reminder> reminders = reminderRepository.findByOwnerId(ownerId).stream()
             .filter(r -> r.getStatus() == ReminderStatus.PENDING)
             .filter(r -> r.getTime().isBefore(Instant.now()) || r.getTime().equals(Instant.now()))
             .toList();
+        reminders.forEach(r -> r.getPackages().size());
+        return reminders;
     }
     
     @Override
@@ -145,7 +162,10 @@ public class ReminderService implements IReminderService {
         }
         reminder.setPackages(packages);
         
-        return reminderRepository.save(reminder);
+        Reminder savedReminder = reminderRepository.save(reminder);
+        savedReminder.getPackages().size();
+        
+        return savedReminder;
     }
     
     @Override
@@ -153,7 +173,9 @@ public class ReminderService implements IReminderService {
     public Reminder markAsSent(UUID id) {
         Reminder reminder = getById(id);
         reminder.setStatus(ReminderStatus.SENT);
-        return reminderRepository.save(reminder);
+        Reminder savedReminder = reminderRepository.save(reminder);
+        savedReminder.getPackages().size();
+        return savedReminder;
     }
     
     private List<String> determinePackages(UUID customerId, UUID ownerId) {
