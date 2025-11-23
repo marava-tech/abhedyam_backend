@@ -89,9 +89,13 @@ public class FcmService implements IFcmService {
                 log.error("Failed to send FCM notification to user {} with token {}: {}", 
                     userId, fcmDetails.getToken(), e.getMessage());
                 
-                if (e.getErrorCode().equals("invalid-argument") || 
-                    e.getErrorCode().equals("registration-token-not-registered")) {
-                    log.info("Removing invalid token for user {}", userId);
+                String errorCode = e.getErrorCode() != null ? e.getErrorCode().toString() : null;
+                String errorMessage = e.getMessage();
+                if ((errorCode != null && (
+                    errorCode.contains("INVALID_ARGUMENT") || 
+                    errorCode.contains("UNREGISTERED"))) ||
+                    (errorMessage != null && errorMessage.contains("Requested entity was not found"))) {
+                    log.info("Removing invalid token for user {}: {}", userId, errorCode);
                     fcmDetailsRepository.delete(fcmDetails);
                 }
             } catch (Exception e) {
@@ -161,9 +165,13 @@ public class FcmService implements IFcmService {
                 log.error("Failed to send FCM notification to user {} with token {}: {}", 
                     fcmDetails.getUserId(), fcmDetails.getToken(), e.getMessage());
                 
-                if (e.getErrorCode().equals("invalid-argument") || 
-                    e.getErrorCode().equals("registration-token-not-registered")) {
-                    log.info("Removing invalid token for user {}", fcmDetails.getUserId());
+                String errorCode = e.getErrorCode() != null ? e.getErrorCode().toString() : null;
+                String errorMessage = e.getMessage();
+                if ((errorCode != null && (
+                    errorCode.contains("INVALID_ARGUMENT") || 
+                    errorCode.contains("UNREGISTERED"))) ||
+                    (errorMessage != null && errorMessage.contains("Requested entity was not found"))) {
+                    log.info("Removing invalid token for user {}: {}", fcmDetails.getUserId(), errorCode);
                     fcmDetailsRepository.delete(fcmDetails);
                 }
             } catch (Exception e) {

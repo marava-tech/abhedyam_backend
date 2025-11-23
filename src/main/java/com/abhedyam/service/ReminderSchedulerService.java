@@ -41,29 +41,58 @@ public class ReminderSchedulerService implements IReminderSchedulerService {
         
         for (Reminder reminder : dueReminders) {
             try {
-                sendReminder(reminder);
                 reminder.setStatus(ReminderStatus.SENT);
                 reminderRepository.save(reminder);
+                sendReminder(reminder);
                 log.info("Reminder sent and saved: {}", reminder.getId());
             } catch (Exception e) {
                 log.error("Error sending reminder: {}", reminder.getId(), e);
+                reminder.setStatus(ReminderStatus.PENDING);
+                reminderRepository.save(reminder);
             }
         }
     }
     
     private void sendReminder(Reminder reminder) {
         if (reminder.getChannel() == ReminderChannel.IN_APP) {
-            com.abhedyam.model.Notification notification = new com.abhedyam.model.Notification();
-            notification.setOwnerId(reminder.getOwnerId());
-            notification.setUserId(reminder.getCustomerId());
-            notification.setType(com.abhedyam.model.enums.NotificationType.INFO);
-            notification.setMessage(reminder.getText());
-            notification.setTimestamp(Instant.now());
-            notification.setIsRead(false);
-            notification.setRelatedEntityId(reminder.getId());
-            notification.setRelatedEntityType("REMINDER");
-            notification.setRetryCount(0);
-            notificationService.create(notification);
+            UUID ownerId = reminder.getOwnerId();
+            UUID userId = reminder.getCustomerId() != null ? reminder.getCustomerId() : ownerId;
+            
+            if (ownerId == null) {
+                log.warn("Cannot create notification for reminder {}: ownerId is null", reminder.getId());
+                return;
+            }
+            
+            if (userId == null) {
+                log.warn("Cannot create notification for reminder {}: both customerId and ownerId are null for userId", reminder.getId());
+                return;
+            }
+            
+            try {
+                com.abhedyam.model.Notification notification = new com.abhedyam.model.Notification();
+                notification.setOwnerId(ownerId);
+                notification.setUserId(userId);
+                notification.setType(com.abhedyam.model.enums.NotificationType.INFO);
+                notification.setMessage(reminder.getText());
+                notification.setTimestamp(Instant.now());
+                notification.setIsRead(false);
+                notification.setRelatedEntityId(reminder.getId());
+                notification.setRelatedEntityType("REMINDER");
+                notification.setRetryCount(0);
+                
+                if (notification.getOwnerId() == null || notification.getUserId() == null) {
+                    log.error("Cannot create notification for reminder {}: ownerId={}, userId={}", 
+                        reminder.getId(), notification.getOwnerId(), notification.getUserId());
+                    return;
+                }
+                
+                notificationService.create(notification);
+                log.debug("Notification created for reminder {}: ownerId={}, userId={}", 
+                    reminder.getId(), ownerId, userId);
+            } catch (Exception e) {
+                log.error("Failed to create notification for reminder {}: {}", reminder.getId(), e.getMessage(), e);
+                throw e;
+            }
             
             List<String> packages = reminder.getPackages();
             if (packages == null || packages.isEmpty()) {

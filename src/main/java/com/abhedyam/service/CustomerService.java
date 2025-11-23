@@ -38,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -58,23 +59,58 @@ public class CustomerService implements ICustomerService {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         String normalizedPhone = PhoneUtil.normalizePhone(request.getPhone());
         
-        Customer customer = new Customer();
-        customer.setName(request.getName());
-        customer.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
-        customer.setPhoneNormalized(normalizedPhone);
-        customer.setType(UserType.CUSTOMER);
-        customer.setOwnerId(ownerId);
-        customer.setIsActive(true);
+        Optional<Customer> existingCustomerOpt = customerRepository.findByPhoneNormalized(normalizedPhone);
+        
+        Customer customer;
+        
+        if (existingCustomerOpt.isPresent()) {
+            Customer existingCustomer = existingCustomerOpt.get();
+            
+            if (existingCustomer.getOwnerId() == null) {
+                customer = existingCustomer;
+                customer.setName(request.getName());
+                customer.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
+                customer.setPhoneNormalized(normalizedPhone);
+                customer.setOwnerId(ownerId);
+                customer.setIsActive(true);
+            } else {
+                throw new BusinessException("CUSTOMER_EXISTS", 
+                    "Customer with this phone number already exists and is associated with another owner");
+            }
+        } else {
+            customer = new Customer();
+            customer.setName(request.getName());
+            customer.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
+            customer.setPhoneNormalized(normalizedPhone);
+            customer.setType(UserType.CUSTOMER);
+            customer.setOwnerId(ownerId);
+            customer.setIsActive(true);
+        }
         
         Customer savedCustomer = customerRepository.save(customer);
         
         if (request.getVillage() != null || request.getLatitude() != null || request.getLongitude() != null) {
-            LocationDetails locationDetails = new LocationDetails();
-            locationDetails.setUserId(savedCustomer.getId());
-            locationDetails.setVillage(request.getVillage());
-            locationDetails.setLatitude(request.getLatitude() != null ? request.getLatitude() : BigDecimal.ZERO);
-            locationDetails.setLongitude(request.getLongitude() != null ? request.getLongitude() : BigDecimal.ZERO);
-            locationDetailsRepository.save(locationDetails);
+            LocationDetails existingLocation = locationDetailsRepository.findById(savedCustomer.getId()).orElse(null);
+            
+            if (existingLocation != null) {
+                if (request.getVillage() != null) {
+                    existingLocation.setVillage(request.getVillage());
+                }
+                if (request.getLatitude() != null) {
+                    existingLocation.setLatitude(request.getLatitude());
+                }
+                if (request.getLongitude() != null) {
+                    existingLocation.setLongitude(request.getLongitude());
+                }
+                locationDetailsRepository.save(existingLocation);
+            } else {
+                LocationDetails locationDetails = new LocationDetails();
+                locationDetails.setUserId(savedCustomer.getId());
+                locationDetails.setVillage(request.getVillage());
+                locationDetails.setLatitude(request.getLatitude() != null ? request.getLatitude() : BigDecimal.ZERO);
+                locationDetails.setLongitude(request.getLongitude() != null ? request.getLongitude() : BigDecimal.ZERO);
+                locationDetailsRepository.save(locationDetails);
+            }
         }
         
         return savedCustomer;

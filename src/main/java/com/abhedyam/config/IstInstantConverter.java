@@ -6,7 +6,6 @@ import jakarta.persistence.Converter;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 
 @Converter(autoApply = true)
 public class IstInstantConverter implements AttributeConverter<Instant, LocalDateTime> {
@@ -26,7 +25,7 @@ public class IstInstantConverter implements AttributeConverter<Instant, LocalDat
         if (localDateTime == null) {
             return null;
         }
-        return localDateTime.atZone(ZoneOffset.UTC).toInstant();
+        return localDateTime.atZone(IST_ZONE).toInstant();
     }
 }
 
