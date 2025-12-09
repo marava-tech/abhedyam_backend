@@ -61,31 +61,24 @@ public class CustomerService implements ICustomerService {
         
         Optional<Customer> existingCustomerOpt = customerRepository.findByPhoneNormalized(normalizedPhone);
         
-        Customer customer;
-        
         if (existingCustomerOpt.isPresent()) {
             Customer existingCustomer = existingCustomerOpt.get();
             
             if (existingCustomer.getOwnerId() == null) {
-                customer = existingCustomer;
-                customer.setName(request.getName());
-                customer.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
-                customer.setPhoneNormalized(normalizedPhone);
-                customer.setOwnerId(ownerId);
-                customer.setIsActive(true);
+                customerRepository.delete(existingCustomer);
             } else {
                 throw new BusinessException("CUSTOMER_EXISTS", 
                     "Customer with this phone number already exists and is associated with another owner");
             }
-        } else {
-            customer = new Customer();
-            customer.setName(request.getName());
-            customer.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
-            customer.setPhoneNormalized(normalizedPhone);
-            customer.setType(UserType.CUSTOMER);
-            customer.setOwnerId(ownerId);
-            customer.setIsActive(true);
         }
+        
+        Customer customer = new Customer();
+        customer.setName(request.getName());
+        customer.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
+        customer.setPhoneNormalized(normalizedPhone);
+        customer.setType(UserType.CUSTOMER);
+        customer.setOwnerId(ownerId);
+        customer.setIsActive(true);
         
         Customer savedCustomer = customerRepository.save(customer);
         

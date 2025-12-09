@@ -19,9 +19,15 @@ import com.abhedyam.repository.PaymentRepository;
 import com.abhedyam.repository.ProductRepository;
 import com.abhedyam.repository.SaleItemRepository;
 import com.abhedyam.repository.UserRepository;
+import com.abhedyam.model.Notification;
+import com.abhedyam.model.enums.NotificationType;
 import com.abhedyam.service.interfaces.IAuditService;
+import com.abhedyam.service.interfaces.IFcmService;
+import com.abhedyam.service.interfaces.INotificationService;
 import com.abhedyam.service.interfaces.IPaymentService;
+import com.abhedyam.util.PackageConstants;
 import com.abhedyam.util.SecurityUtil;
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -37,6 +43,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentService implements IPaymentService {
     
     private final PaymentRepository paymentRepository;
@@ -45,6 +52,8 @@ public class PaymentService implements IPaymentService {
     private final SaleItemRepository saleItemRepository;
     private final UserRepository userRepository;
     private final IAuditService auditService;
+    private final INotificationService notificationService;
+    private final IFcmService fcmService;
     
     @Override
     public Payment create(Payment payment) {
@@ -138,6 +147,10 @@ public class PaymentService implements IPaymentService {
             );
         }
         
+        if (savedPayment.getStatus() == PaymentStatus.PENDING && currentUserId.equals(saleItemCustomerId)) {
+            sendPendingPaymentNotificationToOwner(savedPayment, customer, product, paymentOwnerId);
+        }
+        
         return new PaymentResponse(
                 savedPayment.getId(),
                 savedPayment.getCustomerId(),
@@ -213,7 +226,7 @@ public class PaymentService implements IPaymentService {
         Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
         Pageable pageable = PageRequest.of(page, size, sort);
         
-        Page<Payment> paymentPage = paymentRepository.findByOwnerIdOrderByCreatedAtDesc(ownerId, pageable);
+        Page<Payment> paymentPage = paymentRepository.findByOwnerId(ownerId, pageable);
         
         List<PaymentResponse> responses = paymentPage.getContent().stream()
                 .map(payment -> {
@@ -600,6 +613,36 @@ public class PaymentService implements IPaymentService {
             saleItem.setStatus(SaleItemStatus.PARTIALLY_PAID);
         } else {
             saleItem.setStatus(SaleItemStatus.NOT_PAID);
+        }
+    }
+    
+    private void sendPendingPaymentNotificationToOwner(Payment payment, Customer customer, Product product, UUID ownerId) {
+        try {
+            String message = String.format("You have a payment pending please verify. Customer: %s, Amount: ₹%s, Product: %s", 
+                customer.getName(), payment.getAmount(), product.getName());
+            
+            Notification notification = new Notification();
+            notification.setOwnerId(ownerId);
+            notification.setUserId(ownerId);
+            notification.setType(NotificationType.ACTION_REQUIRED);
+            notification.setMessage(message);
+            notification.setTimestamp(Instant.now());
+            notification.setIsRead(false);
+            notification.setRelatedEntityId(payment.getId());
+            notification.setRelatedEntityType("PAYMENT");
+            notification.setRetryCount(0);
+            
+            notificationService.create(notification);
+            log.info("In-app notification created for pending payment {} to owner {}", payment.getId(), ownerId);
+            
+            String title = "Payment Pending Verification";
+            String body = String.format("%s has a payment of ₹%s pending verification", customer.getName(), payment.getAmount());
+            
+            fcmService.sendNotificationToUser(ownerId, title, body, PackageConstants.BUSINESS_APP_PACKAGE);
+            log.info("FCM notification sent for pending payment {} to owner {}", payment.getId(), ownerId);
+        } catch (Exception e) {
+            log.error("Failed to send notification for pending payment {} to owner {}: {}", 
+                payment.getId(), ownerId, e.getMessage(), e);
         }
     }
 }

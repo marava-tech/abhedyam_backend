@@ -4,8 +4,13 @@ import com.abhedyam.dto.UpiAccountCreateRequest;
 import com.abhedyam.dto.UpiAccountResponse;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
+import com.abhedyam.model.Customer;
 import com.abhedyam.model.UPIAccount;
+import com.abhedyam.model.User;
+import com.abhedyam.model.enums.UserType;
+import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.UPIAccountRepository;
+import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.IUpiAccountManagementService;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +27,8 @@ import java.util.stream.Collectors;
 public class UpiAccountManagementService implements IUpiAccountManagementService {
     
     private final UPIAccountRepository upiAccountRepository;
+    private final UserRepository userRepository;
+    private final CustomerRepository customerRepository;
     
     @Override
     @Transactional
@@ -56,6 +63,34 @@ public class UpiAccountManagementService implements IUpiAccountManagementService
         UUID ownerId = SecurityUtil.getCurrentUserId();
         UPIAccount account = upiAccountRepository.findByOwnerId(ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("UPI Account not found for current user"));
+        return toResponse(account);
+    }
+    
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public UpiAccountResponse getUpiAccountByOwnerId(UUID ownerId) {
+        UUID currentUserId = SecurityUtil.getCurrentUserId();
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
+        
+        boolean hasAccess = false;
+        
+        if (currentUser.getType() == UserType.BUSINESS && currentUserId.equals(ownerId)) {
+            hasAccess = true;
+        } else if (currentUser.getType() == UserType.CUSTOMER) {
+            Customer customer = customerRepository.findById(currentUserId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+            if (customer.getOwnerId() != null && customer.getOwnerId().equals(ownerId)) {
+                hasAccess = true;
+            }
+        }
+        
+        if (!hasAccess) {
+            throw new BusinessException("UNAUTHORIZED", "You don't have access to this owner's UPI account");
+        }
+        
+        UPIAccount account = upiAccountRepository.findByOwnerId(ownerId)
+                .orElseThrow(() -> new ResourceNotFoundException("UPI Account not found for owner"));
         return toResponse(account);
     }
     

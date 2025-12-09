@@ -9,8 +9,8 @@ spring:
 
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/abhedyam?createDatabaseIfNotExist=true&serverTimezone=Asia/Kolkata}
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:root}
+    username: ${DB_USERNAME:madhu}
+    password: ${DB_PASSWORD:Madhu7814}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jackson:
     time-zone: Asia/Kolkata
