@@ -41,6 +41,7 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -184,6 +185,23 @@ public class SaleService implements ISaleService {
     }
     
     private Customer createNewCustomer(SaleCreateRequest request, UUID ownerId) {
+        if (request.getCustomerPhone() != null && !request.getCustomerPhone().trim().isEmpty()) {
+            try {
+                String normalizedPhone = PhoneUtil.normalizePhone(request.getCustomerPhone());
+                Optional<Customer> existingCustomerOpt = customerRepository.findByPhoneNormalized(normalizedPhone);
+                
+                if (existingCustomerOpt.isPresent()) {
+                    Customer existingCustomer = existingCustomerOpt.get();
+                    if (existingCustomer.getOwnerId() == null) {
+                        customerRepository.delete(existingCustomer);
+                        log.info("Deleted existing customer with no owner (phone: {}) before creating new customer", normalizedPhone);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Phone normalization or existing customer check failed, continuing without phone: {}", e.getMessage());
+            }
+        }
+        
         Customer customer = new Customer();
         customer.setName(request.getCustomerName().trim());
         customer.setType(UserType.CUSTOMER);

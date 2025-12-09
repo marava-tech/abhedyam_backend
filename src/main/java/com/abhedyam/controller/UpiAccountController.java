@@ -25,9 +25,9 @@ public class UpiAccountController {
         return ApiResponse.success(upiAccountManagementService.createUpiAccount(request));
     }
     
-    @GetMapping("/me")
-    public ApiResponse<UpiAccountResponse> getCurrentUserUpiAccount() {
-        return ApiResponse.success(upiAccountManagementService.getCurrentUserUpiAccount());
+    @GetMapping("/owner/{ownerId}")
+    public ApiResponse<UpiAccountResponse> getUpiAccountByOwnerId(@PathVariable UUID ownerId) {
+        return ApiResponse.success(upiAccountManagementService.getUpiAccountByOwnerId(ownerId));
     }
     
     @PatchMapping("/me")

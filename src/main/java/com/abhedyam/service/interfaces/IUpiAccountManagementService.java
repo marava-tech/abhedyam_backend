@@ -9,6 +9,7 @@ import java.util.UUID;
 public interface IUpiAccountManagementService {
     UpiAccountResponse createUpiAccount(UpiAccountCreateRequest request);
     UpiAccountResponse getCurrentUserUpiAccount();
+    UpiAccountResponse getUpiAccountByOwnerId(UUID ownerId);
     UpiAccountResponse updateCurrentUserUpiAccount(UpiAccountCreateRequest request);
     List<UpiAccountResponse> getOwnerUpiAccounts();
     UpiAccountResponse getUpiAccountById(UUID id);
