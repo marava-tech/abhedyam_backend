@@ -112,7 +112,8 @@ public class AuthService {
             user.getName(),
             isNewUser,
             UserType.BUSINESS,
-            null
+            null,
+            user.getCreatedAt()
         );
     }
     
@@ -166,7 +167,8 @@ public class AuthService {
             customer.getName(),
             isNewUser,
             UserType.CUSTOMER,
-            customer.getOwnerId()
+            customer.getOwnerId(),
+            customer.getCreatedAt()
         );
     }
 }

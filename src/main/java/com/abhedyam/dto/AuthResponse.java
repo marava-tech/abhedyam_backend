@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Data
@@ -33,5 +34,8 @@ public class AuthResponse {
     
     @Schema(description = "Owner ID (for customers)", example = "3595381f-d038-4d6b-8fe0-dc76ebb7dde2")
     private UUID ownerId;
+    
+    @Schema(description = "Account creation timestamp", example = "2024-01-15T10:30:00Z")
+    private Instant accountCreatedAt;
 }
 

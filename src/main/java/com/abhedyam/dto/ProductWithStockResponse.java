@@ -35,6 +35,9 @@ public class ProductWithStockResponse {
     @Schema(description = "Current stock available", example = "100.00")
     private BigDecimal stock;
     
+    @Schema(description = "Product image URL", example = "https://example.com/image.jpg")
+    private String imageUrl;
+    
     @Schema(description = "Creation timestamp")
     private Instant createdAt;
     

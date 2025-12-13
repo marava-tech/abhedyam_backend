@@ -22,5 +22,8 @@ public class ProductUpdateRequest {
     
     @Schema(description = "Product price", example = "500.00")
     private BigDecimal price;
+    
+    @Schema(description = "Product image URL", example = "https://example.com/image.jpg")
+    private String imageUrl;
 }
 
