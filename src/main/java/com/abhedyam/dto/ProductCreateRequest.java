@@ -23,4 +23,7 @@ public class ProductCreateRequest {
     @Positive(message = "Price must be positive")
     @Schema(description = "Product price", example = "500.00", required = true)
     private BigDecimal price;
+    
+    @Schema(description = "Product image URL", example = "https://example.com/image.jpg")
+    private String imageUrl;
 }

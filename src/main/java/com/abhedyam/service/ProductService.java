@@ -53,6 +53,9 @@ public class ProductService implements IProductService {
         product.setPrice(request.getPrice());
         product.setOwnerId(ownerId);
         product.setIsActive(true);
+        if (request.getImageUrl() != null) {
+            product.setImageUrl(request.getImageUrl().trim().isEmpty() ? null : request.getImageUrl());
+        }
         
         Product savedProduct = productRepository.save(product);
         
@@ -119,6 +122,7 @@ public class ProductService implements IProductService {
                     response.setOwnerId(product.getOwnerId());
                     response.setIsActive(product.getIsActive());
                     response.setStock(formatStock(stock));
+                    response.setImageUrl(product.getImageUrl());
                     response.setCreatedAt(product.getCreatedAt());
                     response.setUpdatedAt(product.getUpdatedAt());
                     
@@ -204,6 +208,13 @@ public class ProductService implements IProductService {
         }
         if (request.getPrice() != null) {
             product.setPrice(request.getPrice());
+        }
+        if (request.getImageUrl() != null) {
+            if (request.getImageUrl().trim().isEmpty()) {
+                product.setImageUrl(null);
+            } else {
+                product.setImageUrl(request.getImageUrl());
+            }
         }
         
         return productRepository.save(product);

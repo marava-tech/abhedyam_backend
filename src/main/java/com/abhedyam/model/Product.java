@@ -30,5 +30,8 @@ public class Product extends BaseEntity {
     
     @Column(nullable = false)
     private Boolean isActive = true;
+    
+    @Column
+    private String imageUrl;
 }
 
