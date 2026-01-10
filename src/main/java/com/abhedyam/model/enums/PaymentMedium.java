@@ -5,6 +5,7 @@ public enum PaymentMedium {
     PAYTM,
     OFFLINE,
     CASH,
-    UPI
+    UPI,
+    IN_APP
 }
 

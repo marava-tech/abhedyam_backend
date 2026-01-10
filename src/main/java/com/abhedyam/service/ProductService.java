@@ -15,12 +15,15 @@ import com.abhedyam.repository.ProductRepository;
 import com.abhedyam.service.interfaces.IAuditService;
 import com.abhedyam.service.interfaces.IProductService;
 import com.abhedyam.util.SecurityUtil;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +41,13 @@ public class ProductService implements IProductService {
     private final ProductRepository productRepository;
     private final InventoryRepository inventoryRepository;
     private final IAuditService auditService;
+    private final RedisTemplate<String, String> redisTemplate;
+    private final ObjectMapper objectMapper;
+    private final InventoryService inventoryService;
+    
+    private static final String PRODUCTS_CACHE_PREFIX = "products:owner:";
+    private static final String PRODUCTS_WITH_STOCK_CACHE_PREFIX = "products:with-stock:";
+    private static final int CACHE_TTL_MINUTES = 5;
     
     @Override
     @Transactional
@@ -67,6 +78,15 @@ public class ProductService implements IProductService {
         
         auditService.logProductCreation(savedProduct.getId(), ownerId, savedProduct.getName(), savedProduct.getCode());
         
+        try {
+            redisTemplate.delete(PRODUCTS_CACHE_PREFIX + ownerId);
+            redisTemplate.delete(PRODUCTS_WITH_STOCK_CACHE_PREFIX + ownerId);
+        } catch (Exception e) {
+            log.warn("Error invalidating product cache on create: {}", e.getMessage());
+        }
+        
+        inventoryService.invalidateOwnerCaches(ownerId);
+        
         decreaseStockOnProductCreationAsync(savedProduct.getId(), ownerId);
         
         return savedProduct;
@@ -94,7 +114,33 @@ public class ProductService implements IProductService {
             throw new BusinessException("UNAUTHORIZED", "You can only view your own products");
         }
         UUID targetOwnerId = ownerId != null ? ownerId : currentOwnerId;
-        return productRepository.findByOwnerId(targetOwnerId);
+        String cacheKey = PRODUCTS_CACHE_PREFIX + targetOwnerId;
+        
+        try {
+            String cached = redisTemplate.opsForValue().get(cacheKey);
+            if (cached != null) {
+                List<Product> cachedProducts = objectMapper.readValue(
+                    cached,
+                    new TypeReference<List<Product>>() {}
+                );
+                log.debug("Returning cached products for owner {}", targetOwnerId);
+                return cachedProducts;
+            }
+        } catch (Exception e) {
+            log.warn("Error reading from cache for key: {}", cacheKey, e);
+        }
+        
+        List<Product> products = productRepository.findByOwnerId(targetOwnerId);
+        
+        try {
+            String jsonResponse = objectMapper.writeValueAsString(products);
+            redisTemplate.opsForValue().set(cacheKey, jsonResponse, CACHE_TTL_MINUTES, TimeUnit.MINUTES);
+            log.debug("Cached products for owner {}", targetOwnerId);
+        } catch (Exception e) {
+            log.warn("Error caching products for key: {}", cacheKey, e);
+        }
+        
+        return products;
     }
     
     @Override
@@ -104,11 +150,27 @@ public class ProductService implements IProductService {
             throw new BusinessException("INVALID_REQUEST", "Owner ID is required");
         }
         
+        String cacheKey = PRODUCTS_WITH_STOCK_CACHE_PREFIX + ownerId;
+        
+        try {
+            String cached = redisTemplate.opsForValue().get(cacheKey);
+            if (cached != null) {
+                List<ProductWithStockResponse> cachedProducts = objectMapper.readValue(
+                    cached,
+                    new TypeReference<List<ProductWithStockResponse>>() {}
+                );
+                log.debug("Returning cached products with stock for owner {}", ownerId);
+                return cachedProducts;
+            }
+        } catch (Exception e) {
+            log.warn("Error reading from cache for key: {}", cacheKey, e);
+        }
+        
         List<Product> products = productRepository.findByOwnerId(ownerId).stream()
                 .filter(p -> p.getIsActive() != null && p.getIsActive())
                 .toList();
         
-        return products.stream()
+        List<ProductWithStockResponse> responses = products.stream()
                 .map(product -> {
                     BigDecimal stock = inventoryRepository.findByOwnerIdAndProductId(ownerId, product.getId())
                             .map(Inventory::getStock)
@@ -136,6 +198,16 @@ public class ProductService implements IProductService {
                     return p1.getPrice().compareTo(p2.getPrice());
                 })
                 .toList();
+        
+        try {
+            String jsonResponse = objectMapper.writeValueAsString(responses);
+            redisTemplate.opsForValue().set(cacheKey, jsonResponse, CACHE_TTL_MINUTES, TimeUnit.MINUTES);
+            log.debug("Cached products with stock for owner {}", ownerId);
+        } catch (Exception e) {
+            log.warn("Error caching products with stock for key: {}", cacheKey, e);
+        }
+        
+        return responses;
     }
     
     private BigDecimal formatStock(BigDecimal stock) {
@@ -154,6 +226,11 @@ public class ProductService implements IProductService {
     public PageResponse<Product> searchProducts(ProductSearchRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
+        String searchTerm = request.getSearchTerm();
+        if (searchTerm != null && searchTerm.trim().isEmpty()) {
+            searchTerm = null;
+        }
+        
         Sort sort = Sort.by(
             "DESC".equalsIgnoreCase(request.getSortDirection()) 
                 ? Sort.Direction.DESC 
@@ -165,7 +242,7 @@ public class ProductService implements IProductService {
         
         Page<Product> page = productRepository.searchProducts(
             ownerId,
-            request.getSearchTerm(),
+            searchTerm,
             request.getIsActive(),
             pageable
         );
@@ -217,7 +294,17 @@ public class ProductService implements IProductService {
             }
         }
         
-        return productRepository.save(product);
+        Product updatedProduct = productRepository.save(product);
+        UUID ownerId = updatedProduct.getOwnerId();
+        
+        try {
+            redisTemplate.delete(PRODUCTS_CACHE_PREFIX + ownerId);
+            redisTemplate.delete(PRODUCTS_WITH_STOCK_CACHE_PREFIX + ownerId);
+        } catch (Exception e) {
+            log.warn("Error invalidating product cache on update: {}", e.getMessage());
+        }
+        
+        return updatedProduct;
     }
     
     @Override
@@ -225,7 +312,17 @@ public class ProductService implements IProductService {
     public Product toggleActive(UUID id) {
         Product product = getById(id);
         product.setIsActive(!product.getIsActive());
-        return productRepository.save(product);
+        Product updatedProduct = productRepository.save(product);
+        UUID ownerId = updatedProduct.getOwnerId();
+        
+        try {
+            redisTemplate.delete(PRODUCTS_CACHE_PREFIX + ownerId);
+            redisTemplate.delete(PRODUCTS_WITH_STOCK_CACHE_PREFIX + ownerId);
+        } catch (Exception e) {
+            log.warn("Error invalidating product cache on toggle: {}", e.getMessage());
+        }
+        
+        return updatedProduct;
     }
     
     @Async("virtualThreadExecutor")
@@ -262,6 +359,16 @@ public class ProductService implements IProductService {
                 productId, currentStock, newStock);
         } catch (Exception e) {
             log.warn("Failed to decrease stock on product creation for product {}: {}", productId, e.getMessage());
+        }
+    }
+    
+    public void invalidateOwnerCaches(UUID ownerId) {
+        try {
+            redisTemplate.delete(PRODUCTS_CACHE_PREFIX + ownerId);
+            redisTemplate.delete(PRODUCTS_WITH_STOCK_CACHE_PREFIX + ownerId);
+            log.debug("Invalidated product caches for owner {}", ownerId);
+        } catch (Exception e) {
+            log.warn("Error invalidating product cache for owner {}: {}", ownerId, e.getMessage());
         }
     }
 }

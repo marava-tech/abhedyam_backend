@@ -25,8 +25,8 @@ public class FileUploadController {
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(
-        summary = "Upload a file",
-        description = "Uploads a file (image, document, etc.) to Cloudinary and returns the public URL. All files are stored in the 'abhedyam' folder.",
+        summary = "Upload an image",
+        description = "Uploads an image file to Cloudinary and returns the public URL. Only image files are accepted (JPEG, JPG, PNG, GIF, WEBP, BMP, SVG). Maximum file size: 50MB. All files are stored in the 'abhedyam' folder.",
         requestBody = @RequestBody(
             description = "File to upload",
             required = true,
@@ -34,7 +34,7 @@ public class FileUploadController {
         )
     )
     public ApiResponse<FileUploadResponse> uploadFile(
-            @Schema(description = "File to upload", type = "string", format = "binary")
+            @Schema(description = "Image file to upload (JPEG, JPG, PNG, GIF, WEBP, BMP, SVG). Maximum size: 50MB", type = "string", format = "binary")
             @RequestParam("file") MultipartFile file) {
         return ApiResponse.success(fileUploadService.uploadFile(file));
     }

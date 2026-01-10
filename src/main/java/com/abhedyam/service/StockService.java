@@ -27,6 +27,7 @@ public class StockService implements IStockService {
     private final InventoryRepository inventoryRepository;
     private final ProductRepository productRepository;
     private final com.abhedyam.service.interfaces.IAuditService auditService;
+    private final InventoryService inventoryService;
     
     @Override
     @Transactional
@@ -169,6 +170,8 @@ public class StockService implements IStockService {
         
         inventory.setStock(stock);
         inventoryRepository.save(inventory);
+        
+        inventoryService.invalidateOwnerCaches(ownerId);
     }
     
     private Product validateProductAccess(UUID productId) {

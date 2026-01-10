@@ -7,6 +7,8 @@ import com.abhedyam.dto.CustomerResponse;
 import com.abhedyam.dto.CustomerSearchRequest;
 import com.abhedyam.dto.CustomerSearchResult;
 import com.abhedyam.dto.CustomerUpdateRequest;
+import com.abhedyam.dto.NearestCustomerRequest;
+import com.abhedyam.dto.NearestCustomerResponse;
 import com.abhedyam.dto.PageResponse;
 import com.abhedyam.model.Customer;
 import com.abhedyam.service.interfaces.ICustomerService;
@@ -71,6 +73,11 @@ public class CustomerController {
     @PatchMapping("/me")
     public ApiResponse<Customer> updateCustomer(@Valid @RequestBody CustomerUpdateRequest request) {
         return ApiResponse.success(customerService.updateCustomer(request));
+    }
+    
+    @PostMapping("/nearest")
+    public ApiResponse<NearestCustomerResponse> findNearestCustomer(@Valid @RequestBody NearestCustomerRequest request) {
+        return ApiResponse.success(customerService.findNearestCustomer(request));
     }
 }
 

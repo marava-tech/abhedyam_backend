@@ -17,8 +17,8 @@ public class CloudinaryConfig {
         map.put("api_key", "421394291995232");
         map.put("api_secret", "ChXQSdHuz9jeycoA0XsW2BFwkcs");
         map.put("secure", "true");
-        map.put("timeout", "60000");
-        map.put("connection_timeout", "60000");
+        map.put("timeout", "300000");
+        map.put("connection_timeout", "300000");
         return new Cloudinary(map);
     }
 }

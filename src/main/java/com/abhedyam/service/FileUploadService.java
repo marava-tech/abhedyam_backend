@@ -20,6 +20,10 @@ public class FileUploadService implements IFileUploadService {
     
     private final Cloudinary cloudinary;
     private static final String FOLDER_NAME = "abhedyam";
+    private static final String[] ALLOWED_IMAGE_TYPES = {
+        "image/jpeg", "image/jpg", "image/png", "image/gif", 
+        "image/webp", "image/bmp", "image/svg+xml"
+    };
     
     @Override
     public FileUploadResponse uploadFile(MultipartFile file) {
@@ -27,10 +31,16 @@ public class FileUploadService implements IFileUploadService {
             throw new BusinessException("INVALID_FILE", "File is required");
         }
         
+        String contentType = file.getContentType();
+        if (contentType == null || !isImageType(contentType)) {
+            throw new BusinessException("INVALID_FILE_TYPE", 
+                "Only image files are allowed. Supported formats: JPEG, JPG, PNG, GIF, WEBP, BMP, SVG");
+        }
+        
         try {
             Map<String, Object> uploadParams = ObjectUtils.asMap(
                 "folder", FOLDER_NAME,
-                "resource_type", "auto"
+                "resource_type", "image"
             );
             
             Map<String, Object> uploadResult = cloudinary.uploader().upload(
@@ -48,6 +58,19 @@ public class FileUploadService implements IFileUploadService {
             log.error("Error uploading file to Cloudinary", e);
             throw new BusinessException("UPLOAD_FAILED", "Failed to upload file: " + e.getMessage());
         }
+    }
+    
+    private boolean isImageType(String contentType) {
+        if (contentType == null) {
+            return false;
+        }
+        String lowerContentType = contentType.toLowerCase();
+        for (String allowedType : ALLOWED_IMAGE_TYPES) {
+            if (lowerContentType.equals(allowedType)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 

@@ -18,6 +18,7 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     Page<Payment> findByOwnerId(UUID ownerId, Pageable pageable);
     Page<Payment> findByOwnerIdOrderByCreatedAtDesc(UUID ownerId, Pageable pageable);
     List<Payment> findByCustomerId(UUID customerId);
+    List<Payment> findByCustomerIdAndOwnerId(UUID customerId, UUID ownerId);
     long countBySaleItemId(UUID saleItemId);
     
     @Query("SELECT DISTINCT p FROM Payment p " +

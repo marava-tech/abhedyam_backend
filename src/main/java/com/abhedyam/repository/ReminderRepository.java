@@ -15,6 +15,7 @@ import java.util.UUID;
 public interface ReminderRepository extends JpaRepository<Reminder, UUID> {
     List<Reminder> findByOwnerId(UUID ownerId);
     List<Reminder> findByCustomerId(UUID customerId);
+    List<Reminder> findByCustomerIdAndOwnerId(UUID customerId, UUID ownerId);
     
     @Query("SELECT r FROM Reminder r WHERE r.status = :status " +
            "AND r.time <= :maxTime " +

@@ -60,9 +60,15 @@ public class SaleService implements ISaleService {
     private final IStockService stockService;
     private final RedisTemplate<String, String> redisTemplate;
     private final com.abhedyam.service.interfaces.IAuditService auditService;
+    private final CustomerService customerService;
+    private final ProductService productService;
+    private final PaymentService paymentService;
+    private final StatsService statsService;
+    private final LocationDetailsService locationDetailsService;
+    private final InventoryService inventoryService;
     
     private static final String IDEMPOTENCY_PREFIX = "sale:idempotency:";
-    private static final int IDEMPOTENCY_TTL_MINUTES = 1;
+    private static final int IDEMPOTENCY_TTL_MINUTES = 5;
     
     @Override
     @Transactional
@@ -136,6 +142,8 @@ public class SaleService implements ISaleService {
             log.info("Sale created successfully: Transaction ID {}, Total Amount: {}, Customer: {}, Items: {}", 
                 transactionId, totalAmount, customer.getName(), saleItems.size());
             
+            invalidateOwnerCachesOnSaleCreation(ownerId);
+            
             UUID firstSaleItemId = saleItems.isEmpty() ? null : saleItems.get(0).getId();
             try {
                 auditService.logSaleCreation(firstSaleItemId != null ? firstSaleItemId : UUID.randomUUID(), 
@@ -194,9 +202,18 @@ public class SaleService implements ISaleService {
                     Customer existingCustomer = existingCustomerOpt.get();
                     if (existingCustomer.getOwnerId() == null) {
                         customerRepository.delete(existingCustomer);
+                        customerRepository.flush();
                         log.info("Deleted existing customer with no owner (phone: {}) before creating new customer", normalizedPhone);
+                    } else if (!existingCustomer.getOwnerId().equals(ownerId)) {
+                        throw new BusinessException("CUSTOMER_EXISTS", 
+                            "Customer with this phone number already exists and is associated with another owner");
+                    } else {
+                        log.info("Customer already exists with this owner (phone: {}), returning existing customer", normalizedPhone);
+                        return existingCustomer;
                     }
                 }
+            } catch (BusinessException e) {
+                throw e;
             } catch (Exception e) {
                 log.warn("Phone normalization or existing customer check failed, continuing without phone: {}", e.getMessage());
             }
@@ -489,6 +506,7 @@ public class SaleService implements ISaleService {
         
         log.info("Sale cancelled: Transaction ID {}", transactionId);
         
+        
         Customer customer = customerRepository.findById(firstItem.getCustomerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
         
@@ -565,6 +583,20 @@ public class SaleService implements ISaleService {
                 productId, currentStock, newStock);
         } catch (Exception e) {
             log.warn("Failed to decrease stock on product creation for product {}: {}", productId, e.getMessage());
+        }
+    }
+    
+    private void invalidateOwnerCachesOnSaleCreation(UUID ownerId) {
+        try {
+            customerService.invalidateOwnerCaches(ownerId);
+            productService.invalidateOwnerCaches(ownerId);
+            paymentService.invalidateOwnerCaches(ownerId);
+            statsService.invalidateOwnerCaches(ownerId);
+            locationDetailsService.invalidateOwnerCaches(ownerId);
+            inventoryService.invalidateOwnerCaches(ownerId);
+            log.debug("Completed cache invalidation for owner {} on sale creation", ownerId);
+        } catch (Exception e) {
+            log.warn("Error during cache invalidation on sale creation for owner {}: {}", ownerId, e.getMessage());
         }
     }
 }
