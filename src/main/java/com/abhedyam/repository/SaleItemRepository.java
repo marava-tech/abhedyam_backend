@@ -16,7 +16,11 @@ import java.util.UUID;
 public interface SaleItemRepository extends JpaRepository<SaleItem, UUID> {
     List<SaleItem> findByOwnerId(UUID ownerId);
     List<SaleItem> findByCustomerId(UUID customerId);
+    List<SaleItem> findByCustomerIdAndOwnerId(UUID customerId, UUID ownerId);
     List<SaleItem> findByTransactionId(String transactionId);
+    
+    @Query("SELECT si FROM SaleItem si WHERE si.id IN :saleItemIds")
+    List<SaleItem> findByIdIn(@Param("saleItemIds") List<UUID> saleItemIds);
     
     @Query("SELECT s FROM SaleItem s WHERE s.ownerId = :ownerId " +
            "AND (:customerId IS NULL OR s.customerId = :customerId) " +

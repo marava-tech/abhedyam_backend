@@ -176,7 +176,7 @@ public class GlobalExceptionHandler {
         String correlationId = MDC.get("correlationId");
         String path = ((ServletWebRequest) request).getRequest().getRequestURI();
         
-        String message = "File size exceeds the maximum allowed limit of 15MB. Please upload a smaller file.";
+        String message = "File size exceeds the maximum allowed limit of 50MB. Please upload a smaller image file.";
         
         ErrorResponse error = new ErrorResponse(
             "File Size Limit Exceeded",

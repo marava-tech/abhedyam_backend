@@ -42,5 +42,8 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
                                    @Param("isNumeric") boolean isNumeric);
     
     Page<Customer> findByOwnerIdOrderByCreatedAtDesc(UUID ownerId, Pageable pageable);
+    
+    @Query("SELECT c FROM Customer c WHERE c.id IN :customerIds")
+    List<Customer> findByIdIn(@Param("customerIds") List<UUID> customerIds);
 }
 

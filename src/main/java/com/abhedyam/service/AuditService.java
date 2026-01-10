@@ -63,8 +63,9 @@ public class AuditService implements IAuditService {
             audit.setAction(action);
             audit.setEntityId(entityId);
             audit.setAmount(amount);
-            audit.setHeadline(String.format("%s %s", type.name(), action.name()));
-            audit.setDescription(details);
+            String headline = formatFinancialOperationHeadline(type, action, amount);
+            audit.setHeadline(headline);
+            audit.setDescription(formatFinancialOperationDescription(type, action, amount, details));
             audit.setTimestamp(Instant.now());
             
             auditRepository.save(audit);
@@ -95,7 +96,7 @@ public class AuditService implements IAuditService {
             
             audit.setHeadline(String.format("%s stock %s from %s to %s", productName, changeText, oldStock, newStock));
             
-            String description = String.format("Stock %s for %s: %s → %s (%s)", 
+            String description = String.format("Stock %s for product '%s' from %s to %s. Reason: %s", 
                 changeText, productName, oldStock, newStock, sourceText);
             if (details != null && !details.trim().isEmpty()) {
                 description += String.format(". %s", details);
@@ -133,8 +134,8 @@ public class AuditService implements IAuditService {
             audit.setAction(AuditAction.CREATE);
             audit.setEntityId(saleId);
             audit.setAmount(amount);
-            audit.setHeadline(String.format("Sale created for %s", customerName));
-            audit.setDescription(String.format("New sale transaction for %s with total amount ₹%s. Transaction ID: %s", 
+            audit.setHeadline(String.format("Sale of ₹%s created for %s", amount, customerName));
+            audit.setDescription(String.format("Created a new sale transaction for customer %s with total amount ₹%s. Transaction ID: %s", 
                 customerName, amount, transactionId));
             audit.setTimestamp(Instant.now());
             
@@ -158,8 +159,8 @@ public class AuditService implements IAuditService {
             audit.setAction(AuditAction.DELETE);
             audit.setEntityId(saleId);
             audit.setAmount(amount.negate());
-            audit.setHeadline(String.format("Sale cancelled for %s", customerName));
-            audit.setDescription(String.format("Sale transaction cancelled for %s. Refunded amount: ₹%s. Transaction ID: %s", 
+            audit.setHeadline(String.format("Sale of ₹%s cancelled for %s", amount, customerName));
+            audit.setDescription(String.format("Sale transaction cancelled for customer %s. Refunded amount: ₹%s. Transaction ID: %s", 
                 customerName, amount, transactionId));
             audit.setTimestamp(Instant.now());
             
@@ -183,8 +184,8 @@ public class AuditService implements IAuditService {
             audit.setAction(AuditAction.PRODUCT_CREATED);
             audit.setEntityId(productId);
             audit.setAmount(BigDecimal.ZERO);
-            audit.setHeadline(String.format("%s product created", productName));
-            audit.setDescription(String.format("New product '%s' added to inventory with product code: %s", 
+            audit.setHeadline(String.format("Product '%s' added to inventory", productName));
+            audit.setDescription(String.format("Added new product '%s' to inventory with product code: %s", 
                 productName, productCode));
             audit.setTimestamp(Instant.now());
             
@@ -272,13 +273,16 @@ public class AuditService implements IAuditService {
             audit.setAction(AuditAction.UPDATE);
             audit.setEntityId(paymentId);
             audit.setAmount(amount);
-            audit.setHeadline(String.format("Payment received from %s", customerName));
+            audit.setHeadline(String.format("Payment of ₹%s received from %s", amount, customerName));
             
-            String description = String.format("Payment of ₹%s received from %s for product '%s'", 
+            String description = String.format("Received payment of ₹%s from %s for product '%s'", 
                 amount, customerName, productName);
-            if (reference != null && !reference.isEmpty()) {
-                description += String.format(". Payment reference: %s", reference);
+            
+            if (reference != null && !reference.trim().isEmpty()) {
+                String referenceText = formatPaymentReference(reference);
+                description += String.format(". %s", referenceText);
             }
+            
             audit.setDescription(description);
             audit.setTimestamp(Instant.now());
             
@@ -289,6 +293,84 @@ public class AuditService implements IAuditService {
             log.error("Failed to log payment success: paymentId={}, customerId={}, customerName={}", 
                 paymentId, customerId, customerName, e);
         }
+    }
+    
+    private String formatPaymentReference(String reference) {
+        if (reference == null || reference.trim().isEmpty()) {
+            return "";
+        }
+        
+        String trimmedRef = reference.trim();
+        
+        if (isImageUrl(trimmedRef)) {
+            return "Payment receipt image uploaded";
+        }
+        
+        if (isTransactionId(trimmedRef)) {
+            return String.format("Transaction ID: %s", trimmedRef);
+        }
+        
+        if (trimmedRef.length() > 50) {
+            return String.format("Reference: %s...", trimmedRef.substring(0, 50));
+        }
+        
+        return String.format("Reference: %s", trimmedRef);
+    }
+    
+    private boolean isImageUrl(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return false;
+        }
+        String lowerText = text.toLowerCase();
+        return lowerText.startsWith("http://") || lowerText.startsWith("https://") ||
+               lowerText.contains(".jpg") || lowerText.contains(".jpeg") || 
+               lowerText.contains(".png") || lowerText.contains(".gif") ||
+               lowerText.contains("cloudinary") || lowerText.contains("image") ||
+               lowerText.contains("/upload/");
+    }
+    
+    private boolean isTransactionId(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return false;
+        }
+        String upperText = text.toUpperCase();
+        return upperText.startsWith("TXN") || upperText.startsWith("UPI") ||
+               upperText.startsWith("PAY") || (text.length() >= 10 && text.matches(".*\\d{10,}.*"));
+    }
+    
+    private String formatFinancialOperationHeadline(AuditType type, AuditAction action, BigDecimal amount) {
+        String typeText = type.name().toLowerCase().replace("_", " ");
+        String actionText = action.name().toLowerCase().replace("_", " ");
+        
+        if (amount != null && amount.compareTo(BigDecimal.ZERO) != 0) {
+            return String.format("%s %s - ₹%s", capitalizeFirst(typeText), actionText, amount);
+        }
+        return String.format("%s %s", capitalizeFirst(typeText), actionText);
+    }
+    
+    private String formatFinancialOperationDescription(AuditType type, AuditAction action, BigDecimal amount, String details) {
+        String typeText = type.name().toLowerCase().replace("_", " ");
+        String actionText = action.name().toLowerCase().replace("_", " ");
+        
+        StringBuilder description = new StringBuilder();
+        description.append(String.format("%s operation: %s", capitalizeFirst(typeText), actionText));
+        
+        if (amount != null && amount.compareTo(BigDecimal.ZERO) != 0) {
+            description.append(String.format(" with amount ₹%s", amount));
+        }
+        
+        if (details != null && !details.trim().isEmpty()) {
+            description.append(String.format(". %s", details));
+        }
+        
+        return description.toString();
+    }
+    
+    private String capitalizeFirst(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        return text.substring(0, 1).toUpperCase() + text.substring(1);
     }
     
     @Transactional

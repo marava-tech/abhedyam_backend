@@ -30,5 +30,38 @@ public interface LocationDetailsRepository extends JpaRepository<LocationDetails
            "AND ld.longitude IS NOT NULL")
     List<LocationDetails> findCustomerLocationsByCustomerIds(@Param("ownerId") UUID ownerId,
                                                               @Param("customerIds") List<UUID> customerIds);
+    
+    @Query("SELECT ld FROM LocationDetails ld " +
+           "INNER JOIN Customer c ON c.id = ld.userId " +
+           "WHERE c.ownerId = :ownerId " +
+           "AND ld.latitude IS NOT NULL " +
+           "AND ld.longitude IS NOT NULL")
+    List<LocationDetails> findCustomerLocationsByOwnerId(@Param("ownerId") UUID ownerId);
+    
+    @Query("SELECT ld FROM LocationDetails ld WHERE ld.userId IN :customerIds")
+    List<LocationDetails> findByUserIdIn(@Param("customerIds") List<UUID> customerIds);
+    
+    @Query("SELECT ld.village, COUNT(c.id) as customerCount " +
+           "FROM LocationDetails ld " +
+           "INNER JOIN Customer c ON c.id = ld.userId " +
+           "WHERE c.ownerId = :ownerId " +
+           "AND ld.village IS NOT NULL " +
+           "AND c.isActive = true " +
+           "GROUP BY ld.village " +
+           "ORDER BY customerCount DESC, ld.village ASC")
+    List<Object[]> findVillagesWithCustomerCountByOwnerId(@Param("ownerId") UUID ownerId);
+    
+    @Query("SELECT ld.village, COUNT(c.id) as customerCount " +
+           "FROM LocationDetails ld " +
+           "INNER JOIN Customer c ON c.id = ld.userId " +
+           "WHERE c.ownerId = :ownerId " +
+           "AND ld.village IS NOT NULL " +
+           "AND LOWER(ld.village) LIKE LOWER(CONCAT('%', :name, '%')) " +
+           "AND c.isActive = true " +
+           "GROUP BY ld.village " +
+           "ORDER BY customerCount DESC, ld.village ASC")
+    List<Object[]> findVillagesWithCustomerCountByNameContainingIgnoreCaseAndOwnerId(
+        @Param("name") String name,
+        @Param("ownerId") UUID ownerId);
 }
 

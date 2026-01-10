@@ -30,5 +30,8 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
            "AND LOWER(p.name) LIKE LOWER(CONCAT('%', :name, '%'))")
     List<Product> findByNameContainingIgnoreCaseAndOwnerId(@Param("name") String name,
                                                             @Param("ownerId") UUID ownerId);
+    
+    @Query("SELECT p FROM Product p WHERE p.id IN :productIds")
+    List<Product> findByIdIn(@Param("productIds") List<UUID> productIds);
 }
 

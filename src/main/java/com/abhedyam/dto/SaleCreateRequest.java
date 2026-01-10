@@ -1,5 +1,6 @@
 package com.abhedyam.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
@@ -28,6 +29,7 @@ public class SaleCreateRequest {
     private List<SaleItemRequest> items;
     
     @Schema(description = "Due date for payment", example = "2024-12-31T23:59:59Z")
+    @JsonDeserialize(using = FlexibleInstantDeserializer.class)
     private Instant dueDate;
 }
 

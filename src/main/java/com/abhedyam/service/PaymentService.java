@@ -33,6 +33,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,6 +55,9 @@ public class PaymentService implements IPaymentService {
     private final IAuditService auditService;
     private final INotificationService notificationService;
     private final IFcmService fcmService;
+    private final RedisTemplate<String, String> redisTemplate;
+    
+    private static final String PAYMENTS_MY_CACHE_PREFIX = "payments:my:";
     
     @Override
     public Payment create(Payment payment) {
@@ -132,6 +136,15 @@ public class PaymentService implements IPaymentService {
         payment.setStatus(request.getStatus() != null ? request.getStatus() : PaymentStatus.SUCCESS);
         
         Payment savedPayment = paymentRepository.save(payment);
+        
+        try {
+            var myPaymentKeys = redisTemplate.keys(PAYMENTS_MY_CACHE_PREFIX + paymentOwnerId + ":*");
+            if (myPaymentKeys != null && !myPaymentKeys.isEmpty()) {
+                redisTemplate.delete(myPaymentKeys);
+            }
+        } catch (Exception e) {
+            log.warn("Error invalidating payment cache on create: {}", e.getMessage());
+        }
         
         if (savedPayment.getStatus() == PaymentStatus.SUCCESS) {
             updateSaleItemBalance(saleItem, savedPayment.getAmount(), true);
@@ -227,21 +240,72 @@ public class PaymentService implements IPaymentService {
         Pageable pageable = PageRequest.of(page, size, sort);
         
         Page<Payment> paymentPage = paymentRepository.findByOwnerId(ownerId, pageable);
+        List<Payment> payments = paymentPage.getContent();
         
-        List<PaymentResponse> responses = paymentPage.getContent().stream()
+        if (payments.isEmpty()) {
+            return new PageResponse<>(
+                List.of(),
+                paymentPage.getNumber(),
+                paymentPage.getSize(),
+                paymentPage.getTotalElements(),
+                paymentPage.getTotalPages(),
+                paymentPage.hasNext(),
+                paymentPage.hasPrevious()
+            );
+        }
+        
+        List<UUID> customerIds = payments.stream()
+            .map(Payment::getCustomerId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+        List<Customer> customers = customerIds.isEmpty() ? List.of() : 
+            customerRepository.findByIdIn(customerIds);
+        java.util.Map<UUID, String> customerNameMap = customers.stream()
+            .collect(java.util.stream.Collectors.toMap(
+                Customer::getId,
+                Customer::getName,
+                (v1, v2) -> v1
+            ));
+        
+        List<UUID> saleItemIds = payments.stream()
+            .map(Payment::getSaleItemId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+        List<SaleItem> saleItems = saleItemIds.isEmpty() ? List.of() : 
+            saleItemRepository.findByIdIn(saleItemIds);
+        java.util.Map<UUID, UUID> saleItemProductMap = saleItems.stream()
+            .collect(java.util.stream.Collectors.toMap(
+                SaleItem::getId,
+                SaleItem::getProductId,
+                (v1, v2) -> v1
+            ));
+        
+        List<UUID> productIds = saleItems.stream()
+            .map(SaleItem::getProductId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+        List<Product> products = productIds.isEmpty() ? List.of() : 
+            productRepository.findByIdIn(productIds);
+        java.util.Map<UUID, String> productNameMap = products.stream()
+            .collect(java.util.stream.Collectors.toMap(
+                Product::getId,
+                Product::getName,
+                (v1, v2) -> v1
+            ));
+        
+        List<PaymentResponse> responses = payments.stream()
                 .map(payment -> {
-                    Customer customer = customerRepository.findById(payment.getCustomerId())
-                            .orElse(null);
-                    String customerName = customer != null ? customer.getName() : "Unknown";
+                    String customerName = customerNameMap.getOrDefault(
+                        payment.getCustomerId(), "Unknown");
                     
                     String productName = "Unknown";
                     if (payment.getSaleItemId() != null) {
-                        SaleItem saleItem = saleItemRepository.findById(payment.getSaleItemId()).orElse(null);
-                        if (saleItem != null) {
-                            Product product = productRepository.findById(saleItem.getProductId()).orElse(null);
-                            if (product != null) {
-                                productName = product.getName();
-                            }
+                        UUID productId = saleItemProductMap.get(payment.getSaleItemId());
+                        if (productId != null) {
+                            productName = productNameMap.getOrDefault(productId, "Unknown");
                         }
                     }
                     
@@ -278,12 +342,14 @@ public class PaymentService implements IPaymentService {
     @Transactional(readOnly = true)
     public List<PaymentResponse> filterPayments(String searchText) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
+        String normalizedSearchText = searchText != null && !searchText.trim().isEmpty() ? searchText.trim() : "";
+        
         boolean isNumeric = false;
         BigDecimal amount = null;
         
-        if (searchText != null && !searchText.trim().isEmpty()) {
+        if (!normalizedSearchText.isEmpty()) {
             try {
-                amount = new BigDecimal(searchText.trim());
+                amount = new BigDecimal(normalizedSearchText);
                 isNumeric = true;
             } catch (NumberFormatException e) {
                 isNumeric = false;
@@ -292,12 +358,12 @@ public class PaymentService implements IPaymentService {
         
         List<Payment> payments = paymentRepository.filterPayments(
             ownerId,
-            searchText != null && !searchText.trim().isEmpty() ? searchText.trim() : null,
+            normalizedSearchText.isEmpty() ? null : normalizedSearchText,
             isNumeric,
             amount
         );
         
-        return payments.stream()
+        List<Payment> sortedPayments = payments.stream()
                 .sorted((p1, p2) -> {
                     if (p1.getCreatedAt() == null && p2.getCreatedAt() == null) return 0;
                     if (p1.getCreatedAt() == null) return 1;
@@ -305,19 +371,64 @@ public class PaymentService implements IPaymentService {
                     return p2.getCreatedAt().compareTo(p1.getCreatedAt());
                 })
                 .limit(15)
+                .toList();
+        
+        if (sortedPayments.isEmpty()) {
+            return List.of();
+        }
+        
+        List<UUID> customerIds = sortedPayments.stream()
+            .map(Payment::getCustomerId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+        List<Customer> customers = customerIds.isEmpty() ? List.of() : 
+            customerRepository.findByIdIn(customerIds);
+        java.util.Map<UUID, String> customerNameMap = customers.stream()
+            .collect(java.util.stream.Collectors.toMap(
+                Customer::getId,
+                Customer::getName,
+                (v1, v2) -> v1
+            ));
+        
+        List<UUID> saleItemIds = sortedPayments.stream()
+            .map(Payment::getSaleItemId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+        List<SaleItem> saleItems = saleItemIds.isEmpty() ? List.of() : 
+            saleItemRepository.findByIdIn(saleItemIds);
+        java.util.Map<UUID, UUID> saleItemProductMap = saleItems.stream()
+            .collect(java.util.stream.Collectors.toMap(
+                SaleItem::getId,
+                SaleItem::getProductId,
+                (v1, v2) -> v1
+            ));
+        
+        List<UUID> productIds = saleItems.stream()
+            .map(SaleItem::getProductId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+        List<Product> products = productIds.isEmpty() ? List.of() : 
+            productRepository.findByIdIn(productIds);
+        java.util.Map<UUID, String> productNameMap = products.stream()
+            .collect(java.util.stream.Collectors.toMap(
+                Product::getId,
+                Product::getName,
+                (v1, v2) -> v1
+            ));
+        
+        return sortedPayments.stream()
                 .map(payment -> {
-                    Customer customer = customerRepository.findById(payment.getCustomerId())
-                            .orElse(null);
-                    String customerName = customer != null ? customer.getName() : "Unknown";
+                    String customerName = customerNameMap.getOrDefault(
+                        payment.getCustomerId(), "Unknown");
                     
                     String productName = "Unknown";
                     if (payment.getSaleItemId() != null) {
-                        SaleItem saleItem = saleItemRepository.findById(payment.getSaleItemId()).orElse(null);
-                        if (saleItem != null) {
-                            Product product = productRepository.findById(saleItem.getProductId()).orElse(null);
-                            if (product != null) {
-                                productName = product.getName();
-                            }
+                        UUID productId = saleItemProductMap.get(payment.getSaleItemId());
+                        if (productId != null) {
+                            productName = productNameMap.getOrDefault(productId, "Unknown");
                         }
                     }
                     
@@ -425,6 +536,16 @@ public class PaymentService implements IPaymentService {
             payment.setReference(request.getReference());
         }
         Payment savedPayment = paymentRepository.save(payment);
+        
+        try {
+            UUID paymentOwnerId = savedPayment.getOwnerId();
+            var myPaymentKeys = redisTemplate.keys(PAYMENTS_MY_CACHE_PREFIX + paymentOwnerId + ":*");
+            if (myPaymentKeys != null && !myPaymentKeys.isEmpty()) {
+                redisTemplate.delete(myPaymentKeys);
+            }
+        } catch (Exception e) {
+            log.warn("Error invalidating payment cache on status update: {}", e.getMessage());
+        }
         
         if (oldStatus != PaymentStatus.SUCCESS && request.getStatus() == PaymentStatus.SUCCESS) {
             Customer customer = customerRepository.findById(payment.getCustomerId())
@@ -537,6 +658,16 @@ public class PaymentService implements IPaymentService {
         if (paymentDetails.getStatus() != null) payment.setStatus(paymentDetails.getStatus());
         Payment savedPayment = paymentRepository.save(payment);
         
+        try {
+            UUID paymentOwnerId = savedPayment.getOwnerId();
+            var myPaymentKeys = redisTemplate.keys(PAYMENTS_MY_CACHE_PREFIX + paymentOwnerId + ":*");
+            if (myPaymentKeys != null && !myPaymentKeys.isEmpty()) {
+                redisTemplate.delete(myPaymentKeys);
+            }
+        } catch (Exception e) {
+            log.warn("Error invalidating payment cache on update: {}", e.getMessage());
+        }
+        
         if (oldStatus != PaymentStatus.SUCCESS && paymentDetails.getStatus() == PaymentStatus.SUCCESS) {
             Customer customer = customerRepository.findById(payment.getCustomerId())
                     .orElse(null);
@@ -643,6 +774,18 @@ public class PaymentService implements IPaymentService {
         } catch (Exception e) {
             log.error("Failed to send notification for pending payment {} to owner {}: {}", 
                 payment.getId(), ownerId, e.getMessage(), e);
+        }
+    }
+    
+    public void invalidateOwnerCaches(UUID ownerId) {
+        try {
+            var keys = redisTemplate.keys(PAYMENTS_MY_CACHE_PREFIX + ownerId + ":*");
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+                log.debug("Invalidated {} payment cache keys for owner {}", keys.size(), ownerId);
+            }
+        } catch (Exception e) {
+            log.warn("Error invalidating payment cache for owner {}: {}", ownerId, e.getMessage());
         }
     }
 }

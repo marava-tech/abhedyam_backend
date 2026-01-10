@@ -16,12 +16,13 @@ import com.abhedyam.model.enums.AuditAction;
 import com.abhedyam.model.enums.AuditType;
 import com.abhedyam.repository.AuditRepository;
 import com.abhedyam.repository.DailyStatsRepository;
+import com.abhedyam.repository.InventoryRepository;
 import com.abhedyam.repository.ProductRepository;
 import com.abhedyam.repository.SaleItemRepository;
 import com.abhedyam.repository.TopProductRepository;
 import com.abhedyam.service.interfaces.IStatsService;
-import com.abhedyam.service.interfaces.IStockService;
 import com.abhedyam.util.SecurityUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -56,11 +57,13 @@ public class StatsService implements IStatsService {
     private final SaleItemRepository saleItemRepository;
     private final ProductRepository productRepository;
     private final AuditRepository auditRepository;
-    private final IStockService stockService;
+    private final InventoryRepository inventoryRepository;
     private final RedisTemplate<String, String> redisTemplate;
+    private final ObjectMapper objectMapper;
     
     private static final String STATS_CACHE_PREFIX = "stats:daily:";
-    private static final int CACHE_TTL_HOURS = 24;
+    private static final String DASHBOARD_STATS_CACHE_PREFIX = "stats:dashboard:";
+    private static final int CACHE_TTL_MINUTES = 5;
     
     @Override
     @Transactional
@@ -106,7 +109,7 @@ public class StatsService implements IStatsService {
                     String cached = redisTemplate.opsForValue().get(cacheKey);
                     if (cached == null) {
                         aggregateDailyStatsForOwner(ownerId, dateForLambda);
-                        redisTemplate.opsForValue().set(cacheKey, "cached", CACHE_TTL_HOURS, TimeUnit.HOURS);
+                        redisTemplate.opsForValue().set(cacheKey, "cached", CACHE_TTL_MINUTES, TimeUnit.MINUTES);
                     }
                     return dailyStatsRepository.findByOwnerIdAndStatDate(ownerId, dateForLambda)
                         .orElse(null);
@@ -280,18 +283,51 @@ public class StatsService implements IStatsService {
     @Transactional(readOnly = true)
     public DashboardStatsResponse getDashboardStats() {
         UUID ownerId = SecurityUtil.getCurrentUserId();
+        String cacheKey = DASHBOARD_STATS_CACHE_PREFIX + ownerId;
+        
+        try {
+            String cached = redisTemplate.opsForValue().get(cacheKey);
+            if (cached != null) {
+                DashboardStatsResponse cachedResponse = objectMapper.readValue(
+                    cached,
+                    DashboardStatsResponse.class
+                );
+                log.debug("Returning cached dashboard stats for owner {}", ownerId);
+                return cachedResponse;
+            }
+        } catch (Exception e) {
+            log.warn("Error reading from cache for key: {}", cacheKey, e);
+        }
         
         List<Product> products = productRepository.findByOwnerId(ownerId).stream()
             .filter(p -> p.getIsActive() != null && p.getIsActive())
             .toList();
         
+        if (products.isEmpty()) {
+            return new DashboardStatsResponse(
+                BigDecimal.ZERO,
+                0L,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO
+            );
+        }
+        
+        List<UUID> productIds = products.stream().map(Product::getId).toList();
+        List<com.abhedyam.model.Inventory> inventories = inventoryRepository.findByOwnerIdAndProductIdIn(ownerId, productIds);
+        java.util.Map<UUID, BigDecimal> stockMap = inventories.stream()
+            .collect(java.util.stream.Collectors.toMap(
+                com.abhedyam.model.Inventory::getProductId,
+                inv -> inv.getStock() != null ? inv.getStock() : BigDecimal.ZERO,
+                (v1, v2) -> v1
+            ));
+        
         BigDecimal totalStockCount = BigDecimal.ZERO;
         long lowStockCount = 0;
         
         for (Product product : products) {
-            BigDecimal stock = stockService.getCurrentStock(product.getId());
-            totalStockCount = totalStockCount.add(stock != null ? stock : BigDecimal.ZERO);
-            if (stock != null && stock.compareTo(new BigDecimal("2")) < 0) {
+            BigDecimal stock = stockMap.getOrDefault(product.getId(), BigDecimal.ZERO);
+            totalStockCount = totalStockCount.add(stock);
+            if (stock.compareTo(new BigDecimal("2")) < 0) {
                 lowStockCount++;
             }
         }
@@ -347,12 +383,22 @@ public class StatsService implements IStatsService {
             weeklyGrowthPercentage = new BigDecimal("100");
         }
         
-        return new DashboardStatsResponse(
+        DashboardStatsResponse response = new DashboardStatsResponse(
             totalStockCount,
             lowStockCount,
             lastWeekSalesAmount,
             weeklyGrowthPercentage
         );
+        
+        try {
+            String jsonResponse = objectMapper.writeValueAsString(response);
+            redisTemplate.opsForValue().set(cacheKey, jsonResponse, CACHE_TTL_MINUTES, TimeUnit.MINUTES);
+            log.debug("Cached dashboard stats for owner {}", ownerId);
+        } catch (Exception e) {
+            log.warn("Error caching dashboard stats for key: {}", cacheKey, e);
+        }
+        
+        return response;
     }
     
     @Override
@@ -577,6 +623,22 @@ public class StatsService implements IStatsService {
         
         Collections.reverse(periods);
         return new AnalyticsResponse(type, startDate, endDate, periods);
+    }
+    
+    public void invalidateOwnerCaches(UUID ownerId) {
+        try {
+            redisTemplate.delete(DASHBOARD_STATS_CACHE_PREFIX + ownerId);
+            
+            var dailyStatsKeys = redisTemplate.keys(STATS_CACHE_PREFIX + ownerId + ":*");
+            if (dailyStatsKeys != null && !dailyStatsKeys.isEmpty()) {
+                redisTemplate.delete(dailyStatsKeys);
+                log.debug("Invalidated {} daily stats cache keys for owner {}", dailyStatsKeys.size(), ownerId);
+            }
+            
+            log.debug("Invalidated stats caches for owner {}", ownerId);
+        } catch (Exception e) {
+            log.warn("Error invalidating stats cache for owner {}: {}", ownerId, e.getMessage());
+        }
     }
 }
 

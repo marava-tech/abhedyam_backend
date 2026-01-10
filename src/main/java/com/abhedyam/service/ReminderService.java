@@ -92,26 +92,6 @@ public class ReminderService implements IReminderService {
     
     @Override
     @Transactional(readOnly = true)
-    public List<Reminder> getAll() {
-        List<Reminder> reminders = reminderRepository.findAll();
-        reminders.forEach(r -> r.getPackages().size());
-        return reminders;
-    }
-    
-    @Override
-    @Transactional(readOnly = true)
-    public List<Reminder> getByOwnerId(UUID ownerId) {
-        UUID currentOwnerId = SecurityUtil.getCurrentUserId();
-        if (!currentOwnerId.equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You can only view your own reminders");
-        }
-        List<Reminder> reminders = reminderRepository.findByOwnerId(ownerId);
-        reminders.forEach(r -> r.getPackages().size());
-        return reminders;
-    }
-    
-    @Override
-    @Transactional(readOnly = true)
     public List<Reminder> getByCustomerId(UUID customerId) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         List<Reminder> reminders = reminderRepository.findByCustomerId(customerId);

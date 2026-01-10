@@ -6,6 +6,8 @@ import com.abhedyam.dto.CustomerResponse;
 import com.abhedyam.dto.CustomerSearchRequest;
 import com.abhedyam.dto.CustomerSearchResult;
 import com.abhedyam.dto.CustomerUpdateRequest;
+import com.abhedyam.dto.NearestCustomerRequest;
+import com.abhedyam.dto.NearestCustomerResponse;
 import com.abhedyam.dto.PageResponse;
 import com.abhedyam.model.Customer;
 
@@ -23,5 +25,6 @@ public interface ICustomerService {
     CustomerProfileSummary getCustomerProfileSummary(UUID customerId);
     CustomerProfileSummary getMyCustomerSummary();
     Customer updateCustomer(CustomerUpdateRequest request);
+    NearestCustomerResponse findNearestCustomer(NearestCustomerRequest request);
 }
 

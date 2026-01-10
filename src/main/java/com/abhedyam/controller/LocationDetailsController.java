@@ -66,6 +66,12 @@ public class LocationDetailsController {
         return ApiResponse.success(locationDetailsService.searchVillagesByName(name));
     }
     
+    @GetMapping("/villages")
+    public ApiResponse<List<com.abhedyam.dto.VillageResponse>> getVillages(
+            @RequestParam(value = "name", required = false, defaultValue = "") String name) {
+        return ApiResponse.success(locationDetailsService.searchVillagesByNameWithCount(name));
+    }
+    
     @PostMapping("/customers/locations")
     public ApiResponse<List<CustomerLocationResponse>> getCustomerLocations(@Valid @RequestBody CustomerLocationRequest request) {
         return ApiResponse.success(locationDetailsService.getCustomerLocations(request));
