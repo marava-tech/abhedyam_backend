@@ -20,8 +20,7 @@ import java.util.UUID;
 @Slf4j
 public class CacheController {
     
-    private static final String SECURITY_HEADER = "abhedyam-accept-token";
-    private static final String SECURITY_TOKEN = "abhedyam-accept-token";
+    private static final String SECURITY_KEY = "Madhu7814";
     
     private final RedisTemplate<String, String> redisTemplate;
     private final UserRepository userRepository;
@@ -41,10 +40,10 @@ public class CacheController {
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<String> invalidateCacheByOwnerEmail(
             @RequestParam("email") String email,
-            @RequestHeader(value = SECURITY_HEADER, required = false) String securityToken) {
+            @RequestParam("key") String key) {
         
-        if (securityToken == null || !securityToken.equals(SECURITY_TOKEN)) {
-            throw new BusinessException("UNAUTHORIZED", "Invalid or missing security token");
+        if (key == null || !key.equals(SECURITY_KEY)) {
+            throw new BusinessException("UNAUTHORIZED", "Invalid or missing key");
         }
         
         String normalizedEmail = EmailUtil.normalizeEmail(email);

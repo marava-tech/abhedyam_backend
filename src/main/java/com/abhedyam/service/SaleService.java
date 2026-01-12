@@ -237,6 +237,12 @@ public class SaleService implements ISaleService {
         
         customer = customerRepository.save(customer);
         
+        try {
+            customerService.invalidateOwnerCaches(ownerId);
+        } catch (Exception e) {
+            log.warn("Customer cache invalidate failed on sale create for owner {}: {}", ownerId, e.getMessage());
+        }
+        
         if (request.getCustomerVillage() != null && !request.getCustomerVillage().trim().isEmpty()) {
             try {
                 LocationDetails locationDetails = new LocationDetails();

@@ -1,7 +1,5 @@
 package com.abhedyam.config;
 
-import com.abhedyam.config.CorrelationIdFilter;
-import com.abhedyam.config.LoggingFilter;
 import com.abhedyam.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -37,6 +35,7 @@ public class SecurityConfig {
                                 "/api/v1/owners/public",
                                 "/api/v1/inventories/owner/*",
                                 "/api/v1/app-usage-guide",
+                                "/api/v1/cache/invalidate",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/swagger-ui/index.html",
