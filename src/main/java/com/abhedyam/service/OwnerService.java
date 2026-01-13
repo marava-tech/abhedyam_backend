@@ -28,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -50,6 +52,10 @@ public class OwnerService implements IOwnerService {
         owner.setType(request.getType() != null ? request.getType() : UserType.BUSINESS);
         owner.setSubscription(request.getSubscription() != null ? request.getSubscription() : com.abhedyam.model.enums.Subscription.GO);
         owner.setIsVerified(request.getIsVerified() != null ? request.getIsVerified() : false);
+        
+        Instant now = Instant.now();
+        owner.setSubscriptionStatus(com.abhedyam.model.enums.SubscriptionStatus.ACTIVE);
+        owner.setValidTill(now.plus(2, ChronoUnit.YEARS));
         
         if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
             String normalizedPhone = PhoneUtil.normalizePhone(request.getPhone());

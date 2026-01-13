@@ -1,9 +1,12 @@
 package com.abhedyam.model;
 
 import com.abhedyam.model.enums.Subscription;
+import com.abhedyam.model.enums.SubscriptionStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.time.Instant;
 
 @Entity
 @Table(name = "owners")
@@ -21,5 +24,15 @@ public class Owner extends User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Subscription subscription = Subscription.GO;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private SubscriptionStatus subscriptionStatus = SubscriptionStatus.ACTIVE;
+    
+    @Column
+    private String subscriptionId;
+    
+    @Column
+    private Instant validTill;
 }
 

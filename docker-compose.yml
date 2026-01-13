@@ -95,6 +95,10 @@ services:
       CASHFREE_CLIENT_ID: ${CASHFREE_CLIENT_ID:-}
       CASHFREE_SECRET: ${CASHFREE_SECRET:-}
       
+      # Razorpay Configuration
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-rzp_test_S3O4drny9apH5C}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-GH56nH9Gg1LRzOshkbSeiS41}
+      
       # Feature Flags
       CALL_LOG_SYNC_ENABLED: ${CALL_LOG_SYNC_ENABLED:-true}
       DAILY_QUOTE_ENABLED: ${DAILY_QUOTE_ENABLED:-true}
