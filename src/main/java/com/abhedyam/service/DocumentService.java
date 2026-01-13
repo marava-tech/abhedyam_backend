@@ -12,6 +12,7 @@ import com.abhedyam.model.enums.UserType;
 import com.abhedyam.repository.DocumentRepository;
 import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.IDocumentService;
+import com.abhedyam.service.interfaces.ISubscriptionService;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,11 +30,14 @@ public class DocumentService implements IDocumentService {
     
     private final DocumentRepository documentRepository;
     private final UserRepository userRepository;
+    private final ISubscriptionService subscriptionService;
     
     @Override
     @Transactional
     public DocumentResponse create(DocumentCreateRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
+        
+        subscriptionService.ensureProSubscription(ownerId);
         
         List<Document> existingDocuments = documentRepository.findActiveDocumentsByOwnerId(ownerId);
         int maxOrderIndex = existingDocuments.stream()

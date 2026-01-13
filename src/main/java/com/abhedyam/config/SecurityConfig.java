@@ -36,6 +36,7 @@ public class SecurityConfig {
                                 "/api/v1/inventories/owner/*",
                                 "/api/v1/app-usage-guide",
                                 "/api/v1/cache/invalidate",
+                                "/api/v1/webhook/razorpay",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/swagger-ui/index.html",
