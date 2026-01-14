@@ -21,10 +21,7 @@ public class Subscription extends BaseEntity {
     private UUID ownerId;
     
     @Column(nullable = false, unique = true)
-    private String razorpaySubscriptionId;
-    
-    @Column
-    private String razorpayPlanId;
+    private String razorpayOrderId;
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

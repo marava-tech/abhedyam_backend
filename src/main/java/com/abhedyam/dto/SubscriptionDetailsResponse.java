@@ -24,11 +24,8 @@ public class SubscriptionDetailsResponse {
     @Schema(description = "Subscription valid till date", example = "2027-01-13T00:00:00Z")
     private Instant validTill;
     
-    @Schema(description = "Razorpay subscription ID", example = "sub_1234567890")
-    private String razorpaySubscriptionId;
-    
-    @Schema(description = "Razorpay plan ID", example = "plan_1234567890")
-    private String razorpayPlanId;
+    @Schema(description = "Razorpay order ID", example = "order_1234567890")
+    private String razorpayOrderId;
     
     @Schema(description = "Subscription activated at", example = "2026-01-13T00:00:00Z")
     private Instant activatedAt;

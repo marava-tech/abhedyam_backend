@@ -19,11 +19,10 @@ public class PaymentConfigController {
     private final RazorpayConfig razorpayConfig;
     
     @GetMapping("/razorpay-config")
-    @Operation(summary = "Get Razorpay configuration", description = "Returns Razorpay key ID, plan IDs, and custom payment page URL for client-side integration")
+    @Operation(summary = "Get Razorpay configuration", description = "Returns Razorpay key ID and custom payment page URL for client-side integration")
     public ApiResponse<RazorpayConfigResponse> getRazorpayConfig() {
         RazorpayConfigResponse response = new RazorpayConfigResponse();
         response.setRazorpayKey(razorpayConfig.getKeyId());
-        response.setRazorpayPlanId(razorpayConfig.getPlanIds());
         String customPaymentPageUrl = razorpayConfig.getCustomPaymentPageUrl();
         if (customPaymentPageUrl != null && !customPaymentPageUrl.trim().isEmpty()) {
             response.setCustomPaymentPageUrl(customPaymentPageUrl.trim());

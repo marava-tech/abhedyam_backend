@@ -6,7 +6,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-REDACTED_ADMIN_KEY}
       MYSQL_USER: ${DB_USERNAME:-madhu}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-REDACTED_ADMIN_KEY}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-REDACTED_ADMIN_KEY}t
       MYSQL_DATABASE: ${DB_NAME:-abhedyam}
       MYSQL_CHARACTER_SET_SERVER: utf8mb4
       MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
@@ -91,16 +91,11 @@ services:
       # Firebase Configuration
       FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-}
       
-      # Cashfree Payment Gateway
-      CASHFREE_CLIENT_ID: ${CASHFREE_CLIENT_ID:-}
-      CASHFREE_SECRET: ${CASHFREE_SECRET:-}
-      
       # Razorpay Configuration
-      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-rzp_test_S3O4drny9apH5C}
-      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-GH56nH9Gg1LRzOshkbSeiS41}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-REDACTED_RAZORPAY_KEY_ID}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-REDACTED_RAZORPAY_SECRET}
       
       # Feature Flags
-      CALL_LOG_SYNC_ENABLED: ${CALL_LOG_SYNC_ENABLED:-true}
       DAILY_QUOTE_ENABLED: ${DAILY_QUOTE_ENABLED:-true}
       
       # CORS Configuration

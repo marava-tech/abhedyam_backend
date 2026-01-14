@@ -12,7 +12,7 @@ import java.util.UUID;
 @Repository
 public interface SubscriptionRepository extends JpaRepository<Subscription, UUID> {
     
-    Optional<Subscription> findByRazorpaySubscriptionId(String razorpaySubscriptionId);
+    Optional<Subscription> findByRazorpayOrderId(String razorpayOrderId);
     
     Optional<Subscription> findByOwnerId(UUID ownerId);
     

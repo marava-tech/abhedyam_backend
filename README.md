@@ -95,8 +95,6 @@ TWO_FACTOR_OTP_TEMPLATE=Abhedyam_OTP_Template
 **Optional:**
 ```bash
 # Payment Gateway (Stubbed)
-CASHFREE_CLIENT_ID=your_cashfree_client_id
-CASHFREE_SECRET=your_cashfree_secret
 ```
 
 ### Database Setup
