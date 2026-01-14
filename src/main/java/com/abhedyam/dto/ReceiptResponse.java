@@ -88,6 +88,9 @@ public class ReceiptResponse {
         @Schema(description = "Customer name", example = "Ramesh Kumar")
         private String name;
         
+        @Schema(description = "Customer phone", example = "+91-9XXXXXXXXX")
+        private String phone;
+        
         @Schema(description = "Customer village", example = "Pedaparimi")
         private String village;
     }
@@ -123,8 +126,8 @@ public class ReceiptResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class PaymentHistoryItem {
-        @Schema(description = "Payment date and time", example = "2026-01-15 14:30:45")
-        private String date;
+        @Schema(description = "Payment timestamp")
+        private Instant date;
         
         @Schema(description = "Payment amount", example = "3000")
         private BigDecimal amount;

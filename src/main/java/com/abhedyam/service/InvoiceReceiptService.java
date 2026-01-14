@@ -248,7 +248,7 @@ public class InvoiceReceiptService {
                 .filter(p -> p.getStatus() == PaymentStatus.SUCCESS 
                     && p.getSaleItemId() != null 
                     && p.getSaleItemId().equals(saleItemIdForReceipt))
-                .sorted(Comparator.comparing(Payment::getTimestamp))
+                .sorted(Comparator.comparing(Payment::getTimestamp).reversed())
                 .collect(Collectors.toList());
         
         BigDecimal totalAmount = saleItem.getPrice().multiply(
@@ -263,13 +263,13 @@ public class InvoiceReceiptService {
         
         SaleItemStatus itemStatus = determineSaleItemStatus(totalPaid, totalAmount);
         
-        Payment latestPayment = allPayments.isEmpty() ? null : allPayments.get(allPayments.size() - 1);
+        Payment latestPayment = allPayments.isEmpty() ? null : allPayments.get(0);
         Instant receiptDate = latestPayment != null ? latestPayment.getTimestamp() : Instant.now();
         
         List<ReceiptResponse.PaymentHistoryItem> paymentHistory = allPayments.stream()
                 .map(p -> {
                     ReceiptResponse.PaymentHistoryItem item = new ReceiptResponse.PaymentHistoryItem();
-                    item.setDate(formatDateTime(p.getTimestamp()));
+                    item.setDate(p.getTimestamp());
                     item.setAmount(p.getAmount());
                     item.setMode(p.getMedium() != null ? p.getMedium().name() : "UNKNOWN");
                     return item;
@@ -295,6 +295,7 @@ public class InvoiceReceiptService {
         
         ReceiptResponse.CustomerInfo customerInfo = new ReceiptResponse.CustomerInfo();
         customerInfo.setName(customer.getName());
+        customerInfo.setPhone(formatPhone(customer.getPhone()));
         customerInfo.setVillage(customerLocation != null && customerLocation.getVillage() != null ? customerLocation.getVillage() : "");
         receiptData.setCustomer(customerInfo);
         
