@@ -27,7 +27,7 @@ public class SubscriptionController {
     
     @PostMapping("/subscription/create")
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Create subscription", description = "Creates a Razorpay subscription and returns subscription ID for checkout")
+    @Operation(summary = "Create payment order", description = "Creates a Razorpay order for one-time payment and returns order ID for checkout")
     public ApiResponse<SubscriptionCreateResponse> createSubscription(@Valid @RequestBody SubscriptionCreateRequest request) {
         return ApiResponse.success(subscriptionService.createSubscription(request));
     }
@@ -40,7 +40,7 @@ public class SubscriptionController {
     }
     
     @PostMapping(value = "/webhook/razorpay", consumes = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(summary = "Razorpay webhook", description = "Handles Razorpay webhook events for subscription lifecycle")
+    @Operation(summary = "Razorpay webhook", description = "Handles Razorpay webhook events for payment lifecycle")
     public ApiResponse<Void> handleWebhook(
             @RequestBody String payload,
             @RequestHeader("X-Razorpay-Signature") String signature) {
@@ -66,6 +66,21 @@ public class SubscriptionController {
         try {
             UUID ownerId = com.abhedyam.util.SecurityUtil.getCurrentUserId();
             subscriptionService.activateProPlanForTesting(ownerId);
+            return ApiResponse.success(null);
+        } catch (RuntimeException e) {
+            if (e.getMessage() != null && e.getMessage().contains("not authenticated")) {
+                throw new com.abhedyam.exception.BusinessException("UNAUTHORIZED", "User not authenticated. Please provide a valid JWT token.");
+            }
+            throw e;
+        }
+    }
+    
+    @PostMapping("/subscription/test/downgrade-go")
+    @Operation(summary = "Downgrade to GO plan for testing", description = "Manually downgrades subscription from PRO to GO for the current user (testing only)")
+    public ApiResponse<Void> downgradeToGoForTesting() {
+        try {
+            UUID ownerId = com.abhedyam.util.SecurityUtil.getCurrentUserId();
+            subscriptionService.downgradeToGoForTesting(ownerId);
             return ApiResponse.success(null);
         } catch (RuntimeException e) {
             if (e.getMessage() != null && e.getMessage().contains("not authenticated")) {

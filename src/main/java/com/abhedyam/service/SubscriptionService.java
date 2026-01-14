@@ -48,13 +48,17 @@ public class SubscriptionService implements ISubscriptionService {
     @Transactional
     public SubscriptionCreateResponse createSubscription(SubscriptionCreateRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        String requestedPlanId = request.getPlanId();
+        Long amount = request.getAmount();
+        
+        if (amount == null || amount <= 0) {
+            throw new BusinessException("INVALID_AMOUNT", "Payment amount must be greater than 0");
+        }
         
         String razorpayMode = razorpayConfig.getMode();
         String razorpayKeyId = razorpayConfig.getKeyId();
         
-        log.info("Creating subscription without plan_id (manual recurring control) - ownerId: {}, requestedPlanId: {}, razorpayMode: {}, razorpayKeyId: {}", 
-                ownerId, requestedPlanId, razorpayMode, razorpayKeyId);
+        log.info("Creating payment order - ownerId: {}, amount: {}, razorpayMode: {}, razorpayKeyId: {}", 
+                ownerId, amount, razorpayMode, razorpayKeyId);
         
         Owner owner = ownerRepository.findById(ownerId)
                 .orElseThrow(() -> {
@@ -67,61 +71,58 @@ public class SubscriptionService implements ISubscriptionService {
         
         if (existingPendingSubscription.isPresent()) {
             Subscription pendingSubscription = existingPendingSubscription.get();
-            String existingSubscriptionId = pendingSubscription.getRazorpaySubscriptionId();
+            String existingOrderId = pendingSubscription.getRazorpayOrderId();
             
-            log.info("Reusing existing pending subscription - ownerId: {}, razorpaySubscriptionId: {}, planId: {}", 
-                    ownerId, existingSubscriptionId, pendingSubscription.getRazorpayPlanId());
+            log.info("Reusing existing pending order - ownerId: {}, razorpayOrderId: {}", 
+                    ownerId, existingOrderId);
             
             SubscriptionCreateResponse response = new SubscriptionCreateResponse();
-            response.setSubscriptionId(existingSubscriptionId);
+            response.setOrderId(existingOrderId);
+            response.setAmount(amount);
             return response;
         }
         
         try {
-            JSONObject subscriptionRequest = new JSONObject();
-            subscriptionRequest.put("total_count", 1);
-            subscriptionRequest.put("quantity", 1);
+            JSONObject orderRequest = new JSONObject();
+            orderRequest.put("amount", amount);
+            orderRequest.put("currency", "INR");
+            orderRequest.put("receipt", "PRO_" + ownerId.toString().substring(0, 8));
             
-            JSONObject customerRequest = new JSONObject();
-            customerRequest.put("name", owner.getName());
-            if (owner.getEmail() != null) {
-                customerRequest.put("email", owner.getEmail());
-            }
-            if (owner.getPhone() != null) {
-                customerRequest.put("contact", owner.getPhone());
-            }
-            subscriptionRequest.put("customer_notify", 1);
+            JSONObject notes = new JSONObject();
+            notes.put("ownerId", ownerId.toString());
+            notes.put("purpose", "PRO_SUBSCRIPTION");
+            orderRequest.put("notes", notes);
             
-            log.debug("Calling Razorpay API to create subscription without plan_id - ownerId: {}, ownerName: {}, razorpayMode: {}, razorpayKeyId: {}", 
-                    ownerId, owner.getName(), razorpayMode, razorpayKeyId);
+            log.debug("Calling Razorpay API to create order - ownerId: {}, ownerName: {}, amount: {}, razorpayMode: {}, razorpayKeyId: {}", 
+                    ownerId, owner.getName(), amount, razorpayMode, razorpayKeyId);
             
-            com.razorpay.Subscription razorpaySubscription = razorpayClient.subscriptions.create(subscriptionRequest);
-            String subscriptionId = razorpaySubscription.get("id");
+            com.razorpay.Order razorpayOrder = razorpayClient.orders.create(orderRequest);
+            String orderId = razorpayOrder.get("id");
             
-            log.info("Razorpay subscription created successfully (without plan_id) - ownerId: {}, razorpaySubscriptionId: {}", 
-                    ownerId, subscriptionId);
+            log.info("Razorpay order created successfully - ownerId: {}, razorpayOrderId: {}", 
+                    ownerId, orderId);
             
             Subscription subscription = new Subscription();
             subscription.setOwnerId(ownerId);
-            subscription.setRazorpaySubscriptionId(subscriptionId);
-            subscription.setRazorpayPlanId(requestedPlanId);
+            subscription.setRazorpayOrderId(orderId);
             subscription.setStatus(SubscriptionStatus.PENDING);
             
             subscriptionRepository.save(subscription);
             
-            log.info("Subscription saved to database - ownerId: {}, subscriptionId: {}, razorpaySubscriptionId: {}, storedPlanId: {}", 
-                    ownerId, subscription.getId(), subscriptionId, requestedPlanId);
+            log.info("Order saved to database - ownerId: {}, subscriptionId: {}, razorpayOrderId: {}", 
+                    ownerId, subscription.getId(), orderId);
             
             SubscriptionCreateResponse response = new SubscriptionCreateResponse();
-            response.setSubscriptionId(subscriptionId);
+            response.setOrderId(orderId);
+            response.setAmount(amount);
             return response;
             
         } catch (RazorpayException e) {
             String errorMessage = e.getMessage();
-            log.error("Error creating Razorpay subscription - ownerId: {}, razorpayMode: {}, razorpayKeyId: {}, error: {}", 
+            log.error("Error creating Razorpay order - ownerId: {}, razorpayMode: {}, razorpayKeyId: {}, error: {}", 
                     ownerId, razorpayMode, razorpayKeyId, errorMessage, e);
-            throw new BusinessException("SUBSCRIPTION_CREATE_FAILED", 
-                String.format("Failed to create subscription in %s mode: %s", razorpayMode, errorMessage));
+            throw new BusinessException("ORDER_CREATE_FAILED", 
+                String.format("Failed to create order in %s mode: %s", razorpayMode, errorMessage));
         }
     }
     
@@ -129,8 +130,8 @@ public class SubscriptionService implements ISubscriptionService {
     @Transactional
     public void verifyPayment(PaymentVerifyRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        log.info("Verifying payment - ownerId: {}, subscriptionId: {}, paymentId: {}", 
-                ownerId, request.getSubscriptionId(), request.getPaymentId());
+        log.info("Verifying payment - ownerId: {}, orderId: {}, paymentId: {}", 
+                ownerId, request.getOrderId(), request.getPaymentId());
         
         Owner owner = ownerRepository.findById(ownerId)
                 .orElseThrow(() -> {
@@ -138,29 +139,29 @@ public class SubscriptionService implements ISubscriptionService {
                     return new ResourceNotFoundException("Owner not found");
                 });
         
-        Subscription subscription = subscriptionRepository.findByRazorpaySubscriptionId(request.getSubscriptionId())
+        Subscription subscription = subscriptionRepository.findByRazorpayOrderId(request.getOrderId())
                 .orElseThrow(() -> {
-                    log.error("Subscription not found for payment verification - razorpaySubscriptionId: {}, ownerId: {}", 
-                            request.getSubscriptionId(), ownerId);
-                    return new ResourceNotFoundException("Subscription not found");
+                    log.error("Order not found for payment verification - razorpayOrderId: {}, ownerId: {}", 
+                            request.getOrderId(), ownerId);
+                    return new ResourceNotFoundException("Order not found");
                 });
         
         if (!subscription.getOwnerId().equals(ownerId)) {
-            log.warn("Unauthorized payment verification attempt - subscriptionOwnerId: {}, requestOwnerId: {}, subscriptionId: {}", 
-                    subscription.getOwnerId(), ownerId, request.getSubscriptionId());
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this subscription");
+            log.warn("Unauthorized payment verification attempt - subscriptionOwnerId: {}, requestOwnerId: {}, orderId: {}", 
+                    subscription.getOwnerId(), ownerId, request.getOrderId());
+            throw new BusinessException("UNAUTHORIZED", "You don't have access to this order");
         }
         
-        String signatureData = request.getSubscriptionId() + "|" + request.getPaymentId();
-        log.debug("Generating signature for payment verification - subscriptionId: {}, paymentId: {}, signatureData: {}", 
-                request.getSubscriptionId(), request.getPaymentId(), signatureData);
+        String signatureData = request.getOrderId() + "|" + request.getPaymentId();
+        log.debug("Generating signature for payment verification - orderId: {}, paymentId: {}, signatureData: {}", 
+                request.getOrderId(), request.getPaymentId(), signatureData);
         
         String generatedSignature = generateSignature(signatureData, razorpayConfig.getKeySecret());
         String receivedSignature = request.getRazorpaySignature();
         
         if (generatedSignature == null) {
-            log.error("Generated signature is null - subscriptionId: {}, paymentId: {}, ownerId: {}", 
-                    request.getSubscriptionId(), request.getPaymentId(), ownerId);
+            log.error("Generated signature is null - orderId: {}, paymentId: {}, ownerId: {}", 
+                    request.getOrderId(), request.getPaymentId(), ownerId);
             throw new BusinessException("SIGNATURE_GENERATION_FAILED", "Failed to generate signature for payment verification");
         }
         
@@ -171,36 +172,38 @@ public class SubscriptionService implements ISubscriptionService {
                 receivedSignature);
         
         if (!generatedSignature.equals(receivedSignature)) {
-            log.error("Invalid payment signature - subscriptionId: {}, paymentId: {}, ownerId: {}, generatedSignature: {}, receivedSignature: {}, signatureData: {}", 
-                    request.getSubscriptionId(), request.getPaymentId(), ownerId, generatedSignature, receivedSignature, signatureData);
+            log.error("Invalid payment signature - orderId: {}, paymentId: {}, ownerId: {}, generatedSignature: {}, receivedSignature: {}, signatureData: {}", 
+                    request.getOrderId(), request.getPaymentId(), ownerId, generatedSignature, receivedSignature, signatureData);
             throw new BusinessException("INVALID_SIGNATURE", 
                 String.format("Payment signature verification failed. Ensure you are using the correct key secret and the signature is generated from '%s'", signatureData));
         }
         
-        log.debug("Signature verified successfully, fetching subscription from Razorpay - subscriptionId: {}", 
-                request.getSubscriptionId());
+        log.debug("Signature verified successfully, fetching payment from Razorpay - paymentId: {}", 
+                request.getPaymentId());
         
         try {
-            com.razorpay.Subscription razorpaySubscription = razorpayClient.subscriptions.fetch(request.getSubscriptionId());
-            Object statusObj = razorpaySubscription.get("status");
+            com.razorpay.Payment razorpayPayment = razorpayClient.payments.fetch(request.getPaymentId());
+            Object statusObj = razorpayPayment.get("status");
             String status = statusObj != null ? statusObj.toString() : null;
             
-            log.info("Razorpay subscription status fetched - subscriptionId: {}, status: {}, ownerId: {}", 
-                    request.getSubscriptionId(), status, ownerId);
+            log.info("Razorpay payment status fetched - paymentId: {}, status: {}, ownerId: {}", 
+                    request.getPaymentId(), status, ownerId);
             
-            if ("active".equals(status) || "authenticated".equals(status)) {
-                log.info("Subscription is active/authenticated, activating PRO plan - subscriptionId: {}, ownerId: {}", 
-                        request.getSubscriptionId(), ownerId);
+            if ("captured".equals(status) || "authorized".equals(status)) {
+                log.info("Payment is captured/authorized, activating PRO plan - paymentId: {}, ownerId: {}", 
+                        request.getPaymentId(), ownerId);
                 activateProPlan(owner, subscription);
             } else {
-                log.warn("Subscription status is not active/authenticated - subscriptionId: {}, status: {}, ownerId: {}", 
-                        request.getSubscriptionId(), status, ownerId);
+                log.warn("Payment status is not captured/authorized - paymentId: {}, status: {}, ownerId: {}", 
+                        request.getPaymentId(), status, ownerId);
+                throw new BusinessException("PAYMENT_NOT_CAPTURED", 
+                    String.format("Payment status is '%s'. Payment must be captured or authorized.", status));
             }
         } catch (RazorpayException e) {
-            log.error("Error fetching subscription from Razorpay - subscriptionId: {}, ownerId: {}, error: {}", 
-                    request.getSubscriptionId(), ownerId, e.getMessage(), e);
-            throw new BusinessException("SUBSCRIPTION_FETCH_FAILED", 
-                String.format("Failed to verify subscription '%s': %s", request.getSubscriptionId(), e.getMessage()));
+            log.error("Error fetching payment from Razorpay - paymentId: {}, ownerId: {}, error: {}", 
+                    request.getPaymentId(), ownerId, e.getMessage(), e);
+            throw new BusinessException("PAYMENT_FETCH_FAILED", 
+                String.format("Failed to verify payment '%s': %s", request.getPaymentId(), e.getMessage()));
         }
     }
     
@@ -220,46 +223,41 @@ public class SubscriptionService implements ISubscriptionService {
             JSONObject event = new JSONObject(payload);
             String eventType = event.getString("event");
             JSONObject payloadData = event.getJSONObject("payload");
-            JSONObject subscriptionData = payloadData.getJSONObject("subscription");
-            String subscriptionId = subscriptionData.getString("id");
             
-            log.info("Webhook event received - eventType: {}, subscriptionId: {}", eventType, subscriptionId);
+            log.info("Webhook event received - eventType: {}", eventType);
             
-            Subscription subscription = subscriptionRepository.findByRazorpaySubscriptionId(subscriptionId)
-                    .orElse(null);
-            
-            if (subscription == null) {
-                log.warn("Subscription not found for webhook - razorpaySubscriptionId: {}, eventType: {}", 
-                        subscriptionId, eventType);
-                return;
-            }
-            
-            UUID ownerId = subscription.getOwnerId();
-            Owner owner = ownerRepository.findById(ownerId)
-                    .orElse(null);
-            
-            if (owner == null) {
-                log.warn("Owner not found for webhook - subscriptionId: {}, ownerId: {}, eventType: {}", 
-                        subscriptionId, ownerId, eventType);
-                return;
-            }
-            
-            log.info("Processing webhook event - eventType: {}, subscriptionId: {}, ownerId: {}, ownerName: {}", 
-                    eventType, subscriptionId, ownerId, owner.getName());
-            
-            switch (eventType) {
-                case "subscription.activated":
-                    activateProPlan(owner, subscription);
-                    break;
-                case "subscription.expired":
-                    expireSubscription(owner, subscription);
-                    break;
-                case "subscription.cancelled":
-                    cancelSubscription(owner, subscription);
-                    break;
-                default:
-                    log.info("Unhandled webhook event - eventType: {}, subscriptionId: {}, ownerId: {}", 
-                            eventType, subscriptionId, ownerId);
+            if ("payment.captured".equals(eventType) || "payment.authorized".equals(eventType)) {
+                JSONObject paymentData = payloadData.getJSONObject("payment");
+                JSONObject orderData = paymentData.getJSONObject("order");
+                String orderId = orderData.getString("id");
+                
+                log.info("Payment webhook - eventType: {}, orderId: {}", eventType, orderId);
+                
+                Subscription subscription = subscriptionRepository.findByRazorpayOrderId(orderId)
+                        .orElse(null);
+                
+                if (subscription == null) {
+                    log.warn("Order not found for webhook - razorpayOrderId: {}, eventType: {}", 
+                            orderId, eventType);
+                    return;
+                }
+                
+                UUID ownerId = subscription.getOwnerId();
+                Owner owner = ownerRepository.findById(ownerId)
+                        .orElse(null);
+                
+                if (owner == null) {
+                    log.warn("Owner not found for webhook - orderId: {}, ownerId: {}, eventType: {}", 
+                            orderId, ownerId, eventType);
+                    return;
+                }
+                
+                log.info("Processing payment webhook - eventType: {}, orderId: {}, ownerId: {}, ownerName: {}", 
+                        eventType, orderId, ownerId, owner.getName());
+                
+                activateProPlan(owner, subscription);
+            } else {
+                log.info("Unhandled webhook event - eventType: {}", eventType);
             }
         } catch (Exception e) {
             log.error("Error processing webhook - payloadLength: {}, error: {}", 
@@ -313,14 +311,13 @@ public class SubscriptionService implements ISubscriptionService {
         Subscription subscription = subscriptions.isEmpty() ? null : subscriptions.get(0);
         
         if (subscription != null) {
-            response.setRazorpaySubscriptionId(subscription.getRazorpaySubscriptionId());
-            response.setRazorpayPlanId(subscription.getRazorpayPlanId());
+            response.setRazorpayOrderId(subscription.getRazorpayOrderId());
             response.setActivatedAt(subscription.getActivatedAt());
             response.setExpiredAt(subscription.getExpiredAt());
             response.setCancelledAt(subscription.getCancelledAt());
             
-            log.debug("Subscription details retrieved - ownerId: {}, plan: {}, razorpaySubscriptionId: {}, razorpayPlanId: {}, totalSubscriptions: {}", 
-                    ownerId, owner.getSubscription(), subscription.getRazorpaySubscriptionId(), subscription.getRazorpayPlanId(), subscriptions.size());
+            log.debug("Subscription details retrieved - ownerId: {}, plan: {}, razorpayOrderId: {}, totalSubscriptions: {}", 
+                    ownerId, owner.getSubscription(), subscription.getRazorpayOrderId(), subscriptions.size());
         } else {
             log.debug("No subscription entity found for owner - ownerId: {}, plan: {}", ownerId, owner.getSubscription());
         }
@@ -370,13 +367,12 @@ public class SubscriptionService implements ISubscriptionService {
             log.info("No existing subscriptions found, creating new test subscription - ownerId: {}", ownerId);
             subscription = new Subscription();
             subscription.setOwnerId(ownerId);
-            subscription.setRazorpaySubscriptionId("test_sub_" + ownerId.toString().substring(0, 8) + "_" + System.currentTimeMillis());
-            subscription.setRazorpayPlanId(razorpayConfig.getProPlanId());
+            subscription.setRazorpayOrderId("test_order_" + ownerId.toString().substring(0, 8) + "_" + System.currentTimeMillis());
             subscription.setStatus(SubscriptionStatus.PENDING);
         } else {
             subscription = subscriptions.get(0);
-            log.info("Using most recent subscription for testing - ownerId: {}, subscriptionId: {}, razorpaySubscriptionId: {}", 
-                    ownerId, subscription.getId(), subscription.getRazorpaySubscriptionId());
+            log.info("Using most recent subscription for testing - ownerId: {}, subscriptionId: {}, razorpayOrderId: {}", 
+                    ownerId, subscription.getId(), subscription.getRazorpayOrderId());
         }
         
         activateProPlan(owner, subscription);
@@ -384,17 +380,54 @@ public class SubscriptionService implements ISubscriptionService {
         log.warn("PRO plan activated for testing - ownerId: {}, validTill: {}", ownerId, owner.getValidTill());
     }
     
+    @Override
+    @Transactional
+    public void downgradeToGoForTesting(UUID ownerId) {
+        log.warn("Downgrading to GO plan for testing - ownerId: {}", ownerId);
+        
+        Owner owner = ownerRepository.findById(ownerId)
+                .orElseThrow(() -> {
+                    log.error("Owner not found for test GO downgrade - ownerId: {}", ownerId);
+                    return new ResourceNotFoundException("Owner not found");
+                });
+        
+        List<Subscription> subscriptions = subscriptionRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId);
+        Subscription subscription = subscriptions.isEmpty() ? null : subscriptions.get(0);
+        
+        if (subscription != null) {
+            log.info("Using most recent subscription for testing - ownerId: {}, subscriptionId: {}, razorpayOrderId: {}", 
+                    ownerId, subscription.getId(), subscription.getRazorpayOrderId());
+        } else {
+            log.info("No existing subscriptions found for testing - ownerId: {}", ownerId);
+        }
+        
+        owner.setSubscription(com.abhedyam.model.enums.Subscription.GO);
+        owner.setSubscriptionStatus(SubscriptionStatus.EXPIRED);
+        owner.setValidTill(null);
+        owner.setSubscriptionId(null);
+        
+        if (subscription != null) {
+            Instant now = Instant.now();
+            subscription.setStatus(SubscriptionStatus.EXPIRED);
+            subscription.setExpiredAt(now);
+            subscriptionRepository.save(subscription);
+        }
+        
+        ownerRepository.save(owner);
+        
+        log.warn("GO plan activated for testing - ownerId: {}, plan: {}", ownerId, owner.getSubscription());
+    }
+    
     private void activateProPlan(Owner owner, Subscription subscription) {
         UUID ownerId = owner.getId();
-        String razorpaySubscriptionId = subscription.getRazorpaySubscriptionId();
-        String razorpayPlanId = subscription.getRazorpayPlanId();
+        String razorpayOrderId = subscription.getRazorpayOrderId();
         
-        log.info("Activating PRO plan - ownerId: {}, razorpaySubscriptionId: {}, razorpayPlanId: {}", 
-                ownerId, razorpaySubscriptionId, razorpayPlanId);
+        log.info("Activating PRO plan - ownerId: {}, razorpayOrderId: {}", 
+                ownerId, razorpayOrderId);
         
         owner.setSubscription(com.abhedyam.model.enums.Subscription.PRO);
         owner.setSubscriptionStatus(SubscriptionStatus.ACTIVE);
-        owner.setSubscriptionId(razorpaySubscriptionId);
+        owner.setSubscriptionId(razorpayOrderId);
         
         Instant now = Instant.now();
         ZonedDateTime zonedDateTime = now.atZone(ZoneId.systemDefault());
@@ -409,15 +442,15 @@ public class SubscriptionService implements ISubscriptionService {
         ownerRepository.save(owner);
         subscriptionRepository.save(subscription);
         
-        log.info("PRO plan activated successfully - ownerId: {}, razorpaySubscriptionId: {}, validTill: {}", 
-                ownerId, razorpaySubscriptionId, validTill);
+        log.info("PRO plan activated successfully - ownerId: {}, razorpayOrderId: {}, validTill: {}", 
+                ownerId, razorpayOrderId, validTill);
     }
     
     private void expireSubscription(Owner owner, Subscription subscription) {
         UUID ownerId = owner.getId();
-        String razorpaySubscriptionId = subscription.getRazorpaySubscriptionId();
+        String razorpayOrderId = subscription.getRazorpayOrderId();
         
-        log.info("Expiring subscription - ownerId: {}, razorpaySubscriptionId: {}", ownerId, razorpaySubscriptionId);
+        log.info("Expiring subscription - ownerId: {}, razorpayOrderId: {}", ownerId, razorpayOrderId);
         
         owner.setSubscription(com.abhedyam.model.enums.Subscription.GO);
         owner.setSubscriptionStatus(SubscriptionStatus.EXPIRED);
@@ -429,15 +462,15 @@ public class SubscriptionService implements ISubscriptionService {
         ownerRepository.save(owner);
         subscriptionRepository.save(subscription);
         
-        log.info("Subscription expired successfully - ownerId: {}, razorpaySubscriptionId: {}, expiredAt: {}", 
-                ownerId, razorpaySubscriptionId, now);
+        log.info("Subscription expired successfully - ownerId: {}, razorpayOrderId: {}, expiredAt: {}", 
+                ownerId, razorpayOrderId, now);
     }
     
     private void cancelSubscription(Owner owner, Subscription subscription) {
         UUID ownerId = owner.getId();
-        String razorpaySubscriptionId = subscription.getRazorpaySubscriptionId();
+        String razorpayOrderId = subscription.getRazorpayOrderId();
         
-        log.info("Cancelling subscription - ownerId: {}, razorpaySubscriptionId: {}", ownerId, razorpaySubscriptionId);
+        log.info("Cancelling subscription - ownerId: {}, razorpayOrderId: {}", ownerId, razorpayOrderId);
         
         owner.setSubscription(com.abhedyam.model.enums.Subscription.GO);
         owner.setSubscriptionStatus(SubscriptionStatus.CANCELLED);
@@ -449,8 +482,8 @@ public class SubscriptionService implements ISubscriptionService {
         ownerRepository.save(owner);
         subscriptionRepository.save(subscription);
         
-        log.info("Subscription cancelled successfully - ownerId: {}, razorpaySubscriptionId: {}, cancelledAt: {}", 
-                ownerId, razorpaySubscriptionId, now);
+        log.info("Subscription cancelled successfully - ownerId: {}, razorpayOrderId: {}, cancelledAt: {}", 
+                ownerId, razorpayOrderId, now);
     }
     
     private String generateSignature(String data, String secret) {

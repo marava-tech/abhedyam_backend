@@ -8,9 +8,9 @@ import lombok.Data;
 @Schema(description = "Request to verify payment signature")
 public class PaymentVerifyRequest {
     
-    @NotBlank(message = "Subscription ID is required")
-    @Schema(description = "Razorpay subscription ID", example = "sub_XXXXXXXXXXXX", required = true)
-    private String subscriptionId;
+    @NotBlank(message = "Order ID is required")
+    @Schema(description = "Razorpay order ID", example = "order_XXXXXXXXXXXX", required = true)
+    private String orderId;
     
     @NotBlank(message = "Payment ID is required")
     @Schema(description = "Razorpay payment ID", example = "pay_XXXXXXXXXXXX", required = true)

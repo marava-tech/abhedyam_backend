@@ -16,5 +16,6 @@ public interface ISubscriptionService {
     SubscriptionDetailsResponse getSubscriptionDetailsByOwnerId(UUID ownerId);
     void ensureProSubscription(UUID ownerId);
     void activateProPlanForTesting(UUID ownerId);
+    void downgradeToGoForTesting(UUID ownerId);
 }
 

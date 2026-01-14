@@ -19,7 +19,6 @@ import com.abhedyam.service.interfaces.IPaymentLinkService;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,12 +34,6 @@ public class PaymentLinkService implements IPaymentLinkService {
     private final PaymentRepository paymentRepository;
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
-    
-    @Value("${app.cashfree.client-id:}")
-    private String cashfreeClientId;
-    
-    @Value("${app.cashfree.client-secret:}")
-    private String cashfreeClientSecret;
     
     @Override
     @Transactional
@@ -110,12 +103,7 @@ public class PaymentLinkService implements IPaymentLinkService {
     }
     
     private String generatePaymentLink(String orderId, java.math.BigDecimal amount, String description) {
-        if (cashfreeClientId == null || cashfreeClientId.isEmpty()) {
-            log.warn("Cashfree credentials not configured. Returning stub payment link.");
-            return "https://payments.example.com/pay?orderId=" + orderId + "&amount=" + amount;
-        }
-        
-        return "https://payments.cashfree.com/pay?orderId=" + orderId + "&amount=" + amount;
+        return "https://payments.example.com/pay?orderId=" + orderId + "&amount=" + amount;
     }
 }
 
