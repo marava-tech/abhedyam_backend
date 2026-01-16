@@ -22,5 +22,14 @@ public interface ReminderRepository extends JpaRepository<Reminder, UUID> {
            "AND r.isActive = true")
     List<Reminder> findDueReminders(@Param("status") ReminderStatus status, 
                                     @Param("maxTime") Instant maxTime);
+    
+    @Query("SELECT COUNT(r) FROM Reminder r WHERE r.customerId = :customerId AND r.ownerId = :ownerId")
+    long countByCustomerIdAndOwnerId(@Param("customerId") UUID customerId, @Param("ownerId") UUID ownerId);
+    
+    @Query("SELECT COUNT(r) FROM Reminder r WHERE r.customerId = :customerId AND r.ownerId = :ownerId " +
+           "AND r.status = :status")
+    long countByCustomerIdAndOwnerIdAndStatus(@Param("customerId") UUID customerId, 
+                                               @Param("ownerId") UUID ownerId,
+                                               @Param("status") ReminderStatus status);
 }
 

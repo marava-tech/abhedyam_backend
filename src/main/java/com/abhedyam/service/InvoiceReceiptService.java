@@ -96,9 +96,14 @@ public class InvoiceReceiptService {
             throw new ResourceNotFoundException("Transaction ID not found for sale item");
         }
         
-        List<SaleItem> saleItems = saleItemRepository.findByTransactionId(transactionId);
-        if (saleItems.isEmpty()) {
-            throw new ResourceNotFoundException("Transaction not found: " + transactionId);
+        List<SaleItem> saleItems;
+        if (saleItemId != null) {
+            saleItems = List.of(requestedSaleItem);
+        } else {
+            saleItems = saleItemRepository.findByTransactionId(transactionId);
+            if (saleItems.isEmpty()) {
+                throw new ResourceNotFoundException("Transaction not found: " + transactionId);
+            }
         }
         
         SaleItem firstItem = saleItems.get(0);
