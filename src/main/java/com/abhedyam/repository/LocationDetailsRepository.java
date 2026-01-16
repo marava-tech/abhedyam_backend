@@ -63,5 +63,6 @@ public interface LocationDetailsRepository extends JpaRepository<LocationDetails
     List<Object[]> findVillagesWithCustomerCountByNameContainingIgnoreCaseAndOwnerId(
         @Param("name") String name,
         @Param("ownerId") UUID ownerId);
+    
 }
 

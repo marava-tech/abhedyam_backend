@@ -32,6 +32,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -117,9 +118,15 @@ public class OwnerService implements IOwnerService {
     @Transactional(readOnly = true)
     public List<OwnerPublicResponse> getAllPublic(BigDecimal latitude, BigDecimal longitude) {
         List<Owner> owners = ownerRepository.findAll();
+        
+        List<UUID> ownerIds = owners.stream().map(Owner::getId).collect(Collectors.toList());
+        List<LocationDetails> locations = locationDetailsRepository.findByUserIdIn(ownerIds);
+        Map<UUID, LocationDetails> locationMap = locations.stream()
+            .collect(Collectors.toMap(LocationDetails::getUserId, loc -> loc, (v1, v2) -> v1));
+        
         List<OwnerPublicResponse> responses = owners.stream()
                 .map(owner -> {
-                    LocationDetails location = locationDetailsRepository.findByUserId(owner.getId()).orElse(null);
+                    LocationDetails location = locationMap.get(owner.getId());
                     
                     OwnerPublicResponse response = new OwnerPublicResponse();
                     response.setId(owner.getId());

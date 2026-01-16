@@ -177,11 +177,9 @@ public class StatsService implements IStatsService {
         Instant startOfDay = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
         Instant endOfDay = date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
         
-        List<SaleItem> saleItems = saleItemRepository.findByOwnerId(ownerId).stream()
-            .filter(item -> {
-                Instant createdAt = item.getCreatedAt();
-                return createdAt != null && createdAt.isAfter(startOfDay) && createdAt.isBefore(endOfDay);
-            })
+        List<SaleItem> saleItems = saleItemRepository.searchSales(
+            ownerId, null, null, startOfDay, endOfDay, Pageable.unpaged()
+        ).getContent().stream()
             .filter(item -> item.getIsActive() != null && item.getIsActive())
             .toList();
         
@@ -228,6 +226,11 @@ public class StatsService implements IStatsService {
         List<TopProduct> topProducts = new ArrayList<>();
         int rank = 1;
         
+        List<UUID> productIds = new ArrayList<>(productGroups.keySet());
+        List<Product> products = productRepository.findByIdIn(productIds);
+        Map<UUID, Product> productMap = products.stream()
+            .collect(Collectors.toMap(Product::getId, p -> p));
+        
         List<Map.Entry<UUID, List<SaleItem>>> sortedProducts = productGroups.entrySet().stream()
             .sorted((e1, e2) -> {
                 BigDecimal sales1 = e1.getValue().stream()
@@ -245,7 +248,7 @@ public class StatsService implements IStatsService {
             UUID productId = entry.getKey();
             List<SaleItem> items = entry.getValue();
             
-            Product product = productRepository.findById(productId).orElse(null);
+            Product product = productMap.get(productId);
             if (product == null) {
                 continue;
             }
@@ -299,9 +302,8 @@ public class StatsService implements IStatsService {
             log.warn("Error reading from cache for key: {}", cacheKey, e);
         }
         
-        List<Product> products = productRepository.findByOwnerId(ownerId).stream()
-            .filter(p -> p.getIsActive() != null && p.getIsActive())
-            .toList();
+        List<Product> products = productRepository.searchProducts(ownerId, null, true, Pageable.unpaged())
+            .getContent();
         
         if (products.isEmpty()) {
             return new DashboardStatsResponse(

@@ -13,12 +13,9 @@ import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Customer;
 import com.abhedyam.model.LocationDetails;
-import com.abhedyam.model.Note;
 import com.abhedyam.model.Payment;
 import com.abhedyam.model.Product;
-import com.abhedyam.model.Reminder;
 import com.abhedyam.model.SaleItem;
-import com.abhedyam.model.User;
 import com.abhedyam.model.enums.PaymentStatus;
 import com.abhedyam.model.enums.ReminderStatus;
 import com.abhedyam.model.enums.UserType;
@@ -29,7 +26,6 @@ import com.abhedyam.repository.PaymentRepository;
 import com.abhedyam.repository.ProductRepository;
 import com.abhedyam.repository.ReminderRepository;
 import com.abhedyam.repository.SaleItemRepository;
-import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.ICustomerService;
 import com.abhedyam.util.PhoneUtil;
 import com.abhedyam.util.SecurityUtil;
@@ -66,7 +62,6 @@ public class CustomerService implements ICustomerService {
     private final ProductRepository productRepository;
     private final NoteRepository noteRepository;
     private final ReminderRepository reminderRepository;
-    private final UserRepository userRepository;
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
     
@@ -156,12 +151,7 @@ public class CustomerService implements ICustomerService {
             return customer;
         }
         
-        User currentUser = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
-        
-        if (currentUser.getType() == UserType.BUSINESS && 
-            customer.getOwnerId() != null && 
-            customer.getOwnerId().equals(currentUserId)) {
+        if (customer.getOwnerId() != null && customer.getOwnerId().equals(currentUserId)) {
             return customer;
         }
         
@@ -371,27 +361,21 @@ public class CustomerService implements ICustomerService {
         
         Customer customer = getById(customerId);
         
-        List<SaleItem> saleItems = saleItemRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
-        List<Payment> payments = paymentRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
-        List<Note> notes = noteRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
-        List<Reminder> reminders = reminderRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
+        Object[] saleStats = saleItemRepository.getCustomerSaleStats(customerId, ownerId);
+        long totalSales = saleStats[0] != null ? ((Number) saleStats[0]).longValue() : 0L;
+        BigDecimal totalAmount = saleStats[1] != null ? (BigDecimal) saleStats[1] : BigDecimal.ZERO;
         
-        long totalSales = saleItems.size();
-        BigDecimal totalAmount = saleItems.stream()
-            .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
-        BigDecimal totalPaid = payments.stream()
-            .filter(p -> p.getStatus() == com.abhedyam.model.enums.PaymentStatus.SUCCESS)
-            .map(Payment::getAmount)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalPaid = paymentRepository.getTotalPaidByCustomer(customerId, ownerId);
+        if (totalPaid == null) {
+            totalPaid = BigDecimal.ZERO;
+        }
         
         BigDecimal totalDue = totalAmount.subtract(totalPaid);
         
-        long totalReminders = reminders.size();
-        long pendingReminders = reminders.stream()
-            .filter(r -> r.getStatus() == ReminderStatus.PENDING)
-            .count();
+        long totalNotes = noteRepository.countByCustomerIdAndOwnerId(customerId, ownerId);
+        long totalReminders = reminderRepository.countByCustomerIdAndOwnerId(customerId, ownerId);
+        long pendingReminders = reminderRepository.countByCustomerIdAndOwnerIdAndStatus(
+            customerId, ownerId, ReminderStatus.PENDING);
         
         CustomerProfileSummary summary = new CustomerProfileSummary(
             customerId,
@@ -402,7 +386,7 @@ public class CustomerService implements ICustomerService {
             totalAmount,
             totalPaid,
             totalDue,
-            (long) notes.size(),
+            totalNotes,
             totalReminders,
             pendingReminders
         );
@@ -467,27 +451,21 @@ public class CustomerService implements ICustomerService {
             return summary;
         }
         
-        List<SaleItem> saleItems = saleItemRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
-        List<Payment> payments = paymentRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
-        List<Note> notes = noteRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
-        List<Reminder> reminders = reminderRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
+        Object[] saleStats = saleItemRepository.getCustomerSaleStats(customerId, ownerId);
+        long totalSales = saleStats[0] != null ? ((Number) saleStats[0]).longValue() : 0L;
+        BigDecimal totalAmount = saleStats[1] != null ? (BigDecimal) saleStats[1] : BigDecimal.ZERO;
         
-        long totalSales = saleItems.size();
-        BigDecimal totalAmount = saleItems.stream()
-                .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
-        BigDecimal totalPaid = payments.stream()
-                .filter(p -> p.getStatus() == com.abhedyam.model.enums.PaymentStatus.SUCCESS)
-                .map(Payment::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalPaid = paymentRepository.getTotalPaidByCustomer(customerId, ownerId);
+        if (totalPaid == null) {
+            totalPaid = BigDecimal.ZERO;
+        }
         
         BigDecimal totalDue = totalAmount.subtract(totalPaid);
         
-        long totalReminders = reminders.size();
-        long pendingReminders = reminders.stream()
-                .filter(r -> r.getStatus() == ReminderStatus.PENDING)
-                .count();
+        long totalNotes = noteRepository.countByCustomerIdAndOwnerId(customerId, ownerId);
+        long totalReminders = reminderRepository.countByCustomerIdAndOwnerId(customerId, ownerId);
+        long pendingReminders = reminderRepository.countByCustomerIdAndOwnerIdAndStatus(
+            customerId, ownerId, ReminderStatus.PENDING);
         
         CustomerProfileSummary summary = new CustomerProfileSummary(
                 customerId,
@@ -498,7 +476,7 @@ public class CustomerService implements ICustomerService {
                 totalAmount,
                 totalPaid,
                 totalDue,
-                (long) notes.size(),
+                totalNotes,
                 totalReminders,
                 pendingReminders
         );
@@ -586,48 +564,51 @@ public class CustomerService implements ICustomerService {
         BigDecimal ownerLat = request.getLatitude();
         BigDecimal ownerLng = request.getLongitude();
         
-        List<LocationDetails> locationDetails = locationDetailsRepository.findCustomerLocationsByOwnerId(ownerId);
+        List<LocationDetails> allLocationDetails = locationDetailsRepository.findCustomerLocationsByOwnerId(ownerId);
         
-        if (locationDetails.isEmpty()) {
+        if (allLocationDetails.isEmpty()) {
             throw new ResourceNotFoundException("No customers with location details found");
         }
         
-        List<UUID> customerIdsWithLocation = locationDetails.stream()
+        List<UUID> customerIdsWithLocation = allLocationDetails.stream()
             .map(LocationDetails::getUserId)
             .collect(Collectors.toList());
         
-        List<SaleItem> saleItems = saleItemRepository.findByOwnerId(ownerId).stream()
-            .filter(item -> customerIdsWithLocation.contains(item.getCustomerId()))
+        List<SaleItem> saleItems = saleItemRepository.findByCustomerIdAndOwnerIdIn(customerIdsWithLocation, ownerId);
+        List<Payment> payments = paymentRepository.findByCustomerIdInAndOwnerId(customerIdsWithLocation, ownerId);
+        
+        Map<UUID, BigDecimal> totalAmountByCustomer = saleItems.stream()
+            .collect(Collectors.groupingBy(
+                SaleItem::getCustomerId,
+                Collectors.reducing(
+                    BigDecimal.ZERO,
+                    item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE),
+                    BigDecimal::add
+                )
+            ));
+        
+        Map<UUID, BigDecimal> totalPaidByCustomer = payments.stream()
+            .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+            .collect(Collectors.groupingBy(
+                Payment::getCustomerId,
+                Collectors.reducing(BigDecimal.ZERO, Payment::getAmount, BigDecimal::add)
+            ));
+        
+        List<UUID> customersWithPendingAmounts = customerIdsWithLocation.stream()
+            .filter(customerId -> {
+                BigDecimal totalAmount = totalAmountByCustomer.getOrDefault(customerId, BigDecimal.ZERO);
+                BigDecimal totalPaid = totalPaidByCustomer.getOrDefault(customerId, BigDecimal.ZERO);
+                return totalAmount.subtract(totalPaid).compareTo(BigDecimal.ZERO) > 0;
+            })
             .collect(Collectors.toList());
         
-        List<Payment> payments = paymentRepository.findByOwnerId(ownerId).stream()
-            .filter(payment -> customerIdsWithLocation.contains(payment.getCustomerId()))
-            .collect(Collectors.toList());
+        if (customersWithPendingAmounts.isEmpty()) {
+            throw new ResourceNotFoundException("No customers with location details and pending amount found");
+        }
         
-        Map<UUID, List<SaleItem>> saleItemsByCustomer = saleItems.stream()
-            .collect(Collectors.groupingBy(SaleItem::getCustomerId));
-        
-        Map<UUID, List<Payment>> paymentsByCustomer = payments.stream()
-            .collect(Collectors.groupingBy(Payment::getCustomerId));
+        List<LocationDetails> locationDetails = locationDetailsRepository.findCustomerLocationsByCustomerIds(ownerId, customersWithPendingAmounts);
         
         Optional<LocationDetailsWithDistance> nearestLocationOpt = locationDetails.stream()
-            .filter(loc -> {
-                UUID customerId = loc.getUserId();
-                List<SaleItem> customerSaleItems = saleItemsByCustomer.getOrDefault(customerId, List.of());
-                List<Payment> customerPayments = paymentsByCustomer.getOrDefault(customerId, List.of());
-                
-                BigDecimal totalAmount = customerSaleItems.stream()
-                    .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-                
-                BigDecimal totalPaid = customerPayments.stream()
-                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
-                    .map(Payment::getAmount)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-                
-                BigDecimal pendingAmount = totalAmount.subtract(totalPaid);
-                return pendingAmount.compareTo(BigDecimal.ZERO) > 0;
-            })
             .map(loc -> {
                 double distance = calculateDistance(
                     ownerLat.doubleValue(),
@@ -651,18 +632,15 @@ public class CustomerService implements ICustomerService {
         Customer nearestCustomer = customerRepository.findById(nearestCustomerId)
             .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
         
-        List<SaleItem> customerSaleItems = saleItemsByCustomer.getOrDefault(nearestCustomerId, List.of());
-        List<Payment> customerPayments = paymentsByCustomer.getOrDefault(nearestCustomerId, List.of());
+        List<SaleItem> customerSaleItems = saleItems.stream()
+            .filter(item -> item.getCustomerId().equals(nearestCustomerId))
+            .collect(Collectors.toList());
+        List<Payment> customerPayments = payments.stream()
+            .filter(p -> p.getCustomerId().equals(nearestCustomerId))
+            .collect(Collectors.toList());
         
-        BigDecimal totalAmount = customerSaleItems.stream()
-            .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
-        BigDecimal totalPaid = customerPayments.stream()
-            .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
-            .map(Payment::getAmount)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
+        BigDecimal totalAmount = totalAmountByCustomer.getOrDefault(nearestCustomerId, BigDecimal.ZERO);
+        BigDecimal totalPaid = totalPaidByCustomer.getOrDefault(nearestCustomerId, BigDecimal.ZERO);
         BigDecimal pendingAmount = totalAmount.subtract(totalPaid);
         
         BigDecimal lastPaidAmount = customerPayments.stream()
