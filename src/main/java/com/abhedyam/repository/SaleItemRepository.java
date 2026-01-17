@@ -37,10 +37,5 @@ public interface SaleItemRepository extends JpaRepository<SaleItem, UUID> {
     @Query("SELECT s FROM SaleItem s WHERE s.customerId IN :customerIds AND s.ownerId = :ownerId")
     List<SaleItem> findByCustomerIdAndOwnerIdIn(@Param("customerIds") List<UUID> customerIds,
                                                   @Param("ownerId") UUID ownerId);
-    
-    @Query("SELECT COUNT(s), COALESCE(SUM(s.price * COALESCE(s.quantity, 1)), 0) FROM SaleItem s " +
-           "WHERE s.customerId = :customerId AND s.ownerId = :ownerId " +
-           "AND (s.isActive IS NULL OR s.isActive = true)")
-    Object[] getCustomerSaleStats(@Param("customerId") UUID customerId, @Param("ownerId") UUID ownerId);
 }
 
