@@ -243,17 +243,19 @@ public class SaleService implements ISaleService {
             log.warn("Customer cache invalidate failed on sale create for owner {}: {}", ownerId, e.getMessage());
         }
         
-        if (request.getCustomerVillage() != null && !request.getCustomerVillage().trim().isEmpty()) {
-            try {
-                LocationDetails locationDetails = new LocationDetails();
-                locationDetails.setUserId(customer.getId());
-                locationDetails.setVillage(request.getCustomerVillage().trim());
-                locationDetails.setLatitude(BigDecimal.ZERO);
-                locationDetails.setLongitude(BigDecimal.ZERO);
-                locationDetailsRepository.save(locationDetails);
-            } catch (Exception e) {
-                log.warn("Location details save failed for customer {}: {}", customer.getId(), e.getMessage());
-            }
+        try {
+            String villageName = (request.getCustomerVillage() != null && !request.getCustomerVillage().trim().isEmpty()) 
+                ? request.getCustomerVillage().trim() 
+                : "No Village";
+            
+            LocationDetails locationDetails = new LocationDetails();
+            locationDetails.setUserId(customer.getId());
+            locationDetails.setVillage(villageName);
+            locationDetails.setLatitude(BigDecimal.ZERO);
+            locationDetails.setLongitude(BigDecimal.ZERO);
+            locationDetailsRepository.save(locationDetails);
+        } catch (Exception e) {
+            log.warn("Location details save failed for customer {}: {}", customer.getId(), e.getMessage());
         }
         
         log.info("Customer created on the fly: {} ({})", customer.getName(), 

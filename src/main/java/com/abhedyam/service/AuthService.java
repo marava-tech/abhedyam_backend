@@ -9,12 +9,15 @@ import com.abhedyam.model.Owner;
 import com.abhedyam.model.User;
 import com.abhedyam.model.enums.Subscription;
 import com.abhedyam.model.enums.UserType;
+import com.abhedyam.model.LocationDetails;
 import com.abhedyam.repository.CustomerRepository;
+import com.abhedyam.repository.LocationDetailsRepository;
 import com.abhedyam.repository.OwnerRepository;
 import com.abhedyam.repository.UserRepository;
 import com.abhedyam.util.EmailUtil;
 import com.abhedyam.util.JwtUtil;
 import com.abhedyam.util.PhoneUtil;
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +35,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final OwnerRepository ownerRepository;
     private final CustomerRepository customerRepository;
+    private final LocationDetailsRepository locationDetailsRepository;
     private final JwtUtil jwtUtil;
     
     @Transactional
@@ -154,6 +158,18 @@ public class AuthService {
             customer.setType(UserType.CUSTOMER);
             
             customer = customerRepository.save(customer);
+            
+            try {
+                LocationDetails locationDetails = new LocationDetails();
+                locationDetails.setUserId(customer.getId());
+                locationDetails.setVillage("No Village");
+                locationDetails.setLatitude(BigDecimal.ZERO);
+                locationDetails.setLongitude(BigDecimal.ZERO);
+                locationDetailsRepository.save(locationDetails);
+            } catch (Exception e) {
+                log.warn("Location details save failed for customer {}: {}", customer.getId(), e.getMessage());
+            }
+            
             isNewUser = true;
             log.info("Created new customer account for phone login - phone: {}", normalizedPhone);
         }

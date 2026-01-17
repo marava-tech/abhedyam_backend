@@ -36,7 +36,11 @@ public class LocationDetailsController {
     
     @GetMapping("/customers/{customerId}")
     public ApiResponse<LocationDetailsResponse> getCustomerLocation(@PathVariable UUID customerId) {
-        return ApiResponse.success(locationDetailsService.getCustomerLocation(customerId));
+        LocationDetailsResponse location = locationDetailsService.getCustomerLocation(customerId);
+        if (location == null) {
+            throw new com.abhedyam.exception.ResourceNotFoundException("LocationDetails not found for customer");
+        }
+        return ApiResponse.success(location);
     }
     
     @GetMapping("/users/{userId}")

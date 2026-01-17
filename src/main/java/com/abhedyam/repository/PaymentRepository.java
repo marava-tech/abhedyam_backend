@@ -38,10 +38,5 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     @Query("SELECT p FROM Payment p WHERE p.customerId IN :customerIds AND p.ownerId = :ownerId")
     List<Payment> findByCustomerIdInAndOwnerId(@Param("customerIds") List<UUID> customerIds,
                                                 @Param("ownerId") UUID ownerId);
-    
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p " +
-           "WHERE p.customerId = :customerId AND p.ownerId = :ownerId " +
-           "AND p.status = 'SUCCESS'")
-    BigDecimal getTotalPaidByCustomer(@Param("customerId") UUID customerId, @Param("ownerId") UUID ownerId);
 }
 

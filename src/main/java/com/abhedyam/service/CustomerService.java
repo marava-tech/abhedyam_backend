@@ -13,9 +13,12 @@ import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Customer;
 import com.abhedyam.model.LocationDetails;
+import com.abhedyam.model.Note;
 import com.abhedyam.model.Payment;
 import com.abhedyam.model.Product;
+import com.abhedyam.model.Reminder;
 import com.abhedyam.model.SaleItem;
+import com.abhedyam.model.User;
 import com.abhedyam.model.enums.PaymentStatus;
 import com.abhedyam.model.enums.ReminderStatus;
 import com.abhedyam.model.enums.UserType;
@@ -26,6 +29,7 @@ import com.abhedyam.repository.PaymentRepository;
 import com.abhedyam.repository.ProductRepository;
 import com.abhedyam.repository.ReminderRepository;
 import com.abhedyam.repository.SaleItemRepository;
+import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.ICustomerService;
 import com.abhedyam.util.PhoneUtil;
 import com.abhedyam.util.SecurityUtil;
@@ -62,6 +66,7 @@ public class CustomerService implements ICustomerService {
     private final ProductRepository productRepository;
     private final NoteRepository noteRepository;
     private final ReminderRepository reminderRepository;
+    private final UserRepository userRepository;
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
     
@@ -110,28 +115,27 @@ public class CustomerService implements ICustomerService {
                 log.warn("Error invalidating customer cache on create: {}", e.getMessage());
             }
         
-        if (request.getVillage() != null || request.getLatitude() != null || request.getLongitude() != null) {
-            LocationDetails existingLocation = locationDetailsRepository.findById(savedCustomer.getId()).orElse(null);
-            
-            if (existingLocation != null) {
-                if (request.getVillage() != null) {
-                    existingLocation.setVillage(request.getVillage());
-                }
-                if (request.getLatitude() != null) {
-                    existingLocation.setLatitude(request.getLatitude());
-                }
-                if (request.getLongitude() != null) {
-                    existingLocation.setLongitude(request.getLongitude());
-                }
-                locationDetailsRepository.save(existingLocation);
-            } else {
-                LocationDetails locationDetails = new LocationDetails();
-                locationDetails.setUserId(savedCustomer.getId());
-                locationDetails.setVillage(request.getVillage());
-                locationDetails.setLatitude(request.getLatitude() != null ? request.getLatitude() : BigDecimal.ZERO);
-                locationDetails.setLongitude(request.getLongitude() != null ? request.getLongitude() : BigDecimal.ZERO);
-                locationDetailsRepository.save(locationDetails);
+        LocationDetails existingLocation = locationDetailsRepository.findById(savedCustomer.getId()).orElse(null);
+        String villageName = (request.getVillage() != null && !request.getVillage().trim().isEmpty()) 
+            ? request.getVillage().trim() 
+            : "No Village";
+        
+        if (existingLocation != null) {
+            existingLocation.setVillage(villageName);
+            if (request.getLatitude() != null) {
+                existingLocation.setLatitude(request.getLatitude());
             }
+            if (request.getLongitude() != null) {
+                existingLocation.setLongitude(request.getLongitude());
+            }
+            locationDetailsRepository.save(existingLocation);
+        } else {
+            LocationDetails locationDetails = new LocationDetails();
+            locationDetails.setUserId(savedCustomer.getId());
+            locationDetails.setVillage(villageName);
+            locationDetails.setLatitude(request.getLatitude() != null ? request.getLatitude() : BigDecimal.ZERO);
+            locationDetails.setLongitude(request.getLongitude() != null ? request.getLongitude() : BigDecimal.ZERO);
+            locationDetailsRepository.save(locationDetails);
         }
         
         return savedCustomer;
@@ -151,7 +155,12 @@ public class CustomerService implements ICustomerService {
             return customer;
         }
         
-        if (customer.getOwnerId() != null && customer.getOwnerId().equals(currentUserId)) {
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
+        
+        if (currentUser.getType() == UserType.BUSINESS && 
+            customer.getOwnerId() != null && 
+            customer.getOwnerId().equals(currentUserId)) {
             return customer;
         }
         
@@ -361,21 +370,27 @@ public class CustomerService implements ICustomerService {
         
         Customer customer = getById(customerId);
         
-        Object[] saleStats = saleItemRepository.getCustomerSaleStats(customerId, ownerId);
-        long totalSales = saleStats[0] != null ? ((Number) saleStats[0]).longValue() : 0L;
-        BigDecimal totalAmount = saleStats[1] != null ? (BigDecimal) saleStats[1] : BigDecimal.ZERO;
+        List<SaleItem> saleItems = saleItemRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
+        List<Payment> payments = paymentRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
+        List<Note> notes = noteRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
+        List<Reminder> reminders = reminderRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
         
-        BigDecimal totalPaid = paymentRepository.getTotalPaidByCustomer(customerId, ownerId);
-        if (totalPaid == null) {
-            totalPaid = BigDecimal.ZERO;
-        }
+        long totalSales = saleItems.size();
+        BigDecimal totalAmount = saleItems.stream()
+            .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        BigDecimal totalPaid = payments.stream()
+            .filter(p -> p.getStatus() == com.abhedyam.model.enums.PaymentStatus.SUCCESS)
+            .map(Payment::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
         
         BigDecimal totalDue = totalAmount.subtract(totalPaid);
         
-        long totalNotes = noteRepository.countByCustomerIdAndOwnerId(customerId, ownerId);
-        long totalReminders = reminderRepository.countByCustomerIdAndOwnerId(customerId, ownerId);
-        long pendingReminders = reminderRepository.countByCustomerIdAndOwnerIdAndStatus(
-            customerId, ownerId, ReminderStatus.PENDING);
+        long totalReminders = reminders.size();
+        long pendingReminders = reminders.stream()
+            .filter(r -> r.getStatus() == ReminderStatus.PENDING)
+            .count();
         
         CustomerProfileSummary summary = new CustomerProfileSummary(
             customerId,
@@ -386,7 +401,7 @@ public class CustomerService implements ICustomerService {
             totalAmount,
             totalPaid,
             totalDue,
-            totalNotes,
+            (long) notes.size(),
             totalReminders,
             pendingReminders
         );
@@ -451,21 +466,27 @@ public class CustomerService implements ICustomerService {
             return summary;
         }
         
-        Object[] saleStats = saleItemRepository.getCustomerSaleStats(customerId, ownerId);
-        long totalSales = saleStats[0] != null ? ((Number) saleStats[0]).longValue() : 0L;
-        BigDecimal totalAmount = saleStats[1] != null ? (BigDecimal) saleStats[1] : BigDecimal.ZERO;
+        List<SaleItem> saleItems = saleItemRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
+        List<Payment> payments = paymentRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
+        List<Note> notes = noteRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
+        List<Reminder> reminders = reminderRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
         
-        BigDecimal totalPaid = paymentRepository.getTotalPaidByCustomer(customerId, ownerId);
-        if (totalPaid == null) {
-            totalPaid = BigDecimal.ZERO;
-        }
+        long totalSales = saleItems.size();
+        BigDecimal totalAmount = saleItems.stream()
+                .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        BigDecimal totalPaid = payments.stream()
+                .filter(p -> p.getStatus() == com.abhedyam.model.enums.PaymentStatus.SUCCESS)
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         
         BigDecimal totalDue = totalAmount.subtract(totalPaid);
         
-        long totalNotes = noteRepository.countByCustomerIdAndOwnerId(customerId, ownerId);
-        long totalReminders = reminderRepository.countByCustomerIdAndOwnerId(customerId, ownerId);
-        long pendingReminders = reminderRepository.countByCustomerIdAndOwnerIdAndStatus(
-            customerId, ownerId, ReminderStatus.PENDING);
+        long totalReminders = reminders.size();
+        long pendingReminders = reminders.stream()
+                .filter(r -> r.getStatus() == ReminderStatus.PENDING)
+                .count();
         
         CustomerProfileSummary summary = new CustomerProfileSummary(
                 customerId,
@@ -476,7 +497,7 @@ public class CustomerService implements ICustomerService {
                 totalAmount,
                 totalPaid,
                 totalDue,
-                totalNotes,
+                (long) notes.size(),
                 totalReminders,
                 pendingReminders
         );

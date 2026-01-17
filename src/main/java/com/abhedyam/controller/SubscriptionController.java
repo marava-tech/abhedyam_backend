@@ -1,11 +1,13 @@
 package com.abhedyam.controller;
 
+import com.abhedyam.dto.AdminSubscriptionUpdateRequest;
 import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.PaymentVerifyRequest;
 import com.abhedyam.dto.SubscriptionCreateRequest;
 import com.abhedyam.dto.SubscriptionCreateResponse;
 import com.abhedyam.dto.SubscriptionDetailsResponse;
 import com.abhedyam.dto.SubscriptionStatusResponse;
+import com.abhedyam.exception.BusinessException;
 import com.abhedyam.service.interfaces.ISubscriptionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -61,33 +63,23 @@ public class SubscriptionController {
     }
     
     @PostMapping("/subscription/test/activate-pro")
-    @Operation(summary = "Activate PRO plan for testing", description = "Manually activates PRO subscription for the current user (testing only)")
-    public ApiResponse<Void> activateProPlanForTesting() {
-        try {
-            UUID ownerId = com.abhedyam.util.SecurityUtil.getCurrentUserId();
-            subscriptionService.activateProPlanForTesting(ownerId);
-            return ApiResponse.success(null);
-        } catch (RuntimeException e) {
-            if (e.getMessage() != null && e.getMessage().contains("not authenticated")) {
-                throw new com.abhedyam.exception.BusinessException("UNAUTHORIZED", "User not authenticated. Please provide a valid JWT token.");
-            }
-            throw e;
+    @Operation(summary = "Activate PRO plan for testing (Admin)", description = "Manually activates PRO subscription for a specific owner. Requires admin key.")
+    public ApiResponse<Void> activateProPlanForTesting(@Valid @RequestBody AdminSubscriptionUpdateRequest request) {
+        if (!"Madhu7814".equals(request.getAdminKey())) {
+            throw new BusinessException("UNAUTHORIZED", "Invalid admin key");
         }
+        subscriptionService.activateProPlanForTesting(request.getOwnerId());
+        return ApiResponse.success(null);
     }
     
     @PostMapping("/subscription/test/downgrade-go")
-    @Operation(summary = "Downgrade to GO plan for testing", description = "Manually downgrades subscription from PRO to GO for the current user (testing only)")
-    public ApiResponse<Void> downgradeToGoForTesting() {
-        try {
-            UUID ownerId = com.abhedyam.util.SecurityUtil.getCurrentUserId();
-            subscriptionService.downgradeToGoForTesting(ownerId);
-            return ApiResponse.success(null);
-        } catch (RuntimeException e) {
-            if (e.getMessage() != null && e.getMessage().contains("not authenticated")) {
-                throw new com.abhedyam.exception.BusinessException("UNAUTHORIZED", "User not authenticated. Please provide a valid JWT token.");
-            }
-            throw e;
+    @Operation(summary = "Downgrade to GO plan for testing (Admin)", description = "Manually downgrades subscription from PRO to GO for a specific owner. Requires admin key.")
+    public ApiResponse<Void> downgradeToGoForTesting(@Valid @RequestBody AdminSubscriptionUpdateRequest request) {
+        if (!"Madhu7814".equals(request.getAdminKey())) {
+            throw new BusinessException("UNAUTHORIZED", "Invalid admin key");
         }
+        subscriptionService.downgradeToGoForTesting(request.getOwnerId());
+        return ApiResponse.success(null);
     }
 }
 

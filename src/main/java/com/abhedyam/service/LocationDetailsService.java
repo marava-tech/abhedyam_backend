@@ -81,8 +81,11 @@ public class LocationDetailsService implements ILocationDetailsService {
             throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer");
         }
         
-        LocationDetails location = locationDetailsRepository.findByUserId(customerId)
-                .orElseThrow(() -> new ResourceNotFoundException("LocationDetails not found for customer"));
+        LocationDetails location = locationDetailsRepository.findByUserId(customerId).orElse(null);
+        
+        if (location == null) {
+            return null;
+        }
         
         return toResponse(location);
     }
