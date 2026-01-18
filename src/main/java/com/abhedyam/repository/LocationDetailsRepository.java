@@ -38,6 +38,15 @@ public interface LocationDetailsRepository extends JpaRepository<LocationDetails
            "AND ld.longitude IS NOT NULL")
     List<LocationDetails> findCustomerLocationsByOwnerId(@Param("ownerId") UUID ownerId);
     
+    @Query("SELECT ld FROM LocationDetails ld " +
+           "INNER JOIN Customer c ON c.id = ld.userId " +
+           "WHERE c.ownerId = :ownerId " +
+           "AND LOWER(TRIM(ld.village)) = LOWER(TRIM(:village)) " +
+           "AND ld.latitude IS NOT NULL " +
+           "AND ld.longitude IS NOT NULL")
+    List<LocationDetails> findCustomerLocationsByOwnerIdAndVillage(@Param("ownerId") UUID ownerId,
+                                                                    @Param("village") String village);
+    
     @Query("SELECT ld FROM LocationDetails ld WHERE ld.userId IN :customerIds")
     List<LocationDetails> findByUserIdIn(@Param("customerIds") List<UUID> customerIds);
     

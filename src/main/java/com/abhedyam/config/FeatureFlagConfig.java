@@ -12,7 +12,6 @@ import java.util.Map;
 public class FeatureFlagConfig {
     
     private Map<String, Boolean> global = Map.of(
-        "callLogSync", true,
         "dailyQuote", true
     );
     

@@ -8,6 +8,7 @@ import com.abhedyam.model.enums.AuditType;
 import com.abhedyam.repository.AuditRepository;
 import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.IAuditService;
+import com.abhedyam.constants.StatusConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -40,7 +41,7 @@ public class AuditService implements IAuditService {
     
     public Audit getById(UUID id) {
         return auditRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Audit not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Audit record could not be found"));
     }
     
     public List<Audit> getAll() {
@@ -94,10 +95,13 @@ public class AuditService implements IAuditService {
             String changeText = change.compareTo(BigDecimal.ZERO) > 0 ? "increased" : "decreased";
             String sourceText = getReadableSourceText(source);
             
-            audit.setHeadline(String.format("%s stock %s from %s to %s", productName, changeText, oldStock, newStock));
+            String formattedOldStock = formatStockValue(oldStock);
+            String formattedNewStock = formatStockValue(newStock);
+            
+            audit.setHeadline(String.format("%s stock %s from %s to %s", productName, changeText, formattedOldStock, formattedNewStock));
             
             String description = String.format("Stock %s for product '%s' from %s to %s. Reason: %s", 
-                changeText, productName, oldStock, newStock, sourceText);
+                changeText, productName, formattedOldStock, formattedNewStock, sourceText);
             if (details != null && !details.trim().isEmpty()) {
                 description += String.format(". %s", details);
             }
@@ -113,12 +117,24 @@ public class AuditService implements IAuditService {
         }
     }
     
+    private String formatStockValue(BigDecimal stock) {
+        if (stock == null) {
+            return "0";
+        }
+        BigDecimal stripped = stock.stripTrailingZeros();
+        if (stripped.scale() == 0) {
+            return String.valueOf(stripped.intValue());
+        }
+        return stripped.toPlainString();
+    }
+    
     private String getReadableSourceText(String source) {
         if (source == null) return "Unknown";
         return switch (source) {
             case "PURCHASE_IN" -> "Purchase received";
             case "SALE_OUT" -> "Sale transaction";
             case "MANUAL_ADJUSTMENT" -> "Manual adjustment";
+            case "STOCK_UPDATE" -> "Stock update";
             default -> source;
         };
     }
@@ -293,6 +309,120 @@ public class AuditService implements IAuditService {
             log.error("Failed to log payment success: paymentId={}, customerId={}, customerName={}", 
                 paymentId, customerId, customerName, e);
         }
+    }
+    
+    @Override
+    @Async("virtualThreadExecutor")
+    @Transactional
+    public void logPaymentCreation(UUID paymentId, UUID ownerId, UUID customerId, String customerName, UUID saleItemId, String productName, BigDecimal amount, String reference, String status, String medium) {
+        try {
+            Audit audit = new Audit();
+            audit.setOwnerId(ownerId);
+            audit.setType(AuditType.PAYMENT);
+            audit.setAction(AuditAction.CREATE);
+            audit.setEntityId(paymentId);
+            audit.setAmount(amount);
+            
+            String statusText = StatusConstants.PENDING.equals(status) ? "Pending" : 
+                               StatusConstants.SUCCESS.equals(status) ? "Completed" : 
+                               StatusConstants.FAILED.equals(status) ? "Failed" : status;
+            
+            String mediumText = formatPaymentMedium(medium);
+            
+            audit.setHeadline(String.format("Payment of ₹%s %s from %s (%s)", amount, statusText.toLowerCase(), customerName, mediumText));
+            
+            String description = String.format("Payment of ₹%s created with status '%s' from customer %s for product '%s'. Payment method: %s", 
+                amount, statusText, customerName, productName, mediumText);
+            
+            if (reference != null && !reference.trim().isEmpty()) {
+                String referenceText = formatPaymentReference(reference);
+                if (!referenceText.isEmpty()) {
+                    description += String.format(". %s", referenceText);
+                }
+            }
+            
+            if (StatusConstants.PENDING.equals(status)) {
+                description += ". Payment is pending confirmation and will be processed once verified.";
+            } else if (StatusConstants.FAILED.equals(status)) {
+                description += ". Payment failed and requires attention.";
+            }
+            
+            audit.setDescription(description);
+            audit.setTimestamp(Instant.now());
+            
+            auditRepository.save(audit);
+            log.info("Payment creation logged: paymentId={}, customerId={}, customerName={}, amount={}, status={}, medium={}", 
+                paymentId, customerId, customerName, amount, status, medium);
+        } catch (Exception e) {
+            log.error("Failed to log payment creation: paymentId={}, customerId={}, customerName={}, status={}", 
+                paymentId, customerId, customerName, status, e);
+        }
+    }
+    
+    @Override
+    @Async("virtualThreadExecutor")
+    @Transactional
+    public void logSubscriptionChange(UUID ownerId, String oldPlan, String newPlan, String oldStatus, String newStatus, String subscriptionId, Instant validTill) {
+        try {
+            Audit audit = new Audit();
+            audit.setOwnerId(ownerId);
+            audit.setType(AuditType.SUBSCRIPTION);
+            audit.setAction(AuditAction.UPDATE);
+            audit.setEntityId(ownerId);
+            
+            String headline;
+            String description;
+            
+            if (StatusConstants.PRO.equalsIgnoreCase(newPlan) && !StatusConstants.PRO.equalsIgnoreCase(oldPlan)) {
+                headline = String.format("Subscription upgraded to PRO plan");
+                description = String.format("Subscription upgraded from %s to PRO plan. Status: %s. Subscription ID: %s", 
+                    oldPlan != null ? oldPlan : "None", newStatus, subscriptionId != null ? subscriptionId : "N/A");
+                if (validTill != null) {
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' hh:mm a", Locale.ENGLISH)
+                        .withZone(ZoneId.systemDefault());
+                    description += String.format(". Valid until: %s", formatter.format(validTill));
+                }
+            } else if (StatusConstants.GO.equalsIgnoreCase(newPlan) && StatusConstants.PRO.equalsIgnoreCase(oldPlan)) {
+                headline = String.format("Subscription downgraded to GO plan");
+                description = String.format("Subscription downgraded from PRO to GO plan. Previous status: %s, New status: %s. Subscription ID: %s", 
+                    oldStatus != null ? oldStatus : "Unknown", newStatus, subscriptionId != null ? subscriptionId : "N/A");
+            } else {
+                headline = String.format("Subscription changed from %s to %s", 
+                    oldPlan != null ? oldPlan : "None", newPlan != null ? newPlan : "None");
+                description = String.format("Subscription plan changed from %s to %s. Status changed from %s to %s. Subscription ID: %s", 
+                    oldPlan != null ? oldPlan : "None", 
+                    newPlan != null ? newPlan : "None",
+                    oldStatus != null ? oldStatus : "Unknown",
+                    newStatus != null ? newStatus : "Unknown",
+                    subscriptionId != null ? subscriptionId : "N/A");
+            }
+            
+            audit.setHeadline(headline);
+            audit.setDescription(description);
+            audit.setTimestamp(Instant.now());
+            
+            auditRepository.save(audit);
+            log.info("Subscription change logged: ownerId={}, oldPlan={}, newPlan={}, oldStatus={}, newStatus={}", 
+                ownerId, oldPlan, newPlan, oldStatus, newStatus);
+        } catch (Exception e) {
+            log.error("Failed to log subscription change: ownerId={}, oldPlan={}, newPlan={}", 
+                ownerId, oldPlan, newPlan, e);
+        }
+    }
+    
+    private String formatPaymentMedium(String medium) {
+        if (medium == null || medium.trim().isEmpty()) {
+            return "Unknown";
+        }
+        return switch (medium.toUpperCase()) {
+            case "CASH" -> "Cash";
+            case "UPI" -> "UPI";
+            case "PHONEPE" -> "PhonePe";
+            case "PAYTM" -> "Paytm";
+            case "OFFLINE" -> "Offline";
+            case "IN_APP" -> "In-App";
+            default -> medium;
+        };
     }
     
     private String formatPaymentReference(String reference) {

@@ -8,6 +8,7 @@ import com.abhedyam.dto.OwnerResponse;
 import com.abhedyam.dto.OwnerSettingsResponse;
 import com.abhedyam.dto.OwnerUpdateRequest;
 import com.abhedyam.dto.UpiAccountResponse;
+import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.LocationDetails;
 import com.abhedyam.model.Owner;
@@ -22,6 +23,7 @@ import com.abhedyam.service.interfaces.IOwnerService;
 import com.abhedyam.util.EmailUtil;
 import com.abhedyam.util.PhoneUtil;
 import com.abhedyam.util.SecurityUtil;
+import com.abhedyam.constants.ErrorCodes;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -78,14 +80,14 @@ public class OwnerService implements IOwnerService {
     
     public OwnerResponse getById(UUID id) {
         Owner owner = ownerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Owner not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Account could not be found"));
         return toResponse(owner);
     }
     
     @Transactional(readOnly = true)
     public OwnerDetailsResponse getOwnerDetails(UUID id) {
         Owner owner = ownerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Owner not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Account could not be found"));
         
         OwnerDetailsResponse response = new OwnerDetailsResponse();
         response.setOwner(toResponse(owner));
@@ -197,7 +199,7 @@ public class OwnerService implements IOwnerService {
     public OwnerResponse updateCurrentOwner(OwnerUpdateRequest request) {
         UUID id = SecurityUtil.getCurrentUserId();
         Owner owner = ownerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Owner not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Account could not be found"));
         
         if (request.getName() != null && !request.getName().trim().isEmpty()) {
             owner.setName(request.getName());
@@ -236,6 +238,13 @@ public class OwnerService implements IOwnerService {
         Owner saved = ownerRepository.save(owner);
         return toResponse(saved);
     }
+
+    @Override
+    @Transactional
+    public OwnerResponse updateOwnerForOwner(UUID ownerId, OwnerUpdateRequest request) {
+        validateOwnerAccess(ownerId);
+        return updateCurrentOwner(request);
+    }
     
     private OwnerResponse toResponse(Owner owner) {
         OwnerResponse response = new OwnerResponse();
@@ -268,7 +277,7 @@ public class OwnerService implements IOwnerService {
         OwnerSettingsResponse response = new OwnerSettingsResponse();
         response.setId(settings.getId());
         response.setDailyQuoteEnabled(settings.getDailyQuoteEnabled());
-        response.setCallLogSyncEnabled(settings.getCallLogSyncEnabled());
+        response.setIsDarkModeEnabled(settings.getIsDarkModeEnabled());
         response.setOtherFlags(settings.getOtherFlags());
         response.setCreatedAt(settings.getCreatedAt());
         response.setUpdatedAt(settings.getUpdatedAt());
@@ -284,6 +293,13 @@ public class OwnerService implements IOwnerService {
         response.setCreatedAt(account.getCreatedAt());
         response.setUpdatedAt(account.getUpdatedAt());
         return response;
+    }
+
+    private void validateOwnerAccess(UUID ownerId) {
+        UUID currentOwnerId = SecurityUtil.getCurrentUserId();
+        if (ownerId == null || !ownerId.equals(currentOwnerId)) {
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You can only access your own owner profile");
+        }
     }
 }
 

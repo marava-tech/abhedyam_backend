@@ -15,8 +15,11 @@ import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.PaymentRepository;
 import com.abhedyam.repository.ProductRepository;
 import com.abhedyam.repository.SaleItemRepository;
+import com.abhedyam.service.interfaces.IAuditService;
+import com.abhedyam.service.interfaces.ICustomerService;
 import com.abhedyam.service.interfaces.IPaymentLinkService;
 import com.abhedyam.util.SecurityUtil;
+import com.abhedyam.constants.ErrorCodes;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,6 +37,11 @@ public class PaymentLinkService implements IPaymentLinkService {
     private final PaymentRepository paymentRepository;
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
+    private final IAuditService auditService;
+    private final ICustomerService customerService;
+    private final CustomerService customerServiceConcrete;
+    private final PaymentService paymentService;
+    private final StatsService statsService;
     
     @Override
     @Transactional
@@ -41,14 +49,14 @@ public class PaymentLinkService implements IPaymentLinkService {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
         if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("INVALID_AMOUNT", "Payment amount must be greater than zero");
+            throw new BusinessException(ErrorCodes.INVALID_AMOUNT, "Payment amount must be greater than zero");
         }
         
         SaleItem saleItem = saleItemRepository.findById(request.getSaleItemId())
                 .orElseThrow(() -> new ResourceNotFoundException("Sale item not found"));
         
         if (!saleItem.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this sale item");
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You don't have permission to access this sale item");
         }
         
         Product product = productRepository.findById(saleItem.getProductId())
@@ -78,6 +86,28 @@ public class PaymentLinkService implements IPaymentLinkService {
         
         Payment savedPayment = paymentRepository.save(payment);
         String paymentId = savedPayment.getId().toString();
+        
+        auditService.logPaymentCreation(
+            savedPayment.getId(),
+            ownerId,
+            customer.getId(),
+            customer.getName(),
+            request.getSaleItemId(),
+            product.getName(),
+            savedPayment.getAmount(),
+            savedPayment.getReference(),
+            savedPayment.getStatus().toString(),
+            savedPayment.getMedium().toString()
+        );
+        
+        try {
+            paymentService.invalidateOwnerCaches(ownerId);
+            customerService.invalidateCustomerSummaryCache(ownerId, customer.getId());
+            customerServiceConcrete.invalidateOwnerCaches(ownerId);
+            statsService.invalidateOwnerCaches(ownerId);
+        } catch (Exception e) {
+            log.warn("Error invalidating caches on payment link creation: {}", e.getMessage());
+        }
         
         String paymentLink = generatePaymentLink(orderId, request.getAmount(), description);
         

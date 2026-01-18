@@ -1,5 +1,6 @@
 package com.abhedyam.service;
 
+import com.abhedyam.constants.ErrorCodes;
 import com.abhedyam.dto.InvoiceResponse;
 import com.abhedyam.dto.ReceiptResponse;
 import com.abhedyam.exception.BusinessException;
@@ -63,11 +64,11 @@ public class InvoiceReceiptService {
         UUID currentUserId = SecurityUtil.getCurrentUserId();
         
         Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
         
         UUID ownerId = customer.getOwnerId();
         if (ownerId == null) {
-            throw new ResourceNotFoundException("Customer owner not found");
+            throw new ResourceNotFoundException("Customer information is incomplete");
         }
         
         validateAccess(currentUserId, customerId, ownerId);
@@ -75,25 +76,25 @@ public class InvoiceReceiptService {
         SaleItem requestedSaleItem;
         if (saleItemId != null) {
             requestedSaleItem = saleItemRepository.findById(saleItemId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Sale item not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Sale item could not be found"));
             
             if (!requestedSaleItem.getCustomerId().equals(customerId)) {
-                throw new BusinessException("INVALID_SALE_ITEM", "Sale item does not belong to this customer");
+                throw new BusinessException("INVALID_SALE_ITEM", "This sale item does not belong to this customer");
             }
         } else {
             List<SaleItem> customerSaleItems = saleItemRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
             if (customerSaleItems.isEmpty()) {
-                throw new ResourceNotFoundException("No sale items found for this customer");
+                throw new ResourceNotFoundException("No sales found for this customer");
             }
             requestedSaleItem = customerSaleItems.stream()
                     .sorted(Comparator.comparing(SaleItem::getCreatedAt))
                     .findFirst()
-                    .orElseThrow(() -> new ResourceNotFoundException("No sale items found for this customer"));
+                    .orElseThrow(() -> new ResourceNotFoundException("No sales found for this customer"));
         }
         
         String transactionId = requestedSaleItem.getTransactionId();
         if (transactionId == null) {
-            throw new ResourceNotFoundException("Transaction ID not found for sale item");
+            throw new ResourceNotFoundException("Sale information is incomplete");
         }
         
         List<SaleItem> saleItems;
@@ -102,14 +103,14 @@ public class InvoiceReceiptService {
         } else {
             saleItems = saleItemRepository.findByTransactionId(transactionId);
             if (saleItems.isEmpty()) {
-                throw new ResourceNotFoundException("Transaction not found: " + transactionId);
+                throw new ResourceNotFoundException("Sale transaction could not be found");
             }
         }
         
         SaleItem firstItem = saleItems.get(0);
         
         Owner owner = ownerRepository.findById(ownerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Business information could not be found"));
         
         List<Product> products = productRepository.findByOwnerId(ownerId);
         Map<UUID, Product> productMap = products.stream()
@@ -208,11 +209,11 @@ public class InvoiceReceiptService {
         UUID currentUserId = SecurityUtil.getCurrentUserId();
         
         Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
         
         UUID ownerId = customer.getOwnerId();
         if (ownerId == null) {
-            throw new ResourceNotFoundException("Customer owner not found");
+            throw new ResourceNotFoundException("Customer information is incomplete");
         }
         
         validateAccess(currentUserId, customerId, ownerId);
@@ -220,32 +221,32 @@ public class InvoiceReceiptService {
         SaleItem saleItem;
         if (saleItemId != null) {
             saleItem = saleItemRepository.findById(saleItemId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Sale item not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Sale item could not be found"));
             
             if (!saleItem.getCustomerId().equals(customerId)) {
-                throw new BusinessException("INVALID_SALE_ITEM", "Sale item does not belong to this customer");
+                throw new BusinessException("INVALID_SALE_ITEM", "This sale item does not belong to this customer");
             }
         } else {
             List<SaleItem> customerSaleItems = saleItemRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
             if (customerSaleItems.isEmpty()) {
-                throw new ResourceNotFoundException("No sale items found for this customer");
+                throw new ResourceNotFoundException("No sales found for this customer");
             }
             saleItem = customerSaleItems.stream()
                     .sorted(Comparator.comparing(SaleItem::getCreatedAt))
                     .findFirst()
-                    .orElseThrow(() -> new ResourceNotFoundException("No sale items found for this customer"));
+                    .orElseThrow(() -> new ResourceNotFoundException("No sales found for this customer"));
         }
         
         UUID saleItemIdForReceipt = saleItem.getId();
         
         Owner owner = ownerRepository.findById(ownerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Business information could not be found"));
         
         LocationDetails customerLocation = locationDetailsRepository.findByUserId(customerId).orElse(null);
         LocationDetails ownerLocation = locationDetailsRepository.findByUserId(ownerId).orElse(null);
         
         Product product = productRepository.findById(saleItem.getProductId())
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Product could not be found"));
         
         String transactionId = saleItem.getTransactionId();
         
@@ -255,6 +256,10 @@ public class InvoiceReceiptService {
                     && p.getSaleItemId().equals(saleItemIdForReceipt))
                 .sorted(Comparator.comparing(Payment::getTimestamp).reversed())
                 .collect(Collectors.toList());
+        
+        if (allPayments.isEmpty()) {
+            throw new BusinessException(ErrorCodes.NO_PAYMENTS_FOUND, "No payments found to generate receipt");
+        }
         
         BigDecimal totalAmount = saleItem.getPrice().multiply(
             saleItem.getQuantity() != null ? saleItem.getQuantity() : BigDecimal.ONE
@@ -351,7 +356,7 @@ public class InvoiceReceiptService {
     
     private void validateAccess(UUID currentUserId, UUID customerId, UUID ownerId) {
         User currentUser = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Your account could not be found"));
         
         boolean hasAccess = false;
         if (currentUserId.equals(customerId)) {
@@ -361,7 +366,7 @@ public class InvoiceReceiptService {
         }
         
         if (!hasAccess) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this resource");
+            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this");
         }
     }
     

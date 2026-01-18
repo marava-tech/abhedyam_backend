@@ -1,7 +1,6 @@
 package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
-import com.abhedyam.dto.PageResponse;
 import com.abhedyam.dto.PaymentCreateRequest;
 import com.abhedyam.dto.PaymentResponse;
 import com.abhedyam.dto.PaymentStatusUpdateRequest;
@@ -31,18 +30,6 @@ public class PaymentController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<PaymentResponse> createManualPayment(@Valid @RequestBody PaymentCreateRequest request) {
         return ApiResponse.success(paymentService.createManualPayment(request));
-    }
-    
-    @GetMapping("/my-payments")
-    public ApiResponse<PageResponse<PaymentResponse>> getMyPayments(
-            @RequestParam(defaultValue = "0") Integer page,
-            @RequestParam(defaultValue = "10") Integer size) {
-        return ApiResponse.success(paymentService.getMyPayments(page, size));
-    }
-    
-    @GetMapping("/filter")
-    public ApiResponse<List<PaymentResponse>> filterPayments(@RequestParam(value = "searchText", required = false) String searchText) {
-        return ApiResponse.success(paymentService.filterPayments(searchText));
     }
     
     @GetMapping("/customer/{customerId}")

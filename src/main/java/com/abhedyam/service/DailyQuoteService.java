@@ -42,15 +42,11 @@ public class DailyQuoteService implements IDailyQuoteService {
     
     public DailyQuote getById(UUID id) {
         return dailyQuoteRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("DailyQuote not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Daily quote could not be found"));
     }
     
     public List<DailyQuote> getAll() {
         return dailyQuoteRepository.findAll();
-    }
-    
-    public List<DailyQuote> getActiveQuotes() {
-        return dailyQuoteRepository.findByIsActiveTrue();
     }
     
     @Override

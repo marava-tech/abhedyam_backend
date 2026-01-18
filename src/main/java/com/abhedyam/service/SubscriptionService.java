@@ -13,8 +13,10 @@ import com.abhedyam.model.Subscription;
 import com.abhedyam.model.enums.SubscriptionStatus;
 import com.abhedyam.repository.OwnerRepository;
 import com.abhedyam.repository.SubscriptionRepository;
+import com.abhedyam.service.interfaces.IAuditService;
 import com.abhedyam.service.interfaces.ISubscriptionService;
 import com.abhedyam.util.SecurityUtil;
+import com.abhedyam.constants.ErrorCodes;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +45,7 @@ public class SubscriptionService implements ISubscriptionService {
     private final RazorpayConfig razorpayConfig;
     private final OwnerRepository ownerRepository;
     private final SubscriptionRepository subscriptionRepository;
+    private final IAuditService auditService;
     
     @Override
     @Transactional
@@ -51,7 +54,7 @@ public class SubscriptionService implements ISubscriptionService {
         Long amount = request.getAmount();
         
         if (amount == null || amount <= 0) {
-            throw new BusinessException("INVALID_AMOUNT", "Payment amount must be greater than 0");
+            throw new BusinessException(ErrorCodes.INVALID_AMOUNT, "Payment amount must be greater than 0");
         }
         
         String razorpayMode = razorpayConfig.getMode();
@@ -63,7 +66,7 @@ public class SubscriptionService implements ISubscriptionService {
         Owner owner = ownerRepository.findById(ownerId)
                 .orElseThrow(() -> {
                     log.error("Owner not found for ownerId: {}", ownerId);
-                    return new ResourceNotFoundException("Owner not found");
+                    return new ResourceNotFoundException("Your account could not be found");
                 });
         
         Optional<Subscription> existingPendingSubscription = subscriptionRepository
@@ -121,8 +124,8 @@ public class SubscriptionService implements ISubscriptionService {
             String errorMessage = e.getMessage();
             log.error("Error creating Razorpay order - ownerId: {}, razorpayMode: {}, razorpayKeyId: {}, error: {}", 
                     ownerId, razorpayMode, razorpayKeyId, errorMessage, e);
-            throw new BusinessException("ORDER_CREATE_FAILED", 
-                String.format("Failed to create order in %s mode: %s", razorpayMode, errorMessage));
+            throw new BusinessException(ErrorCodes.ORDER_CREATE_FAILED, 
+                "Unable to create payment order. Please try again");
         }
     }
     
@@ -136,20 +139,20 @@ public class SubscriptionService implements ISubscriptionService {
         Owner owner = ownerRepository.findById(ownerId)
                 .orElseThrow(() -> {
                     log.error("Owner not found for payment verification - ownerId: {}", ownerId);
-                    return new ResourceNotFoundException("Owner not found");
+                    return new ResourceNotFoundException("Your account could not be found");
                 });
         
         Subscription subscription = subscriptionRepository.findByRazorpayOrderId(request.getOrderId())
                 .orElseThrow(() -> {
                     log.error("Order not found for payment verification - razorpayOrderId: {}, ownerId: {}", 
                             request.getOrderId(), ownerId);
-                    return new ResourceNotFoundException("Order not found");
+                    return new ResourceNotFoundException("Order could not be found");
                 });
         
         if (!subscription.getOwnerId().equals(ownerId)) {
             log.warn("Unauthorized payment verification attempt - subscriptionOwnerId: {}, requestOwnerId: {}, orderId: {}", 
                     subscription.getOwnerId(), ownerId, request.getOrderId());
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this order");
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You don't have permission to access this order");
         }
         
         String signatureData = request.getOrderId() + "|" + request.getPaymentId();
@@ -162,7 +165,7 @@ public class SubscriptionService implements ISubscriptionService {
         if (generatedSignature == null) {
             log.error("Generated signature is null - orderId: {}, paymentId: {}, ownerId: {}", 
                     request.getOrderId(), request.getPaymentId(), ownerId);
-            throw new BusinessException("SIGNATURE_GENERATION_FAILED", "Failed to generate signature for payment verification");
+            throw new BusinessException(ErrorCodes.SIGNATURE_GENERATION_FAILED, "Unable to verify payment. Please try again");
         }
         
         log.debug("Signature comparison - generatedLength: {}, receivedLength: {}, generated: {}, received: {}", 
@@ -174,8 +177,8 @@ public class SubscriptionService implements ISubscriptionService {
         if (!generatedSignature.equals(receivedSignature)) {
             log.error("Invalid payment signature - orderId: {}, paymentId: {}, ownerId: {}, generatedSignature: {}, receivedSignature: {}, signatureData: {}", 
                     request.getOrderId(), request.getPaymentId(), ownerId, generatedSignature, receivedSignature, signatureData);
-            throw new BusinessException("INVALID_SIGNATURE", 
-                String.format("Payment signature verification failed. Ensure you are using the correct key secret and the signature is generated from '%s'", signatureData));
+            throw new BusinessException(ErrorCodes.INVALID_SIGNATURE, 
+                "Payment verification failed. Please try again");
         }
         
         log.debug("Signature verified successfully, fetching payment from Razorpay - paymentId: {}", 
@@ -196,14 +199,14 @@ public class SubscriptionService implements ISubscriptionService {
             } else {
                 log.warn("Payment status is not captured/authorized - paymentId: {}, status: {}, ownerId: {}", 
                         request.getPaymentId(), status, ownerId);
-                throw new BusinessException("PAYMENT_NOT_CAPTURED", 
-                    String.format("Payment status is '%s'. Payment must be captured or authorized.", status));
+                throw new BusinessException(ErrorCodes.PAYMENT_NOT_CAPTURED, 
+                    "Payment has not been completed yet. Please wait for payment confirmation");
             }
         } catch (RazorpayException e) {
             log.error("Error fetching payment from Razorpay - paymentId: {}, ownerId: {}, error: {}", 
                     request.getPaymentId(), ownerId, e.getMessage(), e);
-            throw new BusinessException("PAYMENT_FETCH_FAILED", 
-                String.format("Failed to verify payment '%s': %s", request.getPaymentId(), e.getMessage()));
+            throw new BusinessException(ErrorCodes.PAYMENT_FETCH_FAILED, 
+                "Unable to verify payment. Please try again");
         }
     }
     
@@ -216,7 +219,7 @@ public class SubscriptionService implements ISubscriptionService {
         
         if (!generatedSignature.equals(signature)) {
             log.warn("Invalid webhook signature received - payloadLength: {}", payload != null ? payload.length() : 0);
-            throw new BusinessException("INVALID_WEBHOOK_SIGNATURE", "Webhook signature verification failed");
+            throw new BusinessException(ErrorCodes.INVALID_WEBHOOK_SIGNATURE, "Payment verification failed");
         }
         
         try {
@@ -262,8 +265,8 @@ public class SubscriptionService implements ISubscriptionService {
         } catch (Exception e) {
             log.error("Error processing webhook - payloadLength: {}, error: {}", 
                     payload != null ? payload.length() : 0, e.getMessage(), e);
-            throw new BusinessException("WEBHOOK_PROCESSING_FAILED", 
-                String.format("Failed to process webhook: %s", e.getMessage()));
+            throw new BusinessException(ErrorCodes.WEBHOOK_PROCESSING_FAILED, 
+                "Unable to process payment notification. Please try again");
         }
     }
     
@@ -276,7 +279,7 @@ public class SubscriptionService implements ISubscriptionService {
         Owner owner = ownerRepository.findById(ownerId)
                 .orElseThrow(() -> {
                     log.error("Owner not found for subscription status - ownerId: {}", ownerId);
-                    return new ResourceNotFoundException("Owner not found");
+                    return new ResourceNotFoundException("Your account could not be found");
                 });
         
         SubscriptionStatusResponse response = new SubscriptionStatusResponse();
@@ -298,7 +301,7 @@ public class SubscriptionService implements ISubscriptionService {
         Owner owner = ownerRepository.findById(ownerId)
                 .orElseThrow(() -> {
                     log.error("Owner not found for subscription details - ownerId: {}", ownerId);
-                    return new ResourceNotFoundException("Owner not found");
+                    return new ResourceNotFoundException("Your account could not be found");
                 });
         
         SubscriptionDetailsResponse response = new SubscriptionDetailsResponse();
@@ -331,7 +334,7 @@ public class SubscriptionService implements ISubscriptionService {
         Owner owner = ownerRepository.findById(ownerId)
                 .orElseThrow(() -> {
                     log.error("Owner not found for PRO subscription check - ownerId: {}", ownerId);
-                    return new ResourceNotFoundException("Owner not found");
+                    return new ResourceNotFoundException("Your account could not be found");
                 });
         
         boolean isValid = owner.getSubscription() == com.abhedyam.model.enums.Subscription.PRO &&
@@ -342,7 +345,7 @@ public class SubscriptionService implements ISubscriptionService {
         if (!isValid) {
             log.warn("PRO subscription check failed - ownerId: {}, plan: {}, status: {}, validTill: {}", 
                     ownerId, owner.getSubscription(), owner.getSubscriptionStatus(), owner.getValidTill());
-            throw new BusinessException("SUBSCRIPTION_REQUIRED", 
+            throw new BusinessException(ErrorCodes.SUBSCRIPTION_REQUIRED, 
                 "PRO subscription is required for this feature. Please upgrade to PRO plan.");
         }
         
@@ -357,7 +360,7 @@ public class SubscriptionService implements ISubscriptionService {
         Owner owner = ownerRepository.findById(ownerId)
                 .orElseThrow(() -> {
                     log.error("Owner not found for test PRO activation - ownerId: {}", ownerId);
-                    return new ResourceNotFoundException("Owner not found");
+                    return new ResourceNotFoundException("Your account could not be found");
                 });
         
         List<Subscription> subscriptions = subscriptionRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId);
@@ -388,7 +391,7 @@ public class SubscriptionService implements ISubscriptionService {
         Owner owner = ownerRepository.findById(ownerId)
                 .orElseThrow(() -> {
                     log.error("Owner not found for test GO downgrade - ownerId: {}", ownerId);
-                    return new ResourceNotFoundException("Owner not found");
+                    return new ResourceNotFoundException("Your account could not be found");
                 });
         
         List<Subscription> subscriptions = subscriptionRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId);
@@ -400,6 +403,10 @@ public class SubscriptionService implements ISubscriptionService {
         } else {
             log.info("No existing subscriptions found for testing - ownerId: {}", ownerId);
         }
+        
+        String oldPlan = owner.getSubscription() != null ? owner.getSubscription().toString() : null;
+        String oldStatus = owner.getSubscriptionStatus() != null ? owner.getSubscriptionStatus().toString() : null;
+        String subscriptionId = subscription != null ? subscription.getRazorpayOrderId() : null;
         
         owner.setSubscription(com.abhedyam.model.enums.Subscription.GO);
         owner.setSubscriptionStatus(SubscriptionStatus.EXPIRED);
@@ -415,6 +422,16 @@ public class SubscriptionService implements ISubscriptionService {
         
         ownerRepository.save(owner);
         
+        auditService.logSubscriptionChange(
+            ownerId,
+            oldPlan,
+            "GO",
+            oldStatus,
+            "EXPIRED",
+            subscriptionId,
+            null
+        );
+        
         log.warn("GO plan activated for testing - ownerId: {}, plan: {}", ownerId, owner.getSubscription());
     }
     
@@ -424,6 +441,9 @@ public class SubscriptionService implements ISubscriptionService {
         
         log.info("Activating PRO plan - ownerId: {}, razorpayOrderId: {}", 
                 ownerId, razorpayOrderId);
+        
+        String oldPlan = owner.getSubscription() != null ? owner.getSubscription().toString() : null;
+        String oldStatus = owner.getSubscriptionStatus() != null ? owner.getSubscriptionStatus().toString() : null;
         
         owner.setSubscription(com.abhedyam.model.enums.Subscription.PRO);
         owner.setSubscriptionStatus(SubscriptionStatus.ACTIVE);
@@ -442,6 +462,16 @@ public class SubscriptionService implements ISubscriptionService {
         ownerRepository.save(owner);
         subscriptionRepository.save(subscription);
         
+        auditService.logSubscriptionChange(
+            ownerId,
+            oldPlan,
+            "PRO",
+            oldStatus,
+            "ACTIVE",
+            razorpayOrderId,
+            validTill
+        );
+        
         log.info("PRO plan activated successfully - ownerId: {}, razorpayOrderId: {}, validTill: {}", 
                 ownerId, razorpayOrderId, validTill);
     }
@@ -451,6 +481,9 @@ public class SubscriptionService implements ISubscriptionService {
         String razorpayOrderId = subscription.getRazorpayOrderId();
         
         log.info("Expiring subscription - ownerId: {}, razorpayOrderId: {}", ownerId, razorpayOrderId);
+        
+        String oldPlan = owner.getSubscription() != null ? owner.getSubscription().toString() : null;
+        String oldStatus = owner.getSubscriptionStatus() != null ? owner.getSubscriptionStatus().toString() : null;
         
         owner.setSubscription(com.abhedyam.model.enums.Subscription.GO);
         owner.setSubscriptionStatus(SubscriptionStatus.EXPIRED);
@@ -462,6 +495,16 @@ public class SubscriptionService implements ISubscriptionService {
         ownerRepository.save(owner);
         subscriptionRepository.save(subscription);
         
+        auditService.logSubscriptionChange(
+            ownerId,
+            oldPlan,
+            "GO",
+            oldStatus,
+            "EXPIRED",
+            razorpayOrderId,
+            null
+        );
+        
         log.info("Subscription expired successfully - ownerId: {}, razorpayOrderId: {}, expiredAt: {}", 
                 ownerId, razorpayOrderId, now);
     }
@@ -471,6 +514,9 @@ public class SubscriptionService implements ISubscriptionService {
         String razorpayOrderId = subscription.getRazorpayOrderId();
         
         log.info("Cancelling subscription - ownerId: {}, razorpayOrderId: {}", ownerId, razorpayOrderId);
+        
+        String oldPlan = owner.getSubscription() != null ? owner.getSubscription().toString() : null;
+        String oldStatus = owner.getSubscriptionStatus() != null ? owner.getSubscriptionStatus().toString() : null;
         
         owner.setSubscription(com.abhedyam.model.enums.Subscription.GO);
         owner.setSubscriptionStatus(SubscriptionStatus.CANCELLED);
@@ -482,6 +528,16 @@ public class SubscriptionService implements ISubscriptionService {
         ownerRepository.save(owner);
         subscriptionRepository.save(subscription);
         
+        auditService.logSubscriptionChange(
+            ownerId,
+            oldPlan,
+            "GO",
+            oldStatus,
+            "CANCELLED",
+            razorpayOrderId,
+            null
+        );
+        
         log.info("Subscription cancelled successfully - ownerId: {}, razorpayOrderId: {}, cancelledAt: {}", 
                 ownerId, razorpayOrderId, now);
     }
@@ -490,7 +546,7 @@ public class SubscriptionService implements ISubscriptionService {
         try {
             if (data == null) {
                 log.error("Cannot generate signature: data is null");
-                throw new BusinessException("SIGNATURE_GENERATION_FAILED", "Data cannot be null for signature generation");
+                throw new BusinessException(ErrorCodes.SIGNATURE_GENERATION_FAILED, "Data cannot be null for signature generation");
             }
             log.debug("Generating HMAC SHA256 signature - dataLength: {}", data.length());
             Mac mac = Mac.getInstance("HmacSHA256");
@@ -509,7 +565,7 @@ public class SubscriptionService implements ISubscriptionService {
         } catch (Exception e) {
             log.error("Error generating signature - dataLength: {}, error: {}", 
                     data != null ? data.length() : 0, e.getMessage(), e);
-            throw new BusinessException("SIGNATURE_GENERATION_FAILED", "Failed to generate signature");
+            throw new BusinessException(ErrorCodes.SIGNATURE_GENERATION_FAILED, "Unable to verify payment. Please try again");
         }
     }
 }

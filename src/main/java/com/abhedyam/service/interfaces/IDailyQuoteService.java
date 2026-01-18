@@ -10,7 +10,6 @@ public interface IDailyQuoteService {
     DailyQuote create(DailyQuoteCreateRequest request);
     DailyQuote getById(UUID id);
     List<DailyQuote> getAll();
-    List<DailyQuote> getActiveQuotes();
     DailyQuote getTodaysQuote();
     DailyQuote update(UUID id, DailyQuote quoteDetails);
 }

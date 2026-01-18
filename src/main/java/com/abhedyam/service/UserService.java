@@ -15,7 +15,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -53,7 +52,7 @@ public class UserService implements IUserService {
     
     public UserResponse getById(UUID id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("User could not be found"));
         return toResponse(user);
     }
     
@@ -67,7 +66,7 @@ public class UserService implements IUserService {
     public UserResponse updateCurrentUser(UserUpdateRequest request) {
         UUID id = SecurityUtil.getCurrentUserId();
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("User could not be found"));
         
         if (request.getName() != null && !request.getName().trim().isEmpty()) {
             user.setName(request.getName());
@@ -99,6 +98,13 @@ public class UserService implements IUserService {
         User saved = userRepository.save(user);
         return toResponse(saved);
     }
+
+    @Override
+    @Transactional
+    public UserResponse updateUserForId(UUID id, UserUpdateRequest request) {
+        validateUserAccess(id);
+        return updateCurrentUser(request);
+    }
     
     private UserResponse toResponse(User user) {
         UserResponse response = new UserResponse();
@@ -119,6 +125,13 @@ public class UserService implements IUserService {
         
         if (!hasEmail && !hasPhone) {
             throw new BusinessException("MISSING_IDENTIFIER", "User must have either email or phone number");
+        }
+    }
+
+    private void validateUserAccess(UUID userId) {
+        UUID currentUserId = SecurityUtil.getCurrentUserId();
+        if (userId == null || !userId.equals(currentUserId)) {
+            throw new BusinessException("UNAUTHORIZED", "You can only update your own user profile");
         }
     }
 }

@@ -7,7 +7,6 @@ import com.abhedyam.dto.OwnerPublicResponse;
 import com.abhedyam.dto.OwnerResponse;
 import com.abhedyam.dto.OwnerUpdateRequest;
 import com.abhedyam.service.interfaces.IOwnerService;
-import com.abhedyam.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -41,12 +40,6 @@ public class OwnerController {
         return ApiResponse.success(ownerService.getOwnerDetails(id));
     }
     
-    @GetMapping("/me/details")
-    public ApiResponse<OwnerDetailsResponse> getCurrentOwnerDetails() {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
-        return ApiResponse.success(ownerService.getOwnerDetails(ownerId));
-    }
-    
     @GetMapping
     public ApiResponse<List<OwnerResponse>> getAll() {
         return ApiResponse.success(ownerService.getAll());
@@ -61,9 +54,9 @@ public class OwnerController {
         return ApiResponse.success(ownerService.getAllPublic(latitude, longitude));
     }
     
-    @PatchMapping("/me")
-    public ApiResponse<OwnerResponse> updateCurrentOwner(@Valid @RequestBody OwnerUpdateRequest request) {
-        return ApiResponse.success(ownerService.updateCurrentOwner(request));
+    @PatchMapping("/{id}")
+    public ApiResponse<OwnerResponse> updateOwner(@PathVariable UUID id, @Valid @RequestBody OwnerUpdateRequest request) {
+        return ApiResponse.success(ownerService.updateOwnerForOwner(id, request));
     }
 }
 

@@ -86,7 +86,7 @@ public class UpiAccountManagementService implements IUpiAccountManagementService
         }
         
         if (!hasAccess) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this owner's UPI account");
+            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this UPI account");
         }
         
         UPIAccount account = upiAccountRepository.findByOwnerId(ownerId)
@@ -119,6 +119,13 @@ public class UpiAccountManagementService implements IUpiAccountManagementService
         UPIAccount saved = upiAccountRepository.save(upiAccount);
         return toResponse(saved);
     }
+
+    @Override
+    @Transactional
+    public UpiAccountResponse updateUpiAccountForOwner(UUID ownerId, UpiAccountCreateRequest request) {
+        validateOwnerAccess(ownerId);
+        return updateCurrentUserUpiAccount(request);
+    }
     
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
@@ -137,7 +144,7 @@ public class UpiAccountManagementService implements IUpiAccountManagementService
                 .orElseThrow(() -> new ResourceNotFoundException("UPI Account not found"));
         
         if (!account.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this UPI account");
+            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this UPI account");
         }
         
         return toResponse(account);
@@ -151,7 +158,7 @@ public class UpiAccountManagementService implements IUpiAccountManagementService
                 .orElseThrow(() -> new ResourceNotFoundException("UPI Account not found"));
         
         if (!account.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this UPI account");
+            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this UPI account");
         }
         
         return toResponse(account);
@@ -171,6 +178,13 @@ public class UpiAccountManagementService implements IUpiAccountManagementService
         UPIAccount saved = upiAccountRepository.save(upiAccount);
         return toResponse(saved);
     }
+
+    @Override
+    @Transactional
+    public UpiAccountResponse verifyVpaForOwner(UUID ownerId) {
+        validateOwnerAccess(ownerId);
+        return verifyCurrentUserVpa();
+    }
     
     private UpiAccountResponse toResponse(UPIAccount account) {
         UpiAccountResponse response = new UpiAccountResponse();
@@ -181,6 +195,13 @@ public class UpiAccountManagementService implements IUpiAccountManagementService
         response.setCreatedAt(account.getCreatedAt());
         response.setUpdatedAt(account.getUpdatedAt());
         return response;
+    }
+
+    private void validateOwnerAccess(UUID ownerId) {
+        UUID currentOwnerId = SecurityUtil.getCurrentUserId();
+        if (ownerId == null || !ownerId.equals(currentOwnerId)) {
+            throw new BusinessException("UNAUTHORIZED", "You can only access your own UPI account");
+        }
     }
 }
 

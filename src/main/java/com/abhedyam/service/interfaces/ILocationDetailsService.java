@@ -12,15 +12,14 @@ import java.util.UUID;
 
 public interface ILocationDetailsService {
     LocationDetailsResponse create(LocationDetailsCreateRequest request);
-    LocationDetailsResponse getCurrentUserLocation();
     LocationDetailsResponse getCustomerLocation(UUID customerId);
     LocationDetailsResponse getLocationByUserId(UUID userId);
     List<LocationDetailsResponse> getAll();
     List<VillageSearchResult> searchVillagesByName(String name);
     List<com.abhedyam.dto.VillageResponse> getAllVillages();
     List<com.abhedyam.dto.VillageResponse> searchVillagesByNameWithCount(String name);
-    LocationDetailsResponse updateCurrentUserLocation(LocationDetailsUpdateRequest request);
     LocationDetailsResponse updateCustomerLocation(UUID customerId, LocationDetailsUpdateRequest request);
+    LocationDetailsResponse updateLocationForUser(UUID userId, LocationDetailsUpdateRequest request);
     List<CustomerLocationResponse> getCustomerLocations(CustomerLocationRequest request);
 }
 

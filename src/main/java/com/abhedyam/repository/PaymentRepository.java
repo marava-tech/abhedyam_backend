@@ -34,6 +34,21 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
                                  @Param("searchText") String searchText,
                                  @Param("isNumeric") boolean isNumeric,
                                  @Param("amount") BigDecimal amount);
+
+    @Query("SELECT p FROM Payment p " +
+           "LEFT JOIN Customer c ON c.id = p.customerId " +
+           "LEFT JOIN SaleItem si ON si.id = p.saleItemId " +
+           "LEFT JOIN Product pr ON pr.id = si.productId " +
+           "WHERE p.ownerId = :ownerId " +
+           "AND (:searchText IS NULL OR " +
+           "     LOWER(c.name) LIKE LOWER(CONCAT('%', :searchText, '%')) OR " +
+           "     (pr.name IS NOT NULL AND LOWER(pr.name) LIKE LOWER(CONCAT('%', :searchText, '%'))) OR " +
+           "     (:isNumeric = true AND p.amount = :amount))")
+    Page<Payment> searchPayments(@Param("ownerId") UUID ownerId,
+                                 @Param("searchText") String searchText,
+                                 @Param("isNumeric") boolean isNumeric,
+                                 @Param("amount") BigDecimal amount,
+                                 Pageable pageable);
     
     @Query("SELECT p FROM Payment p WHERE p.customerId IN :customerIds AND p.ownerId = :ownerId")
     List<Payment> findByCustomerIdInAndOwnerId(@Param("customerIds") List<UUID> customerIds,

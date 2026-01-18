@@ -30,9 +30,11 @@ public class UpiAccountController {
         return ApiResponse.success(upiAccountManagementService.getUpiAccountByOwnerId(ownerId));
     }
     
-    @PatchMapping("/me")
-    public ApiResponse<UpiAccountResponse> updateCurrentUserUpiAccount(@Valid @RequestBody UpiAccountCreateRequest request) {
-        return ApiResponse.success(upiAccountManagementService.updateCurrentUserUpiAccount(request));
+    @PatchMapping("/owner/{ownerId}")
+    public ApiResponse<UpiAccountResponse> updateOwnerUpiAccount(
+            @PathVariable UUID ownerId,
+            @Valid @RequestBody UpiAccountCreateRequest request) {
+        return ApiResponse.success(upiAccountManagementService.updateUpiAccountForOwner(ownerId, request));
     }
     
     @GetMapping
@@ -50,9 +52,9 @@ public class UpiAccountController {
         return ApiResponse.success(upiAccountManagementService.setPrimaryUpiAccount(id));
     }
     
-    @PostMapping("/verify/me")
-    public ApiResponse<UpiAccountResponse> verifyCurrentUserVpa() {
-        return ApiResponse.success(upiAccountManagementService.verifyCurrentUserVpa());
+    @PostMapping("/owner/{ownerId}/verify")
+    public ApiResponse<UpiAccountResponse> verifyOwnerVpa(@PathVariable UUID ownerId) {
+        return ApiResponse.success(upiAccountManagementService.verifyVpaForOwner(ownerId));
     }
 }
 

@@ -9,7 +9,9 @@ import org.hibernate.type.SqlTypes;
 import java.util.UUID;
 
 @Entity
-@Table(name = "customers")
+@Table(name = "customers", indexes = {
+    @Index(name = "idx_customers_owner_id", columnList = "owner_id")
+})
 @Getter
 @Setter
 @PrimaryKeyJoinColumn(name = "id")

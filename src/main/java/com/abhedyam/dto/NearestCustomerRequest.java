@@ -20,5 +20,8 @@ public class NearestCustomerRequest {
     @NotNull(message = "Longitude is required")
     @Schema(description = "Current longitude", example = "77.5946")
     private BigDecimal longitude;
+    
+    @Schema(description = "Village name to filter customers (optional, only included if successfully retrieved from geocoding)", example = "Koramangala")
+    private String village;
 }
 

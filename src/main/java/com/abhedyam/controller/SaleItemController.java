@@ -1,7 +1,6 @@
 package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
-import com.abhedyam.dto.SaleItemResponse;
 import com.abhedyam.model.SaleItem;
 import com.abhedyam.service.interfaces.ISaleItemService;
 import lombok.RequiredArgsConstructor;
@@ -25,11 +24,6 @@ public class SaleItemController {
     @GetMapping("/transaction/{transactionId}")
     public ApiResponse<List<SaleItem>> getByTransactionId(@PathVariable String transactionId) {
         return ApiResponse.success(saleItemService.getByTransactionId(transactionId));
-    }
-    
-    @GetMapping("/customer/{customerId}")
-    public ApiResponse<List<SaleItemResponse>> getByCustomerId(@PathVariable UUID customerId) {
-        return ApiResponse.success(saleItemService.getByCustomerId(customerId));
     }
 }
 

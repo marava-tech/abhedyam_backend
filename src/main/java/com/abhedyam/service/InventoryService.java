@@ -36,7 +36,7 @@ public class InventoryService implements IInventoryService {
     
     public Inventory getById(UUID id) {
         return inventoryRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Inventory not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Inventory could not be found"));
     }
     
     public List<Inventory> getAll() {

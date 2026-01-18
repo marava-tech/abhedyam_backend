@@ -59,7 +59,7 @@ public class BillService {
         UUID currentUserId = SecurityUtil.getCurrentUserId();
         
         Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
         
         UUID ownerId = customer.getOwnerId();
         if (ownerId == null) {
@@ -77,7 +77,7 @@ public class BillService {
         }
         
         if (!hasAccess) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer's bills");
+            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this customer's bills");
         }
         
         List<SaleItem> saleItems = saleItemRepository.findByCustomerIdAndOwnerId(customerId, ownerId);

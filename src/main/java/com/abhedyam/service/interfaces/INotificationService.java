@@ -13,6 +13,7 @@ public interface INotificationService {
     List<Notification> getByOwnerId(UUID ownerId);
     List<Notification> getByUserId(UUID userId);
     List<Notification> getMyNotifications(Boolean unreadOnly);
+    List<Notification> getNotificationsForUser(UUID userId, Boolean unreadOnly);
     Notification markAsRead(UUID id);
     List<Notification> markMultipleAsRead(NotificationMarkReadRequest request);
     Notification update(UUID id, Notification notificationDetails);

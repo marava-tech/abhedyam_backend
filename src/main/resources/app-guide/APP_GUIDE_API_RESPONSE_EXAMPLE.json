@@ -1,0 +1,1176 @@
+{
+  "success": true,
+  "data": {
+    "version": "1.0.0",
+    "lastUpdated": "2024-01-01T00:00:00Z",
+    "sections": [
+      {
+        "id": "sales-management",
+        "title": "Sales Management",
+        "icon": "shopping_cart",
+        "description": "Create sales, view transactions, and generate invoices",
+        "items": [
+          {
+            "id": "create-sale",
+            "title": "Create a Sale",
+            "description": "Record a new sale transaction with customer and products",
+            "icon": "add_shopping_cart",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Home Screen",
+                "description": "Open the app and navigate to the Home tab",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Tap Create Sale",
+                "description": "Tap the 'Create Sale' button or card on the home screen",
+                "icon": "add_shopping_cart"
+              },
+              {
+                "order": 3,
+                "title": "Select Customer",
+                "description": "Choose an existing customer from the list or add a new customer by entering name and phone",
+                "icon": "person_search"
+              },
+              {
+                "order": 4,
+                "title": "Add Products",
+                "description": "Tap 'Add Product' to select products from your inventory or add custom products with name and price",
+                "icon": "add_box"
+              },
+              {
+                "order": 5,
+                "title": "Set Due Date (Optional)",
+                "description": "If customer will pay later, set a due date for the payment",
+                "icon": "calendar_today"
+              },
+              {
+                "order": 6,
+                "title": "Create Sale",
+                "description": "Review all details and tap 'Create Sale' button to save the transaction",
+                "icon": "save"
+              }
+            ],
+            "tips": [
+              "You can add multiple products in one sale",
+              "If customer is not in list, you can add them on the spot",
+              "Custom products can be added without creating them in inventory first",
+              "Due date helps track pending payments"
+            ]
+          },
+          {
+            "id": "view-sales",
+            "title": "View All Sales",
+            "description": "See all your sales transactions in one place",
+            "icon": "receipt",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Payments Tab",
+                "description": "Tap on the Payments tab in the bottom navigation",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "View Sales List",
+                "description": "You will see all your sales transactions listed with customer name, amount, and date",
+                "icon": "list"
+              },
+              {
+                "order": 3,
+                "title": "Search Sales",
+                "description": "Use the search bar to find sales by customer name or date",
+                "icon": "search"
+              },
+              {
+                "order": 4,
+                "title": "View Sale Details",
+                "description": "Tap on any sale to see full details including products, amounts, and payment status",
+                "icon": "visibility"
+              },
+              {
+                "order": 5,
+                "title": "Filter by Status",
+                "description": "Filter sales by payment status - pending, paid, or all",
+                "icon": "tune"
+              }
+            ],
+            "tips": [
+              "Sales are automatically sorted by date (newest first)",
+              "You can see which sales are paid and which are pending",
+              "Use search to quickly find specific transactions"
+            ]
+          },
+          {
+            "id": "generate-invoice",
+            "title": "Generate Invoice",
+            "description": "Create and share professional invoices for your sales",
+            "icon": "receipt",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Payments Tab",
+                "description": "Navigate to the Payments tab from bottom navigation",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Select a Sale",
+                "description": "Find and tap on the sale for which you want to generate an invoice",
+                "icon": "list"
+              },
+              {
+                "order": 3,
+                "title": "Tap Generate Invoice",
+                "description": "Look for the 'Generate Invoice' button or option in the sale details screen",
+                "icon": "receipt"
+              },
+              {
+                "order": 4,
+                "title": "Review Invoice",
+                "description": "Check all details including customer info, products, amounts, and totals",
+                "icon": "visibility"
+              },
+              {
+                "order": 5,
+                "title": "Share or Save",
+                "description": "Share the invoice via WhatsApp, email, or save as PDF",
+                "icon": "open_in_new"
+              }
+            ],
+            "tips": [
+              "Invoices include all sale details automatically",
+              "You can share invoices directly with customers",
+              "Invoices are professional and ready to print"
+            ]
+          },
+          {
+            "id": "generate-receipt",
+            "title": "Generate Receipt",
+            "description": "Create payment receipts for your customers",
+            "icon": "receipt",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Payments Tab",
+                "description": "Navigate to the Payments tab from bottom navigation",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Select a Payment",
+                "description": "Find and tap on the payment for which you want to generate a receipt",
+                "icon": "list"
+              },
+              {
+                "order": 3,
+                "title": "Tap Generate Receipt",
+                "description": "Look for the 'Generate Receipt' button in the payment details",
+                "icon": "receipt"
+              },
+              {
+                "order": 4,
+                "title": "Review Receipt",
+                "description": "Check payment details including customer, amount, date, and payment method",
+                "icon": "visibility"
+              },
+              {
+                "order": 5,
+                "title": "Share Receipt",
+                "description": "Share the receipt via WhatsApp, email, or save as PDF for customer records",
+                "icon": "open_in_new"
+              }
+            ],
+            "tips": [
+              "Receipts are automatically generated with payment details",
+              "Customers can use receipts as proof of payment",
+              "You can share receipts instantly via messaging apps"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "customer-management",
+        "title": "Customer Management",
+        "icon": "people",
+        "description": "Manage customers, track payments, and maintain relationships",
+        "items": [
+          {
+            "id": "view-customer-details",
+            "title": "View Customer Details",
+            "description": "See complete information about any customer including sales, payments, and history",
+            "icon": "person",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Customers Tab",
+                "description": "Tap on the Customers tab in the bottom navigation bar",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Find Customer",
+                "description": "Scroll through the list or use search to find the customer you want to view",
+                "icon": "search"
+              },
+              {
+                "order": 3,
+                "title": "Tap Customer Card",
+                "description": "Tap on any customer card to open their detailed information screen",
+                "icon": "person"
+              },
+              {
+                "order": 4,
+                "title": "View Customer Info",
+                "description": "See customer name, phone, village, total sales, total paid, and pending amount",
+                "icon": "info"
+              },
+              {
+                "order": 5,
+                "title": "Check Sales History",
+                "description": "Scroll to see all sales transactions with this customer",
+                "icon": "history"
+              },
+              {
+                "order": 6,
+                "title": "Check Payment History",
+                "description": "View all payments received from this customer with dates and amounts",
+                "icon": "receipt"
+              }
+            ],
+            "tips": [
+              "Customer details show complete transaction history",
+              "You can see pending amounts at a glance",
+              "All sales and payments are linked to customer records"
+            ]
+          },
+          {
+            "id": "add-customer",
+            "title": "Add New Customer",
+            "description": "Add customers to your database for easy tracking",
+            "icon": "person",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Customers Tab",
+                "description": "Navigate to the Customers tab from bottom navigation",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Tap Add Customer",
+                "description": "Look for the '+' or 'Add Customer' button, usually at the top or bottom of the screen",
+                "icon": "add"
+              },
+              {
+                "order": 3,
+                "title": "Enter Customer Name",
+                "description": "Type the customer's full name in the name field",
+                "icon": "edit"
+              },
+              {
+                "order": 4,
+                "title": "Enter Phone Number",
+                "description": "Add customer's phone number (optional but recommended)",
+                "icon": "edit"
+              },
+              {
+                "order": 5,
+                "title": "Enter Village/Location",
+                "description": "Add customer's village or location address",
+                "icon": "edit"
+              },
+              {
+                "order": 6,
+                "title": "Save Customer",
+                "description": "Tap 'Save' or 'Add Customer' button to save the customer to your list",
+                "icon": "save"
+              }
+            ],
+            "tips": [
+              "Phone number helps in quick customer search",
+              "You can also add customers while creating a sale",
+              "Customer information can be updated later"
+            ]
+          },
+          {
+            "id": "customer-payments",
+            "title": "Record Customer Payment",
+            "description": "Record payments received from customers against their sales",
+            "icon": "account_balance_wallet",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Home Screen",
+                "description": "Navigate to the Home tab",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Tap Create Payment",
+                "description": "Tap on the 'Create Payment' button or card",
+                "icon": "account_balance_wallet"
+              },
+              {
+                "order": 3,
+                "title": "Select Customer",
+                "description": "Choose the customer who made the payment from the customer list",
+                "icon": "person_search"
+              },
+              {
+                "order": 4,
+                "title": "Select Sale (If Multiple)",
+                "description": "If customer has multiple pending sales, select which sale this payment is for",
+                "icon": "list"
+              },
+              {
+                "order": 5,
+                "title": "Enter Payment Amount",
+                "description": "Enter the amount received from the customer",
+                "icon": "edit"
+              },
+              {
+                "order": 6,
+                "title": "Select Payment Method",
+                "description": "Choose how customer paid - Cash or UPI",
+                "icon": "account_balance_wallet"
+              },
+              {
+                "order": 7,
+                "title": "Add Reference (Optional)",
+                "description": "If UPI payment, you can add payment screenshot or reference number",
+                "icon": "edit"
+              },
+              {
+                "order": 8,
+                "title": "Save Payment",
+                "description": "Tap 'Create Payment' to record the payment transaction",
+                "icon": "save"
+              }
+            ],
+            "tips": [
+              "Payments automatically update customer's pending amount",
+              "You can record partial payments",
+              "Payment history is saved for each customer"
+            ]
+          },
+          {
+            "id": "customer-call-logs",
+            "title": "Call Customer",
+            "description": "Call customers directly from the app without searching phone numbers",
+            "icon": "call",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Customer Details",
+                "description": "Open any customer's detail screen from the customers list",
+                "icon": "person"
+              },
+              {
+                "order": 2,
+                "title": "Find Call Button",
+                "description": "Look for the phone/call icon button on the customer details screen",
+                "icon": "call"
+              },
+              {
+                "order": 3,
+                "title": "Tap to Call",
+                "description": "Tap the call button to dial the customer's phone number directly",
+                "icon": "call"
+              },
+              {
+                "order": 4,
+                "title": "Call History",
+                "description": "Your phone's dialer will open and call logs are automatically saved",
+                "icon": "history"
+              }
+            ],
+            "tips": [
+              "No need to search for phone numbers manually",
+              "Call logs help track customer communication",
+              "Works with any phone number saved in customer profile"
+            ]
+          },
+          {
+            "id": "customer-reminders",
+            "title": "Set Customer Reminders",
+            "description": "Set reminders for important customer-related tasks",
+            "icon": "notifications",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Home Screen",
+                "description": "Navigate to the Home tab",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Tap Create Reminder",
+                "description": "Find and tap the 'Create Reminder' button or card",
+                "icon": "add_alarm"
+              },
+              {
+                "order": 3,
+                "title": "Select Customer",
+                "description": "Choose the customer for whom you want to set a reminder",
+                "icon": "person_search"
+              },
+              {
+                "order": 4,
+                "title": "Enter Reminder Title",
+                "description": "Type a title for your reminder (e.g., 'Collect payment from John')",
+                "icon": "edit"
+              },
+              {
+                "order": 5,
+                "title": "Set Date and Time",
+                "description": "Choose when you want to be reminded - select date and time",
+                "icon": "calendar_today"
+              },
+              {
+                "order": 6,
+                "title": "Add Notes (Optional)",
+                "description": "Add any additional notes or details about the reminder",
+                "icon": "note"
+              },
+              {
+                "order": 7,
+                "title": "Save Reminder",
+                "description": "Tap 'Save' or 'Create Reminder' to set the reminder",
+                "icon": "save"
+              }
+            ],
+            "tips": [
+              "Reminders help you never miss important tasks",
+              "You'll get a notification at the set time",
+              "Reminders are linked to customers for easy reference"
+            ]
+          },
+          {
+            "id": "customer-location",
+            "title": "Save Customer Location",
+            "description": "Save customer addresses with GPS location for easy navigation",
+            "icon": "location_on",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Open Customer Details",
+                "description": "Go to any customer's detail screen from the customers list",
+                "icon": "person"
+              },
+              {
+                "order": 2,
+                "title": "Find Location Option",
+                "description": "Look for location or address related option in customer details",
+                "icon": "location_on"
+              },
+              {
+                "order": 3,
+                "title": "Tap Save Location",
+                "description": "Tap on 'Save Location' or 'Update Location' button",
+                "icon": "my_location"
+              },
+              {
+                "order": 4,
+                "title": "Allow Location Permission",
+                "description": "Grant location permission when prompted by the app",
+                "icon": "lock"
+              },
+              {
+                "order": 5,
+                "title": "Select Location on Map",
+                "description": "Use the map to select customer's location or let GPS find current location",
+                "icon": "my_location"
+              },
+              {
+                "order": 6,
+                "title": "Save Address",
+                "description": "Confirm and save the location. Address will be saved with GPS coordinates",
+                "icon": "save"
+              }
+            ],
+            "tips": [
+              "GPS location helps in navigation to customer places",
+              "You can update location anytime",
+              "Saved locations can be used for directions"
+            ]
+          },
+          {
+            "id": "customer-directions",
+            "title": "Get Directions to Customers",
+            "description": "Get navigation directions to one or multiple customer locations",
+            "icon": "directions",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Customers Tab",
+                "description": "Navigate to the Customers tab from bottom navigation",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Select Customers",
+                "description": "Select one or multiple customers whose locations you want to visit",
+                "icon": "person_search"
+              },
+              {
+                "order": 3,
+                "title": "Tap Directions",
+                "description": "Look for 'Directions' or 'Navigate' button and tap it",
+                "icon": "directions"
+              },
+              {
+                "order": 4,
+                "title": "Choose Navigation App",
+                "description": "Select Google Maps or your preferred navigation app",
+                "icon": "open_in_new"
+              },
+              {
+                "order": 5,
+                "title": "Follow Route",
+                "description": "Navigation app will open with the best route to visit all selected customers",
+                "icon": "directions"
+              }
+            ],
+            "tips": [
+              "You can select multiple customers for one trip",
+              "Navigation shows the most efficient route",
+              "Saves time by planning customer visits"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "product-management",
+        "title": "Product Management",
+        "icon": "inventory",
+        "description": "Add products, manage inventory, and track stock",
+        "items": [
+          {
+            "id": "add-product",
+            "title": "Add a Product",
+            "description": "Add products to your inventory with name, price, and details",
+            "icon": "add_box",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Products Screen",
+                "description": "Navigate to the Products tab or screen from the app",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Tap Add Product",
+                "description": "Tap the '+' or 'Add Product' button, usually at the top or bottom",
+                "icon": "add"
+              },
+              {
+                "order": 3,
+                "title": "Enter Product Name",
+                "description": "Type the name of the product you want to add",
+                "icon": "edit"
+              },
+              {
+                "order": 4,
+                "title": "Enter Price",
+                "description": "Enter the selling price of the product",
+                "icon": "edit"
+              },
+              {
+                "order": 5,
+                "title": "Add Product Image (Optional)",
+                "description": "You can add a product photo by tapping the image area",
+                "icon": "add_box"
+              },
+              {
+                "order": 6,
+                "title": "Add Description (Optional)",
+                "description": "Add any additional details about the product",
+                "icon": "note"
+              },
+              {
+                "order": 7,
+                "title": "Save Product",
+                "description": "Tap 'Save' or 'Add Product' to add it to your inventory",
+                "icon": "save"
+              }
+            ],
+            "tips": [
+              "Product names should be clear and easy to find",
+              "Prices can be updated later if needed",
+              "Products are automatically available when creating sales"
+            ]
+          },
+          {
+            "id": "manage-stock",
+            "title": "Manage Stock/Inventory",
+            "description": "Track and update product stock levels",
+            "icon": "inventory",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Products Screen",
+                "description": "Navigate to the Products or Inventory screen",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Select Product",
+                "description": "Tap on the product whose stock you want to update",
+                "icon": "inventory"
+              },
+              {
+                "order": 3,
+                "title": "View Current Stock",
+                "description": "Check the current stock quantity displayed for the product",
+                "icon": "visibility"
+              },
+              {
+                "order": 4,
+                "title": "Update Stock",
+                "description": "Tap 'Update Stock' or edit option to change the quantity",
+                "icon": "edit"
+              },
+              {
+                "order": 5,
+                "title": "Enter New Quantity",
+                "description": "Enter the updated stock quantity (add or subtract from current)",
+                "icon": "edit"
+              },
+              {
+                "order": 6,
+                "title": "Save Changes",
+                "description": "Tap 'Save' to update the stock level",
+                "icon": "save"
+              }
+            ],
+            "tips": [
+              "Stock updates help track available products",
+              "Low stock alerts can help prevent shortages",
+              "Stock is automatically updated when you make sales"
+            ]
+          },
+          {
+            "id": "view-products",
+            "title": "View All Products",
+            "description": "See all your products in one organized list",
+            "icon": "inventory_2",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Products Screen",
+                "description": "Navigate to the Products section from the app",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Browse Products",
+                "description": "Scroll through your product list to see all items",
+                "icon": "list"
+              },
+              {
+                "order": 3,
+                "title": "Search Products",
+                "description": "Use the search bar to quickly find specific products by name",
+                "icon": "search"
+              },
+              {
+                "order": 4,
+                "title": "View Product Details",
+                "description": "Tap on any product to see full details including price and stock",
+                "icon": "visibility"
+              },
+              {
+                "order": 5,
+                "title": "Edit or Delete",
+                "description": "From product details, you can edit information or delete products",
+                "icon": "edit"
+              }
+            ],
+            "tips": [
+              "Products are listed with images and prices",
+              "Search makes it easy to find products quickly",
+              "You can organize products for better management"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "statistics",
+        "title": "Statistics & Reports",
+        "icon": "analytics",
+        "description": "Track your business performance and activities",
+        "items": [
+          {
+            "id": "view-stats",
+            "title": "View Business Statistics",
+            "description": "See your business performance with sales, payments, and revenue data",
+            "icon": "bar_chart",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Home Screen",
+                "description": "Navigate to the Home tab from bottom navigation",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "View Dashboard",
+                "description": "On the home screen, you'll see dashboard cards showing key statistics",
+                "icon": "bar_chart"
+              },
+              {
+                "order": 3,
+                "title": "Check Sales Summary",
+                "description": "See total sales, total revenue, and number of transactions",
+                "icon": "receipt"
+              },
+              {
+                "order": 4,
+                "title": "View Payment Stats",
+                "description": "Check total payments received and pending amounts",
+                "icon": "payments"
+              },
+              {
+                "order": 5,
+                "title": "See Customer Count",
+                "description": "View total number of customers in your database",
+                "icon": "people"
+              },
+              {
+                "order": 6,
+                "title": "Open Detailed Stats",
+                "description": "Tap on Statistics or Reports section to see detailed analytics",
+                "icon": "analytics"
+              }
+            ],
+            "tips": [
+              "Statistics update automatically with new transactions",
+              "Dashboard gives quick overview of business health",
+              "Detailed reports help in business planning"
+            ]
+          },
+          {
+            "id": "view-recent-activities",
+            "title": "View Recent Activity",
+            "description": "See all your recent sales, payments, and stock updates in one place",
+            "icon": "receipt",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Home Screen",
+                "description": "Open the app and navigate to the home screen",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Scroll to Recent Activity",
+                "description": "Scroll down to find the 'Recent Activity' section below the dashboard",
+                "icon": "search"
+              },
+              {
+                "order": 3,
+                "title": "View Activity Details",
+                "description": "Tap on any activity item to see more details like sale amount, customer name, and timestamp",
+                "icon": "edit"
+              },
+              {
+                "order": 4,
+                "title": "Refresh Activities",
+                "description": "Tap the refresh icon to get the latest activities from the server",
+                "icon": "sync"
+              },
+              {
+                "order": 5,
+                "title": "Start Your First Sale",
+                "description": "If you see 'Pending' state, tap 'Create Sale' button to start recording your first sale",
+                "icon": "add_shopping_cart"
+              }
+            ],
+            "tips": [
+              "Recent activities show your last 10 transactions",
+              "Activities are automatically updated when you create sales or payments",
+              "You can see pending sales and completed payments in the activity list",
+              "If the list is empty, start by creating your first sale"
+            ]
+          },
+          {
+            "id": "business-insights",
+            "title": "View Business Insights",
+            "description": "Get AI-powered insights and tips for your business",
+            "icon": "insights",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Home Screen",
+                "description": "Navigate to the Home tab",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Find Insights Section",
+                "description": "Look for 'Business Insights' or 'AI Insights' section on the home screen",
+                "icon": "insights"
+              },
+              {
+                "order": 3,
+                "title": "View Insights",
+                "description": "Tap on insights to see AI-generated tips and recommendations for your business",
+                "icon": "visibility"
+              },
+              {
+                "order": 4,
+                "title": "Read Recommendations",
+                "description": "Read through insights about sales trends, customer behavior, and business suggestions",
+                "icon": "info"
+              }
+            ],
+            "tips": [
+              "Insights are generated based on your business data",
+              "Regularly check insights for business improvement tips",
+              "Insights help identify opportunities and trends"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "profile-management",
+        "title": "Profile & Settings",
+        "icon": "account_circle",
+        "description": "Manage your shop profile and app settings",
+        "items": [
+          {
+            "id": "update-profile",
+            "title": "Update Shop Profile",
+            "description": "Update your shop details including name, phone, and UPI information",
+            "icon": "account_circle",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Settings Tab",
+                "description": "Tap on the Settings/Profile tab in the bottom navigation",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Find Profile Section",
+                "description": "Look for 'Profile' or 'Shop Details' section at the top",
+                "icon": "account_circle"
+              },
+              {
+                "order": 3,
+                "title": "Edit Shop Name",
+                "description": "Tap on shop name field to update your business name",
+                "icon": "edit"
+              },
+              {
+                "order": 4,
+                "title": "Update Phone Number",
+                "description": "Edit your phone number if it has changed",
+                "icon": "edit"
+              },
+              {
+                "order": 5,
+                "title": "Update UPI ID",
+                "description": "Enter or update your UPI ID for receiving payments",
+                "icon": "edit"
+              },
+              {
+                "order": 6,
+                "title": "Add Shop Image (Optional)",
+                "description": "Upload a profile picture or logo for your shop",
+                "icon": "add_box"
+              },
+              {
+                "order": 7,
+                "title": "Save Changes",
+                "description": "Tap 'Save' button to update your profile information",
+                "icon": "save"
+              }
+            ],
+            "tips": [
+              "Keep your profile updated for customer reference",
+              "UPI ID helps customers pay you easily",
+              "Shop image makes your profile more professional"
+            ]
+          },
+          {
+            "id": "app-settings",
+            "title": "Manage App Settings",
+            "description": "Configure app preferences and notifications",
+            "icon": "settings",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Settings Tab",
+                "description": "Navigate to the Settings tab from bottom navigation",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "View Settings Options",
+                "description": "Browse through available settings like notifications, theme, language, etc.",
+                "icon": "settings"
+              },
+              {
+                "order": 3,
+                "title": "Configure Notifications",
+                "description": "Enable or disable notifications for reminders, payments, and updates",
+                "icon": "notifications"
+              },
+              {
+                "order": 4,
+                "title": "Change Theme",
+                "description": "Switch between light and dark mode if available",
+                "icon": "tune"
+              },
+              {
+                "order": 5,
+                "title": "Manage Data",
+                "description": "Clear cache, export data, or manage offline storage",
+                "icon": "storage"
+              },
+              {
+                "order": 6,
+                "title": "Save Settings",
+                "description": "Settings are usually saved automatically when changed",
+                "icon": "save"
+              }
+            ],
+            "tips": [
+              "Enable notifications to never miss important reminders",
+              "Settings help customize app to your preferences",
+              "Regular data management keeps app running smoothly"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "offline-operations",
+        "title": "Offline Operations",
+        "icon": "cloud_off",
+        "description": "Work without internet connection",
+        "items": [
+          {
+            "id": "offline-payments",
+            "title": "Add Offline Payments",
+            "description": "Record customer payments when you have no internet",
+            "icon": "payments",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Open Offline Operations",
+                "description": "When there's no internet, the app automatically shows the Offline Operations screen",
+                "icon": "cloud_off"
+              },
+              {
+                "order": 2,
+                "title": "Go to Payments Tab",
+                "description": "Tap on the Payments tab to add a new payment",
+                "icon": "payments"
+              },
+              {
+                "order": 3,
+                "title": "Enter Details",
+                "description": "Fill in customer name, village, and amount",
+                "icon": "edit"
+              },
+              {
+                "order": 4,
+                "title": "Save Payment",
+                "description": "Tap Add Payment. All data is saved locally on your phone",
+                "icon": "save"
+              }
+            ],
+            "tips": [
+              "You can add multiple payments offline",
+              "All data will be available when you view offline data later"
+            ]
+          },
+          {
+            "id": "offline-sales",
+            "title": "Add Offline Sales",
+            "description": "Create sales entries without internet connection",
+            "icon": "receipt",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Sales Tab",
+                "description": "In Offline Operations screen, tap on the Sales tab",
+                "icon": "receipt"
+              },
+              {
+                "order": 2,
+                "title": "Enter Sale Details",
+                "description": "Fill in customer name, phone, product name, and price",
+                "icon": "edit"
+              },
+              {
+                "order": 3,
+                "title": "Save Sale",
+                "description": "Tap Add Sale. The sale is saved locally on your device",
+                "icon": "save"
+              }
+            ],
+            "tips": [
+              "Phone number is optional but recommended",
+              "You can view all offline sales later from the home screen"
+            ]
+          },
+          {
+            "id": "offline-notes",
+            "title": "Take Notes",
+            "description": "Write important notes and reminders",
+            "icon": "note",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Go to Notes Tab",
+                "description": "In Offline Operations screen, tap on the Notes tab",
+                "icon": "note"
+              },
+              {
+                "order": 2,
+                "title": "Write Your Notes",
+                "description": "Type your notes in the text area. Notes are saved automatically",
+                "icon": "edit"
+              },
+              {
+                "order": 3,
+                "title": "Clear Notes",
+                "description": "Use the clear button to delete all notes if needed",
+                "icon": "clear_all"
+              }
+            ],
+            "tips": [
+              "Notes are saved automatically as you type",
+              "Use notes for reminders, ideas, or important information"
+            ]
+          },
+          {
+            "id": "view-offline-data",
+            "title": "View Offline Data",
+            "description": "View and manage all your offline payments, sales, and notes",
+            "icon": "storage",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Open Home Screen",
+                "description": "Go to the Home tab in the bottom navigation",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Find Business Tools",
+                "description": "Scroll down to the Business Tools section",
+                "icon": "search"
+              },
+              {
+                "order": 3,
+                "title": "Tap Offline Icon",
+                "description": "Tap on the Offline icon to view all your offline data",
+                "icon": "storage"
+              },
+              {
+                "order": 4,
+                "title": "View Data",
+                "description": "Switch between Payments, Sales, and Notes tabs to view your data",
+                "icon": "visibility"
+              },
+              {
+                "order": 5,
+                "title": "Delete Items",
+                "description": "Tap the delete icon on any item to remove it permanently",
+                "icon": "delete"
+              }
+            ],
+            "tips": [
+              "All offline data is stored locally on your device",
+              "You can delete individual items or clear all notes",
+              "Data persists even after closing the app"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "utilities",
+        "title": "Utilities",
+        "icon": "apps",
+        "description": "Helpful tools for your business",
+        "items": [
+          {
+            "id": "interest-calculator",
+            "title": "Interest Calculator",
+            "description": "Calculate interest on loans or investments",
+            "icon": "calculate",
+            "steps": [
+              {
+                "order": 1,
+                "title": "Open Interest Calculator",
+                "description": "Go to Home screen, scroll to Utilities section, and tap on Interest icon",
+                "icon": "home"
+              },
+              {
+                "order": 2,
+                "title": "Enter Principal Amount",
+                "description": "Enter the principal amount (the initial loan or investment amount)",
+                "icon": "edit"
+              },
+              {
+                "order": 3,
+                "title": "Enter Interest Rate",
+                "description": "Enter the interest rate. Select if it's yearly or monthly rate",
+                "icon": "percent"
+              },
+              {
+                "order": 4,
+                "title": "Enter Time Period",
+                "description": "Enter the time period. You can use days, months, or years. Or select dates",
+                "icon": "calendar_today"
+              },
+              {
+                "order": 5,
+                "title": "Calculate",
+                "description": "Tap Calculate button to see the interest and total amount",
+                "icon": "calculate"
+              }
+            ],
+            "tips": [
+              "You can calculate interest for loans given to customers",
+              "Supports both yearly and monthly interest rates",
+              "You can use date range or time period for calculation"
+            ]
+          },
+          {
+            "id": "social-links",
+            "title": "Learn from us",
+            "description": "Watch how-to videos and product updates",
+            "icon": "smartphone",
+            "steps": [
+              {
+                "order": 1,
+                "title": "YouTube: Marava Technologies",
+                "description": "https://www.youtube.com/@MaravaTechnologies",
+                "icon": "open_in_new"
+              },
+              {
+                "order": 2,
+                "title": "Instagram: @maravatechnologies",
+                "description": "https://www.instagram.com/maravatechnologies/",
+                "icon": "open_in_new"
+              }
+            ],
+            "tips": [
+              "YouTube has \"How to use Abhedyam\" and feature walkthroughs",
+              "Instagram shares new product updates and short tips"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "code": null,
+  "message": null
+}

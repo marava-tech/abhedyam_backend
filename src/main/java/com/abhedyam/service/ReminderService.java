@@ -79,10 +79,10 @@ public class ReminderService implements IReminderService {
     public Reminder getById(UUID id) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         Reminder reminder = reminderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Reminder not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Reminder could not be found"));
         
         if (!reminder.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this reminder");
+            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this reminder");
         }
         
         reminder.getPackages().size();

@@ -10,6 +10,7 @@ import com.abhedyam.repository.InventoryRepository;
 import com.abhedyam.repository.ProductRepository;
 import com.abhedyam.service.interfaces.IStockService;
 import com.abhedyam.util.SecurityUtil;
+import com.abhedyam.constants.ErrorCodes;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,13 +27,12 @@ public class StockService implements IStockService {
     
     private final InventoryRepository inventoryRepository;
     private final ProductRepository productRepository;
-    private final com.abhedyam.service.interfaces.IAuditService auditService;
     private final InventoryService inventoryService;
+    private final com.abhedyam.service.interfaces.IAuditService auditService;
     
     @Override
     @Transactional
     public void recordPurchaseIn(UUID productId, BigDecimal quantity, String note) {
-        UUID ownerId = getCurrentOwnerId();
         validateProductAccess(productId);
         
         BigDecimal currentStock = getCurrentStock(productId);
@@ -40,17 +40,12 @@ public class StockService implements IStockService {
         
         updateStockCache(productId, newStock);
         
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
-        auditService.logStockChange(productId, ownerId, product.getName(), currentStock, newStock, "PURCHASE_IN", note);
-        
         log.info("Purchase In recorded: Product {}, Quantity {}, New Stock {}", productId, quantity, newStock);
     }
     
     @Override
     @Transactional
     public void recordSaleOut(UUID productId, BigDecimal quantity, UUID saleItemId, String note) {
-        UUID ownerId = getCurrentOwnerId();
         validateProductAccess(productId);
         
         BigDecimal currentStock = getCurrentStock(productId);
@@ -63,11 +58,6 @@ public class StockService implements IStockService {
             BigDecimal adjustedStock = currentStock.add(adjustmentNeeded);
             updateStockCache(productId, adjustedStock);
             
-            Product product = productRepository.findById(productId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
-            auditService.logStockChange(productId, ownerId, product.getName(), currentStock, adjustedStock, 
-                "STOCK_ADJUSTMENT", "Auto-adjusted to sync with physical inventory before sale");
-            
             currentStock = adjustedStock;
             log.info("Stock auto-adjusted: Product {}, Adjustment {}, New Stock {}", productId, adjustmentNeeded, adjustedStock);
         }
@@ -76,32 +66,22 @@ public class StockService implements IStockService {
         
         updateStockCache(productId, newStock);
         
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
-        auditService.logStockChange(productId, ownerId, product.getName(), currentStock, newStock, "SALE_OUT", note);
-        
         log.info("Sale Out recorded: Product {}, Quantity {}, New Stock {}", productId, quantity, newStock);
     }
     
     @Override
     @Transactional
     public void recordManualAdjustment(StockAdjustmentRequest request) {
-        UUID ownerId = getCurrentOwnerId();
         validateProductAccess(request.getProductId());
         
         BigDecimal currentStock = getCurrentStock(request.getProductId());
         BigDecimal newStock = currentStock.add(request.getChangeQty());
         
         if (newStock.compareTo(BigDecimal.ZERO) < 0) {
-            throw new BusinessException("NEGATIVE_STOCK", "Stock cannot be negative");
+            throw new BusinessException(ErrorCodes.NEGATIVE_STOCK, "Stock cannot be negative");
         }
         
         updateStockCache(request.getProductId(), newStock);
-        
-        Product product = productRepository.findById(request.getProductId())
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
-        auditService.logStockChange(request.getProductId(), ownerId, product.getName(), currentStock, newStock, 
-            "MANUAL_ADJUSTMENT", request.getNote());
         
         log.info("Manual adjustment recorded: Product {}, Change {}, New Stock {}", 
             request.getProductId(), request.getChangeQty(), newStock);
@@ -114,7 +94,7 @@ public class StockService implements IStockService {
         validateProductAccess(request.getProductId());
         
         if (request.getStock().compareTo(BigDecimal.ZERO) < 0) {
-            throw new BusinessException("NEGATIVE_STOCK", "Stock cannot be negative");
+            throw new BusinessException(ErrorCodes.NEGATIVE_STOCK, "Stock cannot be negative");
         }
         
         BigDecimal currentStock = getCurrentStock(request.getProductId());
@@ -123,7 +103,7 @@ public class StockService implements IStockService {
         updateStockCache(request.getProductId(), newStock);
         
         Product product = productRepository.findById(request.getProductId())
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Product could not be found"));
         auditService.logStockChange(request.getProductId(), ownerId, product.getName(), currentStock, newStock, 
             "STOCK_UPDATE", request.getNote() != null ? request.getNote() : "Stock updated to " + newStock);
         
@@ -180,7 +160,7 @@ public class StockService implements IStockService {
             .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
         
         if (!product.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this product");
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You don't have permission to access this product");
         }
         
         return product;

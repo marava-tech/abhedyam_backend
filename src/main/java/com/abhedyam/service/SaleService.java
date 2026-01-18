@@ -1,5 +1,6 @@
 package com.abhedyam.service;
 
+import com.abhedyam.constants.ErrorCodes;
 import com.abhedyam.dto.PageResponse;
 import com.abhedyam.dto.SaleCreateRequest;
 import com.abhedyam.dto.SaleDetailResponse;
@@ -10,15 +11,12 @@ import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Customer;
 import com.abhedyam.model.Inventory;
 import com.abhedyam.model.LocationDetails;
-import com.abhedyam.model.Payment;
 import com.abhedyam.model.Product;
 import com.abhedyam.model.SaleItem;
-import com.abhedyam.model.enums.PaymentStatus;
 import com.abhedyam.model.enums.UserType;
 import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.InventoryRepository;
 import com.abhedyam.repository.LocationDetailsRepository;
-import com.abhedyam.repository.PaymentRepository;
 import com.abhedyam.repository.ProductRepository;
 import com.abhedyam.repository.SaleItemRepository;
 import com.abhedyam.service.interfaces.ISaleService;
@@ -56,7 +54,6 @@ public class SaleService implements ISaleService {
     private final InventoryRepository inventoryRepository;
     private final CustomerRepository customerRepository;
     private final LocationDetailsRepository locationDetailsRepository;
-    private final PaymentRepository paymentRepository;
     private final IStockService stockService;
     private final RedisTemplate<String, String> redisTemplate;
     private final com.abhedyam.service.interfaces.IAuditService auditService;
@@ -157,7 +154,7 @@ public class SaleService implements ISaleService {
         } catch (Exception e) {
             log.error("Critical error in sale creation for transaction {}: {}", transactionId, e.getMessage(), e);
             throw new BusinessException("SALE_CREATION_FAILED", 
-                "Sale creation failed. Please try again or contact support if the issue persists.");
+                "Unable to create sale. Please try again");
         }
     }
     
@@ -166,20 +163,21 @@ public class SaleService implements ISaleService {
             return customerRepository.findById(request.getCustomerId())
                 .map(customer -> {
                     if (customer.getOwnerId() != null && !customer.getOwnerId().equals(ownerId)) {
-                        log.warn("Customer access denied for transaction {}, creating new customer instead", transactionId);
-                        return createNewCustomer(request, ownerId);
+                        log.warn("Customer access denied for transaction {}, checking for existing customer", transactionId);
+                        return findOrCreateCustomer(request, ownerId);
                     }
                     if (customer.getIsActive() == null || !customer.getIsActive()) {
                         log.warn("Customer {} is inactive for transaction {}, reactivating", customer.getId(), transactionId);
                         customer.setIsActive(true);
                         return customerRepository.save(customer);
                     }
+                    log.info("Reusing existing customer: {} ({})", customer.getName(), customer.getId());
                     return customer;
                 })
                 .orElseGet(() -> {
-                    log.info("Customer {} not found for transaction {}, creating new customer", 
+                    log.info("Customer {} not found for transaction {}, checking for existing customer", 
                         request.getCustomerId(), transactionId);
-                    return createNewCustomer(request, ownerId);
+                    return findOrCreateCustomer(request, ownerId);
                 });
         } else {
             String customerName = request.getCustomerName();
@@ -188,11 +186,11 @@ public class SaleService implements ISaleService {
                 log.warn("Customer name missing for transaction {}, using default: {}", transactionId, customerName);
             }
             request.setCustomerName(customerName);
-            return createNewCustomer(request, ownerId);
+            return findOrCreateCustomer(request, ownerId);
         }
     }
     
-    private Customer createNewCustomer(SaleCreateRequest request, UUID ownerId) {
+    private Customer findOrCreateCustomer(SaleCreateRequest request, UUID ownerId) {
         if (request.getCustomerPhone() != null && !request.getCustomerPhone().trim().isEmpty()) {
             try {
                 String normalizedPhone = PhoneUtil.normalizePhone(request.getCustomerPhone());
@@ -265,35 +263,59 @@ public class SaleService implements ISaleService {
     
     private Product resolveProduct(SaleItemRequest itemRequest, UUID ownerId, String transactionId) {
         if (itemRequest.getProductId() != null) {
-            return productRepository.findById(itemRequest.getProductId())
-                .map(product -> {
-                    if (!product.getOwnerId().equals(ownerId)) {
-                        log.warn("Product access denied for transaction {}, creating new product instead", transactionId);
-                        return createNewProduct(itemRequest, ownerId);
-                    }
-                    if (product.getIsActive() == null || !product.getIsActive()) {
-                        log.warn("Product {} is inactive for transaction {}, reactivating", product.getId(), transactionId);
-                        product.setIsActive(true);
-                        return productRepository.save(product);
-                    }
-                    if (product.getPrice() == null) {
-                        log.warn("Product {} has no price for transaction {}, using provided price or default", 
-                            product.getId(), transactionId);
-                        if (itemRequest.getPrice() != null) {
-                            product.setPrice(itemRequest.getPrice());
-                            return productRepository.save(product);
-                        }
-                    }
-                    return product;
-                })
-                .orElseGet(() -> {
-                    log.info("Product {} not found for transaction {}, creating new product", 
-                        itemRequest.getProductId(), transactionId);
-                    return createNewProduct(itemRequest, ownerId);
-                });
+            Product product = productRepository.findById(itemRequest.getProductId())
+                .orElseThrow(() -> new ResourceNotFoundException("Product could not be found"));
+            
+            if (!product.getOwnerId().equals(ownerId)) {
+                throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You don't have permission to access this product");
+            }
+            
+            if (product.getIsActive() == null || !product.getIsActive()) {
+                log.warn("Product {} is inactive for transaction {}, reactivating", product.getId(), transactionId);
+                product.setIsActive(true);
+                product = productRepository.save(product);
+            }
+            
+            if (product.getPrice() == null && itemRequest.getPrice() != null) {
+                log.warn("Product {} has no price for transaction {}, using provided price", 
+                    product.getId(), transactionId);
+                product.setPrice(itemRequest.getPrice());
+                product = productRepository.save(product);
+            }
+            
+            log.info("Using product by ID: {} ({})", product.getName(), product.getId());
+            return product;
+        } else if (itemRequest.getProductName() != null && !itemRequest.getProductName().trim().isEmpty() 
+                   && itemRequest.getPrice() != null && itemRequest.getPrice().compareTo(BigDecimal.ZERO) > 0) {
+            return findOrCreateProduct(itemRequest, ownerId);
         } else {
             return createNewProduct(itemRequest, ownerId);
         }
+    }
+    
+    private Product findOrCreateProduct(SaleItemRequest itemRequest, UUID ownerId) {
+        String productName = itemRequest.getProductName().trim();
+        BigDecimal price = itemRequest.getPrice();
+        
+        Optional<Product> existingProduct = productRepository.findByOwnerIdAndNameAndPrice(
+            ownerId, productName, price);
+        
+        if (existingProduct.isPresent()) {
+            Product product = existingProduct.get();
+            if (product.getIsActive() == null || !product.getIsActive()) {
+                log.info("Found inactive product with same name and price, reactivating: {} ({})", 
+                    product.getName(), product.getId());
+                product.setIsActive(true);
+                product = productRepository.save(product);
+            } else {
+                log.info("Reusing existing product with same name and price: {} ({})", 
+                    product.getName(), product.getId());
+            }
+            return product;
+        }
+        
+        log.info("No existing product found with name '{}' and price {}, creating new product", productName, price);
+        return createNewProduct(itemRequest, ownerId, productName, price);
     }
     
     private Product createNewProduct(SaleItemRequest itemRequest, UUID ownerId) {
@@ -301,6 +323,8 @@ public class SaleService implements ISaleService {
         if (productName == null || productName.trim().isEmpty()) {
             productName = "Product-" + System.currentTimeMillis();
             log.warn("Product name missing, using default: {}", productName);
+        } else {
+            productName = productName.trim();
         }
         
         BigDecimal price = itemRequest.getPrice();
@@ -309,6 +333,10 @@ public class SaleService implements ISaleService {
             log.warn("Product price missing or invalid, using default: {}", price);
         }
         
+        return createNewProduct(itemRequest, ownerId, productName, price);
+    }
+    
+    private Product createNewProduct(SaleItemRequest itemRequest, UUID ownerId, String productName, BigDecimal price) {
         String productCode = "PROD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         int attempts = 0;
         while (productRepository.findByOwnerIdAndCode(ownerId, productCode).isPresent() && attempts < 10) {
@@ -318,7 +346,7 @@ public class SaleService implements ISaleService {
         
         Product product = new Product();
         product.setCode(productCode);
-        product.setName(productName.trim());
+        product.setName(productName);
         product.setPrice(price);
         product.setOwnerId(ownerId);
         product.setIsActive(true);
@@ -416,16 +444,16 @@ public class SaleService implements ISaleService {
         List<SaleItem> saleItems = saleItemRepository.findByTransactionId(transactionId);
         
         if (saleItems.isEmpty()) {
-            throw new ResourceNotFoundException("Sale not found with transaction ID: " + transactionId);
+            throw new ResourceNotFoundException("Sale could not be found");
         }
         
         SaleItem firstItem = saleItems.get(0);
         if (!firstItem.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this sale");
+            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this sale");
         }
         
         Customer customer = customerRepository.findById(firstItem.getCustomerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
         
         BigDecimal totalAmount = saleItems.stream()
             .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
@@ -473,7 +501,7 @@ public class SaleService implements ISaleService {
         List<SaleItem> saleItems = saleItemRepository.findByTransactionId(transactionId);
         
         if (!saleItems.isEmpty() && !saleItems.get(0).getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this sale");
+            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this sale");
         }
         
         return saleItems;
@@ -486,17 +514,17 @@ public class SaleService implements ISaleService {
         List<SaleItem> saleItems = saleItemRepository.findByTransactionId(transactionId);
         
         if (saleItems.isEmpty()) {
-            throw new ResourceNotFoundException("Sale not found with transaction ID: " + transactionId);
+            throw new ResourceNotFoundException("Sale could not be found");
         }
         
         SaleItem firstItem = saleItems.get(0);
         if (!firstItem.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this sale");
+            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this sale");
         }
         
         for (SaleItem saleItem : saleItems) {
             productRepository.findById(saleItem.getProductId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Product could not be found"));
             
             BigDecimal quantity = saleItem.getQuantity() != null ? saleItem.getQuantity() : BigDecimal.ONE;
             
@@ -516,7 +544,7 @@ public class SaleService implements ISaleService {
         
         
         Customer customer = customerRepository.findById(firstItem.getCustomerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
         
         BigDecimal totalAmount = saleItems.stream()
             .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
@@ -531,15 +559,13 @@ public class SaleService implements ISaleService {
     
     private SaleDetailResponse buildSaleDetailResponse(String transactionId, Customer customer, 
                                                        List<SaleItem> saleItems, BigDecimal totalAmount) {
-        List<Payment> payments = paymentRepository.findByCustomerId(customer.getId()).stream()
-            .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
-            .toList();
-        
-        BigDecimal totalPaid = payments.stream()
-            .map(Payment::getAmount)
+        BigDecimal totalDue = saleItems.stream()
+            .map(item -> item.getRemainingAmount() != null
+                ? item.getRemainingAmount()
+                : item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
             .reduce(BigDecimal.ZERO, BigDecimal::add);
         
-        BigDecimal totalDue = totalAmount.subtract(totalPaid);
+        BigDecimal totalPaid = totalAmount.subtract(totalDue);
         
         SaleItem firstItem = saleItems.isEmpty() ? null : saleItems.get(0);
         
@@ -580,12 +606,6 @@ public class SaleService implements ISaleService {
             
             inventory.setStock(newStock);
             inventoryRepository.save(inventory);
-            
-            Product product = productRepository.findById(productId).orElse(null);
-            if (product != null) {
-                auditService.logStockChange(productId, ownerId, product.getName(), currentStock, newStock, 
-                    "PRODUCT_CREATION", "Stock decreased on product creation");
-            }
             
             log.info("Stock decreased on product creation: Product {}, Old Stock {}, New Stock {}", 
                 productId, currentStock, newStock);

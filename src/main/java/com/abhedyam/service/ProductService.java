@@ -97,10 +97,10 @@ public class ProductService implements IProductService {
     public Product getById(UUID id) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Product could not be found"));
         
         if (!product.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this product");
+            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this product");
         }
         
         return product;
@@ -111,7 +111,7 @@ public class ProductService implements IProductService {
     public List<Product> getByOwnerId(UUID ownerId) {
         UUID currentOwnerId = SecurityUtil.getCurrentUserId();
         if (ownerId != null && !currentOwnerId.equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You can only view your own products");
+            throw new BusinessException("UNAUTHORIZED", "You can only access your own products");
         }
         UUID targetOwnerId = ownerId != null ? ownerId : currentOwnerId;
         String cacheKey = PRODUCTS_CACHE_PREFIX + targetOwnerId;
@@ -225,37 +225,14 @@ public class ProductService implements IProductService {
     @Transactional(readOnly = true)
     public PageResponse<Product> searchProducts(ProductSearchRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        
-        String searchTerm = request.getSearchTerm();
-        if (searchTerm != null && searchTerm.trim().isEmpty()) {
-            searchTerm = null;
-        }
-        
-        Sort sort = Sort.by(
-            "DESC".equalsIgnoreCase(request.getSortDirection()) 
-                ? Sort.Direction.DESC 
-                : Sort.Direction.ASC,
-            request.getSortBy()
-        );
-        
-        Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), sort);
-        
-        Page<Product> page = productRepository.searchProducts(
-            ownerId,
-            searchTerm,
-            request.getIsActive(),
-            pageable
-        );
-        
-        return new PageResponse<>(
-            page.getContent(),
-            page.getNumber(),
-            page.getSize(),
-            page.getTotalElements(),
-            page.getTotalPages(),
-            page.hasNext(),
-            page.hasPrevious()
-        );
+        return searchProductsInternal(ownerId, request);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<Product> searchProductsByOwner(UUID ownerId, ProductSearchRequest request) {
+        validateOwnerAccess(ownerId);
+        return searchProductsInternal(ownerId, request);
     }
     
     @Override
@@ -306,6 +283,13 @@ public class ProductService implements IProductService {
         
         return updatedProduct;
     }
+
+    @Override
+    @Transactional
+    public Product updateProductForOwner(UUID ownerId, ProductUpdateRequest request) {
+        validateOwnerAccess(ownerId);
+        return updateProduct(request);
+    }
     
     @Override
     @Transactional
@@ -323,6 +307,13 @@ public class ProductService implements IProductService {
         }
         
         return updatedProduct;
+    }
+
+    @Override
+    @Transactional
+    public Product toggleActiveForOwner(UUID ownerId, UUID id) {
+        validateOwnerAccess(ownerId);
+        return toggleActive(id);
     }
     
     @Async("virtualThreadExecutor")
@@ -349,12 +340,6 @@ public class ProductService implements IProductService {
             inventory.setStock(newStock);
             inventoryRepository.save(inventory);
             
-            Product product = productRepository.findById(productId).orElse(null);
-            if (product != null) {
-                auditService.logStockChange(productId, ownerId, product.getName(), currentStock, newStock, 
-                    "PRODUCT_CREATION", "Stock decreased on product creation");
-            }
-            
             log.info("Stock decreased on product creation: Product {}, Old Stock {}, New Stock {}", 
                 productId, currentStock, newStock);
         } catch (Exception e) {
@@ -369,6 +354,54 @@ public class ProductService implements IProductService {
             log.debug("Invalidated product caches for owner {}", ownerId);
         } catch (Exception e) {
             log.warn("Error invalidating product cache for owner {}: {}", ownerId, e.getMessage());
+        }
+    }
+
+    private PageResponse<Product> searchProductsInternal(UUID ownerId, ProductSearchRequest request) {
+        String searchTerm = request.getSearchTerm();
+        if (searchTerm != null && searchTerm.trim().isEmpty()) {
+            searchTerm = null;
+        }
+        Integer page = request.getPage();
+        Integer size = request.getSize();
+        if (page == null || page < 0) {
+            page = 0;
+        }
+        if (size == null || size < 1) {
+            size = 20;
+        }
+        
+        Sort sort = Sort.by(
+            "DESC".equalsIgnoreCase(request.getSortDirection()) 
+                ? Sort.Direction.DESC 
+                : Sort.Direction.ASC,
+            request.getSortBy()
+        );
+        
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<Product> productPage = productRepository.searchProducts(
+            ownerId,
+            searchTerm,
+            request.getIsActive(),
+            pageable
+        );
+        
+        return new PageResponse<>(
+            productPage.getContent(),
+            productPage.getNumber(),
+            productPage.getSize(),
+            productPage.getTotalElements(),
+            productPage.getTotalPages(),
+            productPage.hasNext(),
+            productPage.hasPrevious()
+        );
+    }
+
+    private void validateOwnerAccess(UUID ownerId) {
+        UUID currentOwnerId = SecurityUtil.getCurrentUserId();
+        if (ownerId == null || !ownerId.equals(currentOwnerId)) {
+            throw new BusinessException("UNAUTHORIZED", "You can only access your own products");
         }
     }
 }

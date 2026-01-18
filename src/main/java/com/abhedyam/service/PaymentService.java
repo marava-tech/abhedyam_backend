@@ -22,11 +22,14 @@ import com.abhedyam.repository.UserRepository;
 import com.abhedyam.model.Notification;
 import com.abhedyam.model.enums.NotificationType;
 import com.abhedyam.service.interfaces.IAuditService;
+import com.abhedyam.service.interfaces.ICustomerService;
 import com.abhedyam.service.interfaces.IFcmService;
 import com.abhedyam.service.interfaces.INotificationService;
 import com.abhedyam.service.interfaces.IPaymentService;
 import com.abhedyam.util.PackageConstants;
 import com.abhedyam.util.SecurityUtil;
+import com.abhedyam.constants.CacheKeys;
+import com.abhedyam.constants.ErrorCodes;
 import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -55,9 +58,11 @@ public class PaymentService implements IPaymentService {
     private final IAuditService auditService;
     private final INotificationService notificationService;
     private final IFcmService fcmService;
+    private final ICustomerService customerService;
+    private final CustomerService customerServiceConcrete;
     private final RedisTemplate<String, String> redisTemplate;
+    private final StatsService statsService;
     
-    private static final String PAYMENTS_MY_CACHE_PREFIX = "payments:my:";
     
     @Override
     public Payment create(Payment payment) {
@@ -70,11 +75,11 @@ public class PaymentService implements IPaymentService {
         UUID currentUserId = SecurityUtil.getCurrentUserId();
         
         if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("INVALID_AMOUNT", "Payment amount must be greater than zero");
+            throw new BusinessException(ErrorCodes.INVALID_AMOUNT, "Payment amount must be greater than zero");
         }
         
         SaleItem saleItem = saleItemRepository.findById(request.getSaleItemId())
-                .orElseThrow(() -> new ResourceNotFoundException("Sale item not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Sale item could not be found"));
         
         UUID saleItemOwnerId = saleItem.getOwnerId();
         UUID saleItemCustomerId = saleItem.getCustomerId();
@@ -90,7 +95,7 @@ public class PaymentService implements IPaymentService {
             paymentOwnerId = saleItemOwnerId;
         } else if (saleItemOwnerId != null && saleItemOwnerId.equals(currentUserId)) {
             User currentUser = userRepository.findById(currentUserId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Your account could not be found"));
             if (currentUser.getType() == UserType.BUSINESS) {
                 hasAccess = true;
                 paymentOwnerId = currentUserId;
@@ -98,7 +103,7 @@ public class PaymentService implements IPaymentService {
         }
         
         if (!hasAccess) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this sale item");
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You don't have permission to access this sale item");
         }
         
         BigDecimal remainingAmount = saleItem.getRemainingAmount();
@@ -110,20 +115,20 @@ public class PaymentService implements IPaymentService {
         }
         
         if (remainingAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("NO_DUE_AMOUNT", "No due amount exists for this sale item. Payment cannot be processed.");
+            throw new BusinessException(ErrorCodes.NO_DUE_AMOUNT, "No payment is due for this sale");
         }
         
         if (request.getAmount().compareTo(remainingAmount) > 0) {
-            throw new BusinessException("PAYMENT_EXCEEDS_DUE", 
+            throw new BusinessException(ErrorCodes.PAYMENT_EXCEEDS_DUE, 
                 String.format("Payment amount (₹%s) cannot exceed the due amount (₹%s). You can pay maximum ₹%s.", 
                     request.getAmount(), remainingAmount, remainingAmount));
         }
         
         Customer customer = customerRepository.findById(saleItem.getCustomerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
         
         Product product = productRepository.findById(saleItem.getProductId())
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Product could not be found"));
         
         Payment payment = new Payment();
         payment.setCustomerId(saleItem.getCustomerId());
@@ -137,14 +142,7 @@ public class PaymentService implements IPaymentService {
         
         Payment savedPayment = paymentRepository.save(payment);
         
-        try {
-            var myPaymentKeys = redisTemplate.keys(PAYMENTS_MY_CACHE_PREFIX + paymentOwnerId + ":*");
-            if (myPaymentKeys != null && !myPaymentKeys.isEmpty()) {
-                redisTemplate.delete(myPaymentKeys);
-            }
-        } catch (Exception e) {
-            log.warn("Error invalidating payment cache on create: {}", e.getMessage());
-        }
+        invalidateAllRelatedCachesOnPaymentChange(paymentOwnerId, savedPayment.getCustomerId());
         
         if (savedPayment.getStatus() == PaymentStatus.SUCCESS) {
             updateSaleItemBalance(saleItem, savedPayment.getAmount(), true);
@@ -157,6 +155,19 @@ public class PaymentService implements IPaymentService {
                 product.getName(),
                 savedPayment.getAmount(),
                 savedPayment.getReference()
+            );
+        } else {
+            auditService.logPaymentCreation(
+                savedPayment.getId(),
+                paymentOwnerId,
+                customer.getId(),
+                customer.getName(),
+                request.getSaleItemId(),
+                product.getName(),
+                savedPayment.getAmount(),
+                savedPayment.getReference(),
+                savedPayment.getStatus().toString(),
+                savedPayment.getMedium().toString()
             );
         }
         
@@ -186,7 +197,7 @@ public class PaymentService implements IPaymentService {
     public Payment getById(UUID id) {
         UUID currentUserId = SecurityUtil.getCurrentUserId();
         Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Payment not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Payment could not be found"));
         
         UUID paymentOwnerId = payment.getOwnerId();
         UUID paymentCustomerId = payment.getCustomerId();
@@ -200,14 +211,14 @@ public class PaymentService implements IPaymentService {
             hasAccess = true;
         } else if (paymentOwnerId != null && paymentOwnerId.equals(currentUserId)) {
             User currentUser = userRepository.findById(currentUserId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Your account could not be found"));
             if (currentUser.getType() == UserType.BUSINESS) {
                 hasAccess = true;
             }
         }
         
         if (!hasAccess) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this payment");
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You don't have permission to access this payment");
         }
         
         return payment;
@@ -219,7 +230,7 @@ public class PaymentService implements IPaymentService {
         UUID currentOwnerId = SecurityUtil.getCurrentUserId();
         UUID targetOwnerId = ownerId != null ? ownerId : currentOwnerId;
         if (!currentOwnerId.equals(targetOwnerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You can only view your own payments");
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You can only access your own payments");
         }
         return paymentRepository.findByOwnerId(targetOwnerId);
     }
@@ -326,6 +337,56 @@ public class PaymentService implements IPaymentService {
                     );
                 })
                 .toList();
+        
+        return new PageResponse<>(
+            responses,
+            paymentPage.getNumber(),
+            paymentPage.getSize(),
+            paymentPage.getTotalElements(),
+            paymentPage.getTotalPages(),
+            paymentPage.hasNext(),
+            paymentPage.hasPrevious()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<PaymentResponse> getOwnerPayments(UUID ownerId, String searchText, Integer page, Integer size, String sortBy, String sortDirection, boolean expandNames) {
+        validateOwnerAccess(ownerId);
+        
+        if (page == null || page < 0) {
+            page = 0;
+        }
+        if (size == null || size < 1) {
+            size = 20;
+        }
+        
+        String normalizedSearchText = searchText != null && !searchText.trim().isEmpty() ? searchText.trim() : null;
+        boolean isNumeric = false;
+        BigDecimal amount = null;
+        if (normalizedSearchText != null) {
+            try {
+                amount = new BigDecimal(normalizedSearchText);
+                isNumeric = true;
+            } catch (NumberFormatException e) {
+                isNumeric = false;
+            }
+        }
+        
+        Sort sort = Sort.by(
+            "DESC".equalsIgnoreCase(sortDirection) 
+                ? Sort.Direction.DESC 
+                : Sort.Direction.ASC,
+            sortBy != null && !sortBy.trim().isEmpty() ? sortBy : "createdAt"
+        );
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<Payment> paymentPage = normalizedSearchText == null
+            ? paymentRepository.findByOwnerId(ownerId, pageable)
+            : paymentRepository.searchPayments(ownerId, normalizedSearchText, isNumeric, amount, pageable);
+        
+        List<Payment> payments = paymentPage.getContent();
+        List<PaymentResponse> responses = mapPaymentResponses(payments, expandNames);
         
         return new PageResponse<>(
             responses,
@@ -457,7 +518,7 @@ public class PaymentService implements IPaymentService {
         UUID currentUserId = SecurityUtil.getCurrentUserId();
         
         Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
         
         UUID ownerId = customer.getOwnerId();
         
@@ -470,7 +531,7 @@ public class PaymentService implements IPaymentService {
             hasAccess = true;
         } else if (ownerId != null) {
             User currentUser = userRepository.findById(currentUserId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Your account could not be found"));
             
             if (currentUser.getType() == UserType.BUSINESS && ownerId.equals(currentUserId)) {
                 hasAccess = true;
@@ -478,15 +539,17 @@ public class PaymentService implements IPaymentService {
         }
         
         if (!hasAccess) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer's payments");
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You don't have permission to access this customer's payments");
         }
         
         // If customer is accessing, use their ownerId; if owner is accessing, use currentUserId
         UUID filterOwnerId = currentUserId.equals(customerId) ? ownerId : currentUserId;
+        if (filterOwnerId == null) {
+            return List.of();
+        }
         
-        List<Payment> payments = paymentRepository.findByCustomerId(customerId);
+        List<Payment> payments = paymentRepository.findByCustomerIdAndOwnerId(customerId, filterOwnerId);
         return payments.stream()
-            .filter(p -> filterOwnerId != null && p.getOwnerId().equals(filterOwnerId))
             .sorted((p1, p2) -> {
                 if (p1.getCreatedAt() == null && p2.getCreatedAt() == null) return 0;
                 if (p1.getCreatedAt() == null) return 1;
@@ -517,11 +580,11 @@ public class PaymentService implements IPaymentService {
                     }
                     
                     if (remainingAmount.compareTo(BigDecimal.ZERO) <= 0) {
-                        throw new BusinessException("NO_DUE_AMOUNT", "No due amount exists for this sale item. Payment cannot be processed.");
+                        throw new BusinessException(ErrorCodes.NO_DUE_AMOUNT, "No payment is due for this sale");
                     }
                     
                     if (payment.getAmount().compareTo(remainingAmount) > 0) {
-                        throw new BusinessException("PAYMENT_EXCEEDS_DUE", 
+                        throw new BusinessException(ErrorCodes.PAYMENT_EXCEEDS_DUE, 
                             String.format("Payment amount (₹%s) cannot exceed the due amount (₹%s). You can pay maximum ₹%s.", 
                                 payment.getAmount(), remainingAmount, remainingAmount));
                     }
@@ -537,15 +600,7 @@ public class PaymentService implements IPaymentService {
         }
         Payment savedPayment = paymentRepository.save(payment);
         
-        try {
-            UUID paymentOwnerId = savedPayment.getOwnerId();
-            var myPaymentKeys = redisTemplate.keys(PAYMENTS_MY_CACHE_PREFIX + paymentOwnerId + ":*");
-            if (myPaymentKeys != null && !myPaymentKeys.isEmpty()) {
-                redisTemplate.delete(myPaymentKeys);
-            }
-        } catch (Exception e) {
-            log.warn("Error invalidating payment cache on status update: {}", e.getMessage());
-        }
+        invalidateAllRelatedCachesOnPaymentChange(savedPayment.getOwnerId(), savedPayment.getCustomerId());
         
         if (oldStatus != PaymentStatus.SUCCESS && request.getStatus() == PaymentStatus.SUCCESS) {
             Customer customer = customerRepository.findById(payment.getCustomerId())
@@ -587,7 +642,7 @@ public class PaymentService implements IPaymentService {
         
         if (paymentDetails.getAmount() != null) {
             if (paymentDetails.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new BusinessException("INVALID_AMOUNT", "Payment amount must be greater than zero");
+                throw new BusinessException(ErrorCodes.INVALID_AMOUNT, "Payment amount must be greater than zero");
             }
         }
         
@@ -612,11 +667,11 @@ public class PaymentService implements IPaymentService {
                         }
                         
                         if (remainingAmount.compareTo(BigDecimal.ZERO) <= 0) {
-                            throw new BusinessException("NO_DUE_AMOUNT", "No due amount exists for this sale item. Payment cannot be processed.");
+                            throw new BusinessException(ErrorCodes.NO_DUE_AMOUNT, "No payment is due for this sale");
                         }
                         
                         if (amountToProcess.compareTo(remainingAmount) > 0) {
-                            throw new BusinessException("PAYMENT_EXCEEDS_DUE", 
+                            throw new BusinessException(ErrorCodes.PAYMENT_EXCEEDS_DUE, 
                                 String.format("Payment amount (₹%s) cannot exceed the due amount (₹%s). You can pay maximum ₹%s.", 
                                     amountToProcess, remainingAmount, remainingAmount));
                         }
@@ -637,11 +692,11 @@ public class PaymentService implements IPaymentService {
                     BigDecimal availableDueAmount = remainingAmount.add(oldAmount);
                     
                     if (availableDueAmount.compareTo(BigDecimal.ZERO) <= 0) {
-                        throw new BusinessException("NO_DUE_AMOUNT", "No due amount exists for this sale item. Payment cannot be updated.");
+                        throw new BusinessException("NO_DUE_AMOUNT", "No payment is due for this sale");
                     }
                     
                     if (newAmount.compareTo(availableDueAmount) > 0) {
-                        throw new BusinessException("PAYMENT_EXCEEDS_DUE", 
+                        throw new BusinessException(ErrorCodes.PAYMENT_EXCEEDS_DUE, 
                             String.format("Updated payment amount (₹%s) cannot exceed the available due amount (₹%s). You can pay maximum ₹%s.", 
                                 newAmount, availableDueAmount, availableDueAmount));
                     }
@@ -658,15 +713,7 @@ public class PaymentService implements IPaymentService {
         if (paymentDetails.getStatus() != null) payment.setStatus(paymentDetails.getStatus());
         Payment savedPayment = paymentRepository.save(payment);
         
-        try {
-            UUID paymentOwnerId = savedPayment.getOwnerId();
-            var myPaymentKeys = redisTemplate.keys(PAYMENTS_MY_CACHE_PREFIX + paymentOwnerId + ":*");
-            if (myPaymentKeys != null && !myPaymentKeys.isEmpty()) {
-                redisTemplate.delete(myPaymentKeys);
-            }
-        } catch (Exception e) {
-            log.warn("Error invalidating payment cache on update: {}", e.getMessage());
-        }
+        invalidateAllRelatedCachesOnPaymentChange(savedPayment.getOwnerId(), savedPayment.getCustomerId());
         
         if (oldStatus != PaymentStatus.SUCCESS && paymentDetails.getStatus() == PaymentStatus.SUCCESS) {
             Customer customer = customerRepository.findById(payment.getCustomerId())
@@ -779,7 +826,7 @@ public class PaymentService implements IPaymentService {
     
     public void invalidateOwnerCaches(UUID ownerId) {
         try {
-            var keys = redisTemplate.keys(PAYMENTS_MY_CACHE_PREFIX + ownerId + ":*");
+            var keys = redisTemplate.keys(CacheKeys.PAYMENTS_MY_PREFIX + ownerId + ":*");
             if (keys != null && !keys.isEmpty()) {
                 redisTemplate.delete(keys);
                 log.debug("Invalidated {} payment cache keys for owner {}", keys.size(), ownerId);
@@ -787,6 +834,115 @@ public class PaymentService implements IPaymentService {
         } catch (Exception e) {
             log.warn("Error invalidating payment cache for owner {}: {}", ownerId, e.getMessage());
         }
+    }
+    
+    private void invalidateAllRelatedCachesOnPaymentChange(UUID ownerId, UUID customerId) {
+        try {
+            invalidateOwnerCaches(ownerId);
+            customerService.invalidateCustomerSummaryCache(ownerId, customerId);
+            customerServiceConcrete.invalidateOwnerCaches(ownerId);
+            statsService.invalidateOwnerCaches(ownerId);
+            log.debug("Completed cache invalidation for owner {} on payment change", ownerId);
+        } catch (Exception e) {
+            log.warn("Error during cache invalidation on payment change for owner {}: {}", ownerId, e.getMessage());
+        }
+    }
+
+    private void validateOwnerAccess(UUID ownerId) {
+        UUID currentOwnerId = SecurityUtil.getCurrentUserId();
+        if (ownerId == null || !ownerId.equals(currentOwnerId)) {
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You can only access your own payments");
+        }
+    }
+
+    private List<PaymentResponse> mapPaymentResponses(List<Payment> payments, boolean expandNames) {
+        if (payments.isEmpty()) {
+            return List.of();
+        }
+        
+        java.util.Map<UUID, String> customerNameMap = java.util.Map.of();
+        java.util.Map<UUID, String> productNameMap = java.util.Map.of();
+        java.util.Map<UUID, UUID> saleItemProductMap = java.util.Map.of();
+        
+        if (expandNames) {
+            List<UUID> customerIds = payments.stream()
+                .map(Payment::getCustomerId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+            List<Customer> customers = customerIds.isEmpty() ? List.of() : 
+                customerRepository.findByIdIn(customerIds);
+            customerNameMap = customers.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                    Customer::getId,
+                    Customer::getName,
+                    (v1, v2) -> v1
+                ));
+            
+            List<UUID> saleItemIds = payments.stream()
+                .map(Payment::getSaleItemId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+            List<SaleItem> saleItems = saleItemIds.isEmpty() ? List.of() : 
+                saleItemRepository.findByIdIn(saleItemIds);
+            saleItemProductMap = saleItems.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                    SaleItem::getId,
+                    SaleItem::getProductId,
+                    (v1, v2) -> v1
+                ));
+            
+            List<UUID> productIds = saleItems.stream()
+                .map(SaleItem::getProductId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+            List<Product> products = productIds.isEmpty() ? List.of() : 
+                productRepository.findByIdIn(productIds);
+            productNameMap = products.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                    Product::getId,
+                    Product::getName,
+                    (v1, v2) -> v1
+                ));
+        }
+        
+        java.util.Map<UUID, String> finalCustomerNameMap = customerNameMap;
+        java.util.Map<UUID, String> finalProductNameMap = productNameMap;
+        java.util.Map<UUID, UUID> finalSaleItemProductMap = saleItemProductMap;
+        
+        return payments.stream()
+            .map(payment -> {
+                String customerName = expandNames 
+                    ? finalCustomerNameMap.getOrDefault(payment.getCustomerId(), "Unknown")
+                    : null;
+                
+                String productName = null;
+                if (expandNames && payment.getSaleItemId() != null) {
+                    UUID productId = finalSaleItemProductMap.get(payment.getSaleItemId());
+                    if (productId != null) {
+                        productName = finalProductNameMap.getOrDefault(productId, "Unknown");
+                    }
+                }
+                
+                return new PaymentResponse(
+                    payment.getId(),
+                    payment.getCustomerId(),
+                    customerName,
+                    payment.getOwnerId(),
+                    payment.getSaleItemId(),
+                    productName,
+                    payment.getAmount(),
+                    payment.getMedium(),
+                    payment.getTimestamp(),
+                    payment.getReference(),
+                    payment.getStatus(),
+                    payment.getCreatedAt(),
+                    payment.getUpdatedAt()
+                );
+            })
+            .toList();
     }
 }
 

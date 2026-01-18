@@ -1,5 +1,6 @@
 package com.abhedyam.util;
 
+import com.abhedyam.exception.BusinessException;
 import com.abhedyam.security.UserPrincipal;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -14,7 +15,7 @@ public class SecurityUtil {
             UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
             return userPrincipal.getUserId();
         }
-        throw new RuntimeException("User not authenticated");
+        throw new BusinessException("UNAUTHORIZED", "User not authenticated. Please provide a valid token.");
     }
     
     public static String getCurrentUserPhone() {
@@ -23,7 +24,7 @@ public class SecurityUtil {
             UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
             return userPrincipal.getPhone();
         }
-        throw new RuntimeException("User not authenticated");
+        throw new BusinessException("UNAUTHORIZED", "User not authenticated. Please provide a valid token.");
     }
     
     public static boolean isAuthenticated() {

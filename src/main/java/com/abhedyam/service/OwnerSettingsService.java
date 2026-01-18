@@ -6,6 +6,8 @@ import com.abhedyam.model.OwnerSettings;
 import com.abhedyam.repository.OwnerSettingsRepository;
 import com.abhedyam.service.interfaces.IOwnerSettingsService;
 import com.abhedyam.util.SecurityUtil;
+import com.abhedyam.exception.BusinessException;
+import com.abhedyam.constants.ErrorCodes;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,8 +22,8 @@ public class OwnerSettingsService implements IOwnerSettingsService {
     
     @Override
     @Transactional
-    public OwnerSettingsResponse getCurrentOwnerSettings() {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
+    public OwnerSettingsResponse getOwnerSettings(UUID ownerId) {
+        validateOwnerAccess(ownerId);
         
         OwnerSettings settings = ownerSettingsRepository.findByOwnerId(ownerId)
                 .orElseGet(() -> {
@@ -29,7 +31,6 @@ public class OwnerSettingsService implements IOwnerSettingsService {
                 newSettings.setId(ownerId);
                 newSettings.setOwnerId(ownerId);
                 newSettings.setDailyQuoteEnabled(true);
-                newSettings.setCallLogSyncEnabled(true);
                 newSettings.setIsDarkModeEnabled(false);
                 return ownerSettingsRepository.save(newSettings);
                 });
@@ -39,8 +40,8 @@ public class OwnerSettingsService implements IOwnerSettingsService {
     
     @Override
     @Transactional
-    public OwnerSettingsResponse updateCurrentOwnerSettings(OwnerSettingsUpdateRequest request) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
+    public OwnerSettingsResponse updateOwnerSettings(UUID ownerId, OwnerSettingsUpdateRequest request) {
+        validateOwnerAccess(ownerId);
         
         OwnerSettings settings = ownerSettingsRepository.findByOwnerId(ownerId)
                 .orElseGet(() -> {
@@ -48,16 +49,12 @@ public class OwnerSettingsService implements IOwnerSettingsService {
                 newSettings.setId(ownerId);
                 newSettings.setOwnerId(ownerId);
                 newSettings.setDailyQuoteEnabled(true);
-                newSettings.setCallLogSyncEnabled(true);
                 newSettings.setIsDarkModeEnabled(false);
                 return newSettings;
                 });
         
         if (request.getDailyQuoteEnabled() != null) {
             settings.setDailyQuoteEnabled(request.getDailyQuoteEnabled());
-        }
-        if (request.getCallLogSyncEnabled() != null) {
-            settings.setCallLogSyncEnabled(request.getCallLogSyncEnabled());
         }
         if (request.getIsDarkModeEnabled() != null) {
             settings.setIsDarkModeEnabled(request.getIsDarkModeEnabled());
@@ -74,12 +71,18 @@ public class OwnerSettingsService implements IOwnerSettingsService {
         OwnerSettingsResponse response = new OwnerSettingsResponse();
         response.setId(settings.getId());
         response.setDailyQuoteEnabled(settings.getDailyQuoteEnabled());
-        response.setCallLogSyncEnabled(settings.getCallLogSyncEnabled());
         response.setIsDarkModeEnabled(settings.getIsDarkModeEnabled());
         response.setOtherFlags(settings.getOtherFlags());
         response.setCreatedAt(settings.getCreatedAt());
         response.setUpdatedAt(settings.getUpdatedAt());
         return response;
+    }
+
+    private void validateOwnerAccess(UUID ownerId) {
+        UUID currentOwnerId = SecurityUtil.getCurrentUserId();
+        if (ownerId == null || !ownerId.equals(currentOwnerId)) {
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You can only access your own settings");
+        }
     }
 }
 

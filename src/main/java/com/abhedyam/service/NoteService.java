@@ -44,10 +44,10 @@ public class NoteService implements INoteService {
     public Note getById(UUID id) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         Note note = noteRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Note not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Note could not be found"));
         
         if (!note.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this note");
+            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this note");
         }
         
         return note;
@@ -58,7 +58,7 @@ public class NoteService implements INoteService {
     public List<Note> getByOwnerId(UUID ownerId) {
         UUID currentOwnerId = SecurityUtil.getCurrentUserId();
         if (!currentOwnerId.equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You can only view your own notes");
+            throw new BusinessException("UNAUTHORIZED", "You can only access your own notes");
         }
         return noteRepository.findByOwnerId(ownerId);
     }

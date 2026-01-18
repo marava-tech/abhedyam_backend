@@ -8,6 +8,7 @@ import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -57,8 +58,12 @@ public class GlobalExceptionHandler {
             path
         );
         
+        HttpStatus status = "UNAUTHORIZED".equals(ex.getErrorCode()) 
+            ? HttpStatus.UNAUTHORIZED 
+            : HttpStatus.BAD_REQUEST;
+        
         log.warn("Business error [{}]: {}", ex.getErrorCode(), ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        return ResponseEntity.status(status).body(error);
     }
     
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -146,15 +151,14 @@ public class GlobalExceptionHandler {
                         userMessage = "This record already exists.";
                         errorCode = "DUPLICATE_RECORD";
                     } else {
-                        userMessage = String.format("Duplicate entry for %s: %s", keyName, duplicateValue);
+                        userMessage = "This record already exists. Please use a different value.";
                     }
                 }
             } else if (errorMessage.contains("unique constraint") || errorMessage.contains("UNIQUE constraint")) {
                 Pattern pattern = Pattern.compile("unique constraint.*?([a-zA-Z_]+)", Pattern.CASE_INSENSITIVE);
                 Matcher matcher = pattern.matcher(errorMessage);
                 if (matcher.find()) {
-                    String constraintName = matcher.group(1);
-                    userMessage = String.format("Duplicate data detected for %s. This value already exists.", constraintName);
+                    userMessage = "This value already exists. Please use a different value.";
                 }
             }
         }
@@ -169,6 +173,23 @@ public class GlobalExceptionHandler {
         
         log.warn("Data integrity violation [{}]: {}", errorCode, errorMessage);
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+    
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleAuthenticationException(AuthenticationException ex, WebRequest request) {
+        String correlationId = MDC.get("correlationId");
+        String path = ((ServletWebRequest) request).getRequest().getRequestURI();
+        
+        ErrorResponse error = new ErrorResponse(
+            "Unauthorized",
+            "Authentication failed. Please provide a valid token.",
+            "UNAUTHORIZED",
+            correlationId,
+            path
+        );
+        
+        log.warn("Authentication failed: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
     }
     
     @ExceptionHandler({MaxUploadSizeExceededException.class, FileSizeLimitExceededException.class})

@@ -11,9 +11,11 @@ public interface IUpiAccountManagementService {
     UpiAccountResponse getCurrentUserUpiAccount();
     UpiAccountResponse getUpiAccountByOwnerId(UUID ownerId);
     UpiAccountResponse updateCurrentUserUpiAccount(UpiAccountCreateRequest request);
+    UpiAccountResponse updateUpiAccountForOwner(UUID ownerId, UpiAccountCreateRequest request);
     List<UpiAccountResponse> getOwnerUpiAccounts();
     UpiAccountResponse getUpiAccountById(UUID id);
     UpiAccountResponse setPrimaryUpiAccount(UUID id);
     UpiAccountResponse verifyCurrentUserVpa();
+    UpiAccountResponse verifyVpaForOwner(UUID ownerId);
 }
 
