@@ -42,10 +42,10 @@ public class NotificationService implements INotificationService {
     public Notification getById(UUID id) {
         UUID currentUserId = SecurityUtil.getCurrentUserId();
         Notification notification = notificationRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Notification not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Notification could not be found"));
         
         if (!notification.getOwnerId().equals(currentUserId) && !notification.getUserId().equals(currentUserId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this notification");
+            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this notification");
         }
         
         return notification;
@@ -60,7 +60,7 @@ public class NotificationService implements INotificationService {
     public List<Notification> getByOwnerId(UUID ownerId) {
         UUID currentOwnerId = SecurityUtil.getCurrentUserId();
         if (!currentOwnerId.equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You can only view your own notifications");
+            throw new BusinessException("UNAUTHORIZED", "You can only access your own notifications");
         }
         return notificationRepository.findByOwnerId(ownerId);
     }
@@ -83,6 +83,15 @@ public class NotificationService implements INotificationService {
         }
         
         return notificationRepository.findByOwnerIdOrUserId(currentUserId);
+    }
+
+    @Override
+    public List<Notification> getNotificationsForUser(UUID userId, Boolean unreadOnly) {
+        UUID currentUserId = SecurityUtil.getCurrentUserId();
+        if (!currentUserId.equals(userId)) {
+            throw new BusinessException("UNAUTHORIZED", "You can only access your own notifications");
+        }
+        return getMyNotifications(unreadOnly);
     }
     
     @Override

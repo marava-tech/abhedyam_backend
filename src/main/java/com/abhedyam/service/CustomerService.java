@@ -1,8 +1,12 @@
 package com.abhedyam.service;
 
 import com.abhedyam.dto.CustomerCreateRequest;
-import com.abhedyam.dto.CustomerProfileSummary;
+import com.abhedyam.dto.CustomerBasicSummaryResponse;
 import com.abhedyam.dto.CustomerResponse;
+import com.abhedyam.dto.CustomerNotesSummaryResponse;
+import com.abhedyam.dto.CustomerPaymentsSummaryResponse;
+import com.abhedyam.dto.CustomerRemindersSummaryResponse;
+import com.abhedyam.dto.CustomerSalesSummaryResponse;
 import com.abhedyam.dto.CustomerSearchRequest;
 import com.abhedyam.dto.CustomerSearchResult;
 import com.abhedyam.dto.CustomerUpdateRequest;
@@ -13,7 +17,6 @@ import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Customer;
 import com.abhedyam.model.LocationDetails;
-import com.abhedyam.model.Note;
 import com.abhedyam.model.Payment;
 import com.abhedyam.model.Product;
 import com.abhedyam.model.Reminder;
@@ -33,10 +36,14 @@ import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.ICustomerService;
 import com.abhedyam.util.PhoneUtil;
 import com.abhedyam.util.SecurityUtil;
+import com.abhedyam.constants.CacheKeys;
+import com.abhedyam.constants.ErrorCodes;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -51,6 +58,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -69,10 +78,13 @@ public class CustomerService implements ICustomerService {
     private final UserRepository userRepository;
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
+    private final StatsService statsService;
+    private final LocationDetailsService locationDetailsService;
     
-    private static final String CUSTOMERS_CACHE_PREFIX = "customers:my:";
-    private static final String CUSTOMER_SUMMARY_CACHE_PREFIX = "customers:summary:";
-    private static final String CUSTOMER_MY_SUMMARY_CACHE_PREFIX = "customers:my-summary:";
+    @Autowired
+    @Qualifier("virtualThreadExecutor")
+    private Executor virtualThreadExecutor;
+    
     private static final int CACHE_TTL_MINUTES = 5;
     
     @Override
@@ -90,7 +102,7 @@ public class CustomerService implements ICustomerService {
                 customerRepository.delete(existingCustomer);
                 customerRepository.flush();
             } else {
-                throw new BusinessException("CUSTOMER_EXISTS", 
+                throw new BusinessException(ErrorCodes.CUSTOMER_EXISTS, 
                     "Customer with this phone number already exists and is associated with another owner");
             }
         }
@@ -105,15 +117,7 @@ public class CustomerService implements ICustomerService {
         
         Customer savedCustomer = customerRepository.save(customer);
         
-            try {
-                String pattern = CUSTOMERS_CACHE_PREFIX + ownerId + ":*";
-                var keys = redisTemplate.keys(pattern);
-                if (keys != null && !keys.isEmpty()) {
-                    redisTemplate.delete(keys);
-                }
-            } catch (Exception e) {
-                log.warn("Error invalidating customer cache on create: {}", e.getMessage());
-            }
+        invalidateAllRelatedCachesOnCustomerChange(ownerId);
         
         LocationDetails existingLocation = locationDetailsRepository.findById(savedCustomer.getId()).orElse(null);
         String villageName = (request.getVillage() != null && !request.getVillage().trim().isEmpty()) 
@@ -146,7 +150,7 @@ public class CustomerService implements ICustomerService {
     public Customer getById(UUID id) {
         UUID currentUserId = SecurityUtil.getCurrentUserId();
         Customer customer = customerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
         
         // Allow access if:
         // 1. Current user is the customer themselves
@@ -156,7 +160,7 @@ public class CustomerService implements ICustomerService {
         }
         
         User currentUser = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Your account could not be found"));
         
         if (currentUser.getType() == UserType.BUSINESS && 
             customer.getOwnerId() != null && 
@@ -164,7 +168,7 @@ public class CustomerService implements ICustomerService {
             return customer;
         }
         
-        throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer");
+        throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You don't have permission to access this customer");
     }
     
     @Override
@@ -173,7 +177,7 @@ public class CustomerService implements ICustomerService {
         UUID currentOwnerId = SecurityUtil.getCurrentUserId();
         UUID targetOwnerId = ownerId != null ? ownerId : currentOwnerId;
         if (!currentOwnerId.equals(targetOwnerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You can only view your own customers");
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You can only access your own customers");
         }
         return customerRepository.findByOwnerId(targetOwnerId);
     }
@@ -190,7 +194,7 @@ public class CustomerService implements ICustomerService {
             size = 10;
         }
         
-        String cacheKey = CUSTOMERS_CACHE_PREFIX + ownerId + ":" + page + ":" + size;
+        String cacheKey = CacheKeys.CUSTOMERS_MY_PREFIX + ownerId + ":" + page + ":" + size;
         
         try {
             String cached = redisTemplate.opsForValue().get(cacheKey);
@@ -247,6 +251,72 @@ public class CustomerService implements ICustomerService {
         }
         
         return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<CustomerResponse> getOwnerCustomers(UUID ownerId, String searchText, Integer page, Integer size, String sortBy, String sortDirection) {
+        validateOwnerAccess(ownerId);
+        
+        if (page == null || page < 0) {
+            page = 0;
+        }
+        if (size == null || size < 1) {
+            size = 20;
+        }
+        
+        String normalizedSearchText = searchText != null && !searchText.trim().isEmpty() ? searchText.trim() : null;
+        boolean isNumeric = false;
+        if (normalizedSearchText != null) {
+            try {
+                Long.parseLong(normalizedSearchText);
+                isNumeric = true;
+            } catch (NumberFormatException e) {
+                isNumeric = false;
+            }
+        }
+        
+        Sort sort = Sort.by(
+            "DESC".equalsIgnoreCase(sortDirection) 
+                ? Sort.Direction.DESC 
+                : Sort.Direction.ASC,
+            sortBy != null && !sortBy.trim().isEmpty() ? sortBy : "createdAt"
+        );
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<Customer> customerPage = customerRepository.searchCustomersWithVillage(
+            ownerId,
+            normalizedSearchText,
+            isNumeric,
+            pageable
+        );
+        
+        List<Customer> customers = customerPage.getContent();
+        List<UUID> customerIds = customers.stream().map(Customer::getId).toList();
+        List<LocationDetails> locations = locationDetailsRepository.findByUserIdIn(customerIds);
+        Map<UUID, String> villageMap = locations.stream()
+            .collect(Collectors.toMap(
+                LocationDetails::getUserId,
+                LocationDetails::getVillage,
+                (v1, v2) -> v1
+            ));
+        
+        List<CustomerResponse> responses = customers.stream()
+            .map(customer -> {
+                String village = villageMap.get(customer.getId());
+                return CustomerResponse.fromEntity(customer, village);
+            })
+            .toList();
+        
+        return new PageResponse<>(
+            responses,
+            customerPage.getNumber(),
+            customerPage.getSize(),
+            customerPage.getTotalElements(),
+            customerPage.getTotalPages(),
+            customerPage.hasNext(),
+            customerPage.hasPrevious()
+        );
     }
     
     @Override
@@ -349,213 +419,26 @@ public class CustomerService implements ICustomerService {
     }
     
     @Override
-    @Transactional(readOnly = true)
-    public CustomerProfileSummary getCustomerProfileSummary(UUID customerId) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
-        String cacheKey = CUSTOMER_SUMMARY_CACHE_PREFIX + ownerId + ":" + customerId;
-        
-        try {
-            String cached = redisTemplate.opsForValue().get(cacheKey);
-            if (cached != null) {
-                CustomerProfileSummary cachedSummary = objectMapper.readValue(
-                    cached,
-                    CustomerProfileSummary.class
-                );
-                log.debug("Returning cached customer summary for owner {} customer {}", ownerId, customerId);
-                return cachedSummary;
-            }
-        } catch (Exception e) {
-            log.warn("Error reading from cache for key: {}", cacheKey, e);
-        }
-        
-        Customer customer = getById(customerId);
-        
-        List<SaleItem> saleItems = saleItemRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
-        List<Payment> payments = paymentRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
-        List<Note> notes = noteRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
-        List<Reminder> reminders = reminderRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
-        
-        long totalSales = saleItems.size();
-        BigDecimal totalAmount = saleItems.stream()
-            .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
-        BigDecimal totalPaid = payments.stream()
-            .filter(p -> p.getStatus() == com.abhedyam.model.enums.PaymentStatus.SUCCESS)
-            .map(Payment::getAmount)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
-        BigDecimal totalDue = totalAmount.subtract(totalPaid);
-        
-        long totalReminders = reminders.size();
-        long pendingReminders = reminders.stream()
-            .filter(r -> r.getStatus() == ReminderStatus.PENDING)
-            .count();
-        
-        CustomerProfileSummary summary = new CustomerProfileSummary(
-            customerId,
-            customer.getName(),
-            customer.getPhone(),
-            customer.getImageUrl(),
-            totalSales,
-            totalAmount,
-            totalPaid,
-            totalDue,
-            (long) notes.size(),
-            totalReminders,
-            pendingReminders
-        );
-        
-        try {
-            String jsonResponse = objectMapper.writeValueAsString(summary);
-            redisTemplate.opsForValue().set(cacheKey, jsonResponse, CACHE_TTL_MINUTES, TimeUnit.MINUTES);
-            log.debug("Cached customer summary for owner {} customer {}", ownerId, customerId);
-        } catch (Exception e) {
-            log.warn("Error caching customer summary for key: {}", cacheKey, e);
-        }
-        
-        return summary;
-    }
-    
-    @Override
-    @Transactional(readOnly = true)
-    public CustomerProfileSummary getMyCustomerSummary() {
-        UUID customerId = SecurityUtil.getCurrentUserId();
-        String cacheKey = CUSTOMER_MY_SUMMARY_CACHE_PREFIX + customerId;
-        
-        try {
-            String cached = redisTemplate.opsForValue().get(cacheKey);
-            if (cached != null) {
-                CustomerProfileSummary cachedSummary = objectMapper.readValue(
-                    cached,
-                    CustomerProfileSummary.class
-                );
-                log.debug("Returning cached my customer summary for customer {}", customerId);
-                return cachedSummary;
-            }
-        } catch (Exception e) {
-            log.warn("Error reading from cache for key: {}", cacheKey, e);
-        }
-        
-        Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
-        
-        UUID ownerId = customer.getOwnerId();
-        if (ownerId == null) {
-            CustomerProfileSummary summary = new CustomerProfileSummary(
-                    customerId,
-                    customer.getName(),
-                    customer.getPhone(),
-                    customer.getImageUrl(),
-                    0L,
-                    BigDecimal.ZERO,
-                    BigDecimal.ZERO,
-                    BigDecimal.ZERO,
-                    0L,
-                    0L,
-                    0L
-            );
-            
-            try {
-                String jsonResponse = objectMapper.writeValueAsString(summary);
-                redisTemplate.opsForValue().set(cacheKey, jsonResponse, CACHE_TTL_MINUTES, TimeUnit.MINUTES);
-            } catch (Exception e) {
-                log.warn("Error caching my customer summary for key: {}", cacheKey, e);
-            }
-            
-            return summary;
-        }
-        
-        List<SaleItem> saleItems = saleItemRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
-        List<Payment> payments = paymentRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
-        List<Note> notes = noteRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
-        List<Reminder> reminders = reminderRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
-        
-        long totalSales = saleItems.size();
-        BigDecimal totalAmount = saleItems.stream()
-                .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
-        BigDecimal totalPaid = payments.stream()
-                .filter(p -> p.getStatus() == com.abhedyam.model.enums.PaymentStatus.SUCCESS)
-                .map(Payment::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
-        BigDecimal totalDue = totalAmount.subtract(totalPaid);
-        
-        long totalReminders = reminders.size();
-        long pendingReminders = reminders.stream()
-                .filter(r -> r.getStatus() == ReminderStatus.PENDING)
-                .count();
-        
-        CustomerProfileSummary summary = new CustomerProfileSummary(
-                customerId,
-                customer.getName(),
-                customer.getPhone(),
-                customer.getImageUrl(),
-                totalSales,
-                totalAmount,
-                totalPaid,
-                totalDue,
-                (long) notes.size(),
-                totalReminders,
-                pendingReminders
-        );
-        
-        try {
-            String jsonResponse = objectMapper.writeValueAsString(summary);
-            redisTemplate.opsForValue().set(cacheKey, jsonResponse, CACHE_TTL_MINUTES, TimeUnit.MINUTES);
-            log.debug("Cached my customer summary for customer {}", customerId);
-        } catch (Exception e) {
-            log.warn("Error caching my customer summary for key: {}", cacheKey, e);
-        }
-        
-        return summary;
-    }
-    
-    @Override
     @Transactional
     public Customer updateCustomer(CustomerUpdateRequest request) {
         Customer customer = getById(request.getId());
-        UUID ownerId = customer.getOwnerId();
-        UUID customerId = customer.getId();
-        
-        if (request.getName() != null && !request.getName().trim().isEmpty()) {
-            customer.setName(request.getName());
-        }
-        if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
-            String normalizedPhone = PhoneUtil.normalizePhone(request.getPhone());
-            customer.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
-            customer.setPhoneNormalized(normalizedPhone);
-        }
-        
-        Customer updatedCustomer = customerRepository.save(customer);
-        
-        try {
-            if (ownerId != null) {
-                redisTemplate.delete(CUSTOMER_SUMMARY_CACHE_PREFIX + ownerId + ":" + customerId);
-                redisTemplate.delete(CUSTOMER_MY_SUMMARY_CACHE_PREFIX + customerId);
-                
-                String pattern = CUSTOMERS_CACHE_PREFIX + ownerId + ":*";
-                var keys = redisTemplate.keys(pattern);
-                if (keys != null && !keys.isEmpty()) {
-                    redisTemplate.delete(keys);
-                }
-            }
-            log.debug("Invalidated customer cache for customer {}", customerId);
-        } catch (Exception e) {
-            log.warn("Error invalidating customer cache: {}", e.getMessage());
-        }
-        
-        return updatedCustomer;
+        return updateCustomerInternal(customer, request);
+    }
+
+    @Override
+    @Transactional
+    public Customer updateCustomerForOwner(UUID ownerId, CustomerUpdateRequest request) {
+        validateOwnerAccess(ownerId);
+        Customer customer = getOwnerCustomer(ownerId, request.getId());
+        return updateCustomerInternal(customer, request);
     }
     
     public void invalidateOwnerCaches(UUID ownerId) {
         try {
             String[] patterns = {
-                CUSTOMERS_CACHE_PREFIX + ownerId + ":*",
-                CUSTOMER_SUMMARY_CACHE_PREFIX + ownerId + ":*",
-                CUSTOMER_MY_SUMMARY_CACHE_PREFIX + "*"
+                CacheKeys.CUSTOMERS_MY_PREFIX + ownerId + ":*",
+                CacheKeys.CUSTOMER_SUMMARY_PREFIX + ownerId + ":*",
+                CacheKeys.CUSTOMER_MY_SUMMARY_PREFIX + "*"
             };
             
             for (String pattern : patterns) {
@@ -574,31 +457,88 @@ public class CustomerService implements ICustomerService {
         }
     }
     
+    private void invalidateAllRelatedCachesOnCustomerChange(UUID ownerId) {
+        try {
+            invalidateOwnerCaches(ownerId);
+            
+            try {
+                var paymentKeys = redisTemplate.keys(CacheKeys.PAYMENTS_MY_PREFIX + ownerId + ":*");
+                if (paymentKeys != null && !paymentKeys.isEmpty()) {
+                    redisTemplate.delete(paymentKeys);
+                    log.debug("Invalidated {} payment cache keys for owner {}", paymentKeys.size(), ownerId);
+                }
+            } catch (Exception e) {
+                log.warn("Error invalidating payment cache for owner {}: {}", ownerId, e.getMessage());
+            }
+            
+            statsService.invalidateOwnerCaches(ownerId);
+            locationDetailsService.invalidateOwnerCaches(ownerId);
+            log.debug("Completed cache invalidation for owner {} on customer change", ownerId);
+        } catch (Exception e) {
+            log.warn("Error during cache invalidation on customer change for owner {}: {}", ownerId, e.getMessage());
+        }
+    }
+
+    @Override
+    public void invalidateCustomerSummaryCache(UUID ownerId, UUID customerId) {
+        try {
+            if (ownerId != null && customerId != null) {
+                redisTemplate.delete(CacheKeys.CUSTOMER_SUMMARY_PREFIX + ownerId + ":" + customerId);
+                redisTemplate.delete(CacheKeys.CUSTOMER_MY_SUMMARY_PREFIX + customerId);
+            }
+        } catch (Exception e) {
+            log.warn("Error invalidating customer summary cache for owner {} customer {}: {}", ownerId, customerId, e.getMessage());
+        }
+    }
+    
     @Override
     @Transactional(readOnly = true)
     public NearestCustomerResponse findNearestCustomer(NearestCustomerRequest request) {
         if (request.getLatitude() == null || request.getLongitude() == null) {
-            throw new BusinessException("MISSING_LOCATION", "Current location not captured. Please provide latitude and longitude.");
+            throw new BusinessException(ErrorCodes.MISSING_LOCATION, "Please provide your current location");
         }
         
         UUID ownerId = SecurityUtil.getCurrentUserId();
         BigDecimal ownerLat = request.getLatitude();
         BigDecimal ownerLng = request.getLongitude();
         
-        List<LocationDetails> allLocationDetails = locationDetailsRepository.findCustomerLocationsByOwnerId(ownerId);
-        
-        if (allLocationDetails.isEmpty()) {
-            throw new ResourceNotFoundException("No customers with location details found");
+        List<LocationDetails> allLocationDetails;
+        if (request.getVillage() != null && !request.getVillage().trim().isEmpty()) {
+            String village = request.getVillage().trim();
+            log.debug("Filtering customers by village: {}", village);
+            allLocationDetails = locationDetailsRepository.findCustomerLocationsByOwnerIdAndVillage(ownerId, village);
+            
+            if (allLocationDetails.isEmpty()) {
+                throw new ResourceNotFoundException("No customers found in " + village);
+            }
+        } else {
+            allLocationDetails = locationDetailsRepository.findCustomerLocationsByOwnerId(ownerId);
+            
+            if (allLocationDetails.isEmpty()) {
+                throw new ResourceNotFoundException("No customers found with location information");
+            }
         }
         
         List<UUID> customerIdsWithLocation = allLocationDetails.stream()
             .map(LocationDetails::getUserId)
             .collect(Collectors.toList());
         
-        List<SaleItem> saleItems = saleItemRepository.findByCustomerIdAndOwnerIdIn(customerIdsWithLocation, ownerId);
-        List<Payment> payments = paymentRepository.findByCustomerIdInAndOwnerId(customerIdsWithLocation, ownerId);
+        CompletableFuture<List<SaleItem>> saleItemsFuture = CompletableFuture.supplyAsync(
+            () -> saleItemRepository.findByCustomerIdAndOwnerIdIn(customerIdsWithLocation, ownerId),
+            virtualThreadExecutor
+        );
         
-        Map<UUID, BigDecimal> totalAmountByCustomer = saleItems.stream()
+        CompletableFuture<List<Payment>> paymentsFuture = CompletableFuture.supplyAsync(
+            () -> paymentRepository.findByCustomerIdInAndOwnerId(customerIdsWithLocation, ownerId),
+            virtualThreadExecutor
+        );
+        
+        CompletableFuture.allOf(saleItemsFuture, paymentsFuture).join();
+        
+        List<SaleItem> saleItems = saleItemsFuture.join();
+        List<Payment> payments = paymentsFuture.join();
+        
+        Map<UUID, BigDecimal> totalAmountByCustomer = saleItems.parallelStream()
             .collect(Collectors.groupingBy(
                 SaleItem::getCustomerId,
                 Collectors.reducing(
@@ -608,14 +548,14 @@ public class CustomerService implements ICustomerService {
                 )
             ));
         
-        Map<UUID, BigDecimal> totalPaidByCustomer = payments.stream()
+        Map<UUID, BigDecimal> totalPaidByCustomer = payments.parallelStream()
             .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
             .collect(Collectors.groupingBy(
                 Payment::getCustomerId,
                 Collectors.reducing(BigDecimal.ZERO, Payment::getAmount, BigDecimal::add)
             ));
         
-        List<UUID> customersWithPendingAmounts = customerIdsWithLocation.stream()
+        List<UUID> customersWithPendingAmounts = customerIdsWithLocation.parallelStream()
             .filter(customerId -> {
                 BigDecimal totalAmount = totalAmountByCustomer.getOrDefault(customerId, BigDecimal.ZERO);
                 BigDecimal totalPaid = totalPaidByCustomer.getOrDefault(customerId, BigDecimal.ZERO);
@@ -629,7 +569,7 @@ public class CustomerService implements ICustomerService {
         
         List<LocationDetails> locationDetails = locationDetailsRepository.findCustomerLocationsByCustomerIds(ownerId, customersWithPendingAmounts);
         
-        Optional<LocationDetailsWithDistance> nearestLocationOpt = locationDetails.stream()
+        Optional<LocationDetailsWithDistance> nearestLocationOpt = locationDetails.parallelStream()
             .map(loc -> {
                 double distance = calculateDistance(
                     ownerLat.doubleValue(),
@@ -650,13 +590,16 @@ public class CustomerService implements ICustomerService {
         double distanceKm = nearestLocationWithDistance.getDistance();
         UUID nearestCustomerId = nearestLocation.getUserId();
         
-        Customer nearestCustomer = customerRepository.findById(nearestCustomerId)
-            .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+        CompletableFuture<Customer> customerFuture = CompletableFuture.supplyAsync(
+            () -> customerRepository.findById(nearestCustomerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found")),
+            virtualThreadExecutor
+        );
         
-        List<SaleItem> customerSaleItems = saleItems.stream()
+        List<SaleItem> customerSaleItems = saleItems.parallelStream()
             .filter(item -> item.getCustomerId().equals(nearestCustomerId))
             .collect(Collectors.toList());
-        List<Payment> customerPayments = payments.stream()
+        List<Payment> customerPayments = payments.parallelStream()
             .filter(p -> p.getCustomerId().equals(nearestCustomerId))
             .collect(Collectors.toList());
         
@@ -664,27 +607,32 @@ public class CustomerService implements ICustomerService {
         BigDecimal totalPaid = totalPaidByCustomer.getOrDefault(nearestCustomerId, BigDecimal.ZERO);
         BigDecimal pendingAmount = totalAmount.subtract(totalPaid);
         
-        BigDecimal lastPaidAmount = customerPayments.stream()
+        BigDecimal lastPaidAmount = customerPayments.parallelStream()
             .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
             .sorted(Comparator.comparing(Payment::getTimestamp).reversed())
             .findFirst()
             .map(Payment::getAmount)
             .orElse(BigDecimal.ZERO);
         
-        String productName = null;
-        if (!customerSaleItems.isEmpty()) {
-            SaleItem mostRecentSaleItem = customerSaleItems.stream()
-                .sorted(Comparator.comparing(SaleItem::getCreatedAt).reversed())
-                .findFirst()
-                .orElse(null);
-            
-            if (mostRecentSaleItem != null && mostRecentSaleItem.getProductId() != null) {
-                Optional<Product> product = productRepository.findById(mostRecentSaleItem.getProductId());
-                if (product.isPresent()) {
-                    productName = product.get().getName();
+        CompletableFuture<String> productNameFuture = CompletableFuture.supplyAsync(() -> {
+            if (!customerSaleItems.isEmpty()) {
+                SaleItem mostRecentSaleItem = customerSaleItems.stream()
+                    .sorted(Comparator.comparing(SaleItem::getCreatedAt).reversed())
+                    .findFirst()
+                    .orElse(null);
+                
+                if (mostRecentSaleItem != null && mostRecentSaleItem.getProductId() != null) {
+                    Optional<Product> product = productRepository.findById(mostRecentSaleItem.getProductId());
+                    if (product.isPresent()) {
+                        return product.get().getName();
+                    }
                 }
             }
-        }
+            return null;
+        }, virtualThreadExecutor);
+        
+        Customer nearestCustomer = customerFuture.join();
+        String productName = productNameFuture.join();
         
         return new NearestCustomerResponse(
             nearestCustomer.getId(),
@@ -697,6 +645,67 @@ public class CustomerService implements ICustomerService {
             lastPaidAmount,
             BigDecimal.valueOf(distanceKm).setScale(2, java.math.RoundingMode.HALF_UP)
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomerBasicSummaryResponse getCustomerBasicSummary(UUID ownerId, UUID customerId) {
+        validateOwnerAccess(ownerId);
+        Customer customer = getOwnerCustomer(ownerId, customerId);
+        return new CustomerBasicSummaryResponse(
+            customer.getId(),
+            customer.getName(),
+            customer.getPhone(),
+            customer.getImageUrl()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomerSalesSummaryResponse getCustomerSalesSummary(UUID ownerId, UUID customerId) {
+        validateOwnerAccess(ownerId);
+        getOwnerCustomer(ownerId, customerId);
+        List<SaleItem> saleItems = saleItemRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
+        long totalSales = saleItems.size();
+        BigDecimal totalAmount = saleItems.stream()
+            .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new CustomerSalesSummaryResponse(customerId, totalSales, totalAmount);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomerPaymentsSummaryResponse getCustomerPaymentsSummary(UUID ownerId, UUID customerId) {
+        validateOwnerAccess(ownerId);
+        getOwnerCustomer(ownerId, customerId);
+        List<Payment> payments = paymentRepository.findByCustomerIdAndOwnerId(customerId, ownerId).stream()
+            .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+            .toList();
+        BigDecimal totalPaid = payments.stream()
+            .map(Payment::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new CustomerPaymentsSummaryResponse(customerId, (long) payments.size(), totalPaid);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomerNotesSummaryResponse getCustomerNotesSummary(UUID ownerId, UUID customerId) {
+        validateOwnerAccess(ownerId);
+        getOwnerCustomer(ownerId, customerId);
+        long totalNotes = noteRepository.findByCustomerIdAndOwnerId(customerId, ownerId).size();
+        return new CustomerNotesSummaryResponse(customerId, totalNotes);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomerRemindersSummaryResponse getCustomerRemindersSummary(UUID ownerId, UUID customerId) {
+        validateOwnerAccess(ownerId);
+        getOwnerCustomer(ownerId, customerId);
+        List<Reminder> reminders = reminderRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
+        long pendingReminders = reminders.stream()
+            .filter(r -> r.getStatus() == ReminderStatus.PENDING)
+            .count();
+        return new CustomerRemindersSummaryResponse(customerId, (long) reminders.size(), pendingReminders);
     }
     
     private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
@@ -732,6 +741,43 @@ public class CustomerService implements ICustomerService {
         public double getDistance() {
             return distance;
         }
+    }
+
+    private Customer updateCustomerInternal(Customer customer, CustomerUpdateRequest request) {
+        UUID ownerId = customer.getOwnerId();
+        
+        if (request.getName() != null && !request.getName().trim().isEmpty()) {
+            customer.setName(request.getName());
+        }
+        if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
+            String normalizedPhone = PhoneUtil.normalizePhone(request.getPhone());
+            customer.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
+            customer.setPhoneNormalized(normalizedPhone);
+        }
+        
+        Customer updatedCustomer = customerRepository.save(customer);
+        
+        if (ownerId != null) {
+            invalidateAllRelatedCachesOnCustomerChange(ownerId);
+        }
+        
+        return updatedCustomer;
+    }
+
+    private void validateOwnerAccess(UUID ownerId) {
+        UUID currentOwnerId = SecurityUtil.getCurrentUserId();
+        if (ownerId == null || !ownerId.equals(currentOwnerId)) {
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You can only access your own customers");
+        }
+    }
+
+    private Customer getOwnerCustomer(UUID ownerId, UUID customerId) {
+        Customer customer = customerRepository.findById(customerId)
+            .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
+        if (customer.getOwnerId() == null || !customer.getOwnerId().equals(ownerId)) {
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You don't have permission to access this customer");
+        }
+        return customer;
     }
 }
 

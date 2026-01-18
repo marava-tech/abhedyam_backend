@@ -29,11 +29,6 @@ public class LocationDetailsController {
         return ApiResponse.success(locationDetailsService.create(request));
     }
     
-    @GetMapping("/me")
-    public ApiResponse<LocationDetailsResponse> getCurrentUserLocation() {
-        return ApiResponse.success(locationDetailsService.getCurrentUserLocation());
-    }
-    
     @GetMapping("/customers/{customerId}")
     public ApiResponse<LocationDetailsResponse> getCustomerLocation(@PathVariable UUID customerId) {
         LocationDetailsResponse location = locationDetailsService.getCustomerLocation(customerId);
@@ -53,9 +48,9 @@ public class LocationDetailsController {
         return ApiResponse.success(locationDetailsService.getAll());
     }
     
-    @PatchMapping("/me")
-    public ApiResponse<LocationDetailsResponse> update(@Valid @RequestBody LocationDetailsUpdateRequest request) {
-        return ApiResponse.success(locationDetailsService.updateCurrentUserLocation(request));
+    @PatchMapping("/users/{userId}")
+    public ApiResponse<LocationDetailsResponse> update(@PathVariable UUID userId, @Valid @RequestBody LocationDetailsUpdateRequest request) {
+        return ApiResponse.success(locationDetailsService.updateLocationForUser(userId, request));
     }
     
     @PatchMapping("/customers/{customerId}")

@@ -5,10 +5,13 @@ import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.repository.UserRepository;
 import com.abhedyam.util.EmailUtil;
+import com.abhedyam.constants.CacheKeys;
+import com.abhedyam.constants.ErrorCodes;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Set;
@@ -20,21 +23,12 @@ import java.util.UUID;
 @Slf4j
 public class CacheController {
     
-    private static final String SECURITY_KEY = "Madhu7814";
+    @Value("${app.cache.invalidate.key:}")
+    private String securityKey;
     
     private final RedisTemplate<String, String> redisTemplate;
     private final UserRepository userRepository;
     
-    private static final String CUSTOMERS_CACHE_PREFIX = "customers:my:";
-    private static final String CUSTOMER_SUMMARY_CACHE_PREFIX = "customers:summary:";
-    private static final String CUSTOMER_MY_SUMMARY_CACHE_PREFIX = "customers:my-summary:";
-    private static final String PRODUCTS_CACHE_PREFIX = "products:owner:";
-    private static final String PRODUCTS_WITH_STOCK_CACHE_PREFIX = "products:with-stock:";
-    private static final String PAYMENTS_MY_CACHE_PREFIX = "payments:my:";
-    private static final String DASHBOARD_STATS_CACHE_PREFIX = "stats:dashboard:";
-    private static final String STATS_CACHE_PREFIX = "stats:daily:";
-    private static final String VILLAGES_CACHE_PREFIX = "villages:";
-    private static final String INVENTORY_CACHE_PREFIX = "inventory:owner:";
     
     @PostMapping("/invalidate")
     @ResponseStatus(HttpStatus.OK)
@@ -42,13 +36,13 @@ public class CacheController {
             @RequestParam("email") String email,
             @RequestParam("key") String key) {
         
-        if (key == null || !key.equals(SECURITY_KEY)) {
-            throw new BusinessException("UNAUTHORIZED", "Invalid or missing key");
+        if (key == null || securityKey == null || securityKey.isEmpty() || !key.equals(securityKey)) {
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "Invalid or missing key");
         }
         
         String normalizedEmail = EmailUtil.normalizeEmail(email);
         if (!EmailUtil.isValidEmail(normalizedEmail)) {
-            throw new BusinessException("INVALID_EMAIL", "Invalid email format");
+            throw new BusinessException(ErrorCodes.INVALID_EMAIL, "Invalid email format");
         }
         
         UUID ownerId = userRepository.findByEmail(normalizedEmail)
@@ -70,15 +64,15 @@ public class CacheController {
         int totalInvalidated = 0;
         
         String[] cachePrefixes = {
-            CUSTOMERS_CACHE_PREFIX + ownerId + ":*",
-            CUSTOMER_SUMMARY_CACHE_PREFIX + ownerId + ":*",
-            PRODUCTS_CACHE_PREFIX + ownerId,
-            PRODUCTS_WITH_STOCK_CACHE_PREFIX + ownerId,
-            PAYMENTS_MY_CACHE_PREFIX + ownerId + ":*",
-            DASHBOARD_STATS_CACHE_PREFIX + ownerId,
-            STATS_CACHE_PREFIX + ownerId + ":*",
-            VILLAGES_CACHE_PREFIX + ownerId + ":*",
-            INVENTORY_CACHE_PREFIX + ownerId
+            CacheKeys.CUSTOMERS_MY_PREFIX + ownerId + ":*",
+            CacheKeys.CUSTOMER_SUMMARY_PREFIX + ownerId + ":*",
+            CacheKeys.PRODUCTS_OWNER_PREFIX + ownerId,
+            CacheKeys.PRODUCTS_WITH_STOCK_PREFIX + ownerId,
+            CacheKeys.PAYMENTS_MY_PREFIX + ownerId + ":*",
+            CacheKeys.DASHBOARD_STATS_PREFIX + ownerId,
+            CacheKeys.STATS_DAILY_PREFIX + ownerId + ":*",
+            CacheKeys.VILLAGES_PREFIX + ownerId + ":*",
+            CacheKeys.INVENTORY_OWNER_PREFIX + ownerId
         };
         
         for (String pattern : cachePrefixes) {
@@ -95,7 +89,7 @@ public class CacheController {
         }
         
         try {
-            Set<String> customerSummaryKeys = redisTemplate.keys(CUSTOMER_MY_SUMMARY_CACHE_PREFIX + "*");
+            Set<String> customerSummaryKeys = redisTemplate.keys(CacheKeys.CUSTOMER_MY_SUMMARY_PREFIX + "*");
             if (customerSummaryKeys != null && !customerSummaryKeys.isEmpty()) {
                 redisTemplate.delete(customerSummaryKeys);
                 totalInvalidated += customerSummaryKeys.size();

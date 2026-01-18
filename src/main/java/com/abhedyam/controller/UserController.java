@@ -36,9 +36,9 @@ public class UserController {
         return ApiResponse.success(userService.getAll());
     }
     
-    @PatchMapping("/me")
-    public ApiResponse<UserResponse> updateCurrentUser(@Valid @RequestBody UserUpdateRequest request) {
-        return ApiResponse.success(userService.updateCurrentUser(request));
+    @PatchMapping("/{id}")
+    public ApiResponse<UserResponse> updateUser(@PathVariable UUID id, @Valid @RequestBody UserUpdateRequest request) {
+        return ApiResponse.success(userService.updateUserForId(id, request));
     }
 }
 

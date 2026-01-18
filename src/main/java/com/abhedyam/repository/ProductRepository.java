@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,5 +34,12 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     
     @Query("SELECT p FROM Product p WHERE p.id IN :productIds")
     List<Product> findByIdIn(@Param("productIds") List<UUID> productIds);
+    
+    @Query("SELECT p FROM Product p WHERE p.ownerId = :ownerId " +
+           "AND LOWER(TRIM(p.name)) = LOWER(TRIM(:name)) " +
+           "AND p.price = :price")
+    Optional<Product> findByOwnerIdAndNameAndPrice(@Param("ownerId") UUID ownerId,
+                                                    @Param("name") String name,
+                                                    @Param("price") BigDecimal price);
 }
 

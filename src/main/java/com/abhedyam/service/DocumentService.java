@@ -12,8 +12,8 @@ import com.abhedyam.model.enums.UserType;
 import com.abhedyam.repository.DocumentRepository;
 import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.IDocumentService;
-import com.abhedyam.service.interfaces.ISubscriptionService;
 import com.abhedyam.util.SecurityUtil;
+import com.abhedyam.constants.ErrorCodes;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,14 +30,11 @@ public class DocumentService implements IDocumentService {
     
     private final DocumentRepository documentRepository;
     private final UserRepository userRepository;
-    private final ISubscriptionService subscriptionService;
     
     @Override
     @Transactional
     public DocumentResponse create(DocumentCreateRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        
-        subscriptionService.ensureProSubscription(ownerId);
         
         List<Document> existingDocuments = documentRepository.findActiveDocumentsByOwnerId(ownerId);
         int maxOrderIndex = existingDocuments.stream()
@@ -96,10 +93,10 @@ public class DocumentService implements IDocumentService {
         
         for (DocumentOrderItem item : request.getDocuments()) {
             Document document = documentRepository.findById(item.getDocumentId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + item.getDocumentId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Document could not be found"));
             
             if (!document.getOwnerId().equals(ownerId)) {
-                throw new BusinessException("UNAUTHORIZED", "You don't have access to document with id: " + item.getDocumentId());
+                throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You don't have permission to access this document");
             }
             
             document.setOrderIndex(item.getOrderIndex());
@@ -116,10 +113,10 @@ public class DocumentService implements IDocumentService {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
         Document document = documentRepository.findById(documentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + documentId));
+                .orElseThrow(() -> new ResourceNotFoundException("Document could not be found"));
         
         if (!document.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this document");
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You don't have permission to access this document");
         }
         
         document.setIsActive(false);

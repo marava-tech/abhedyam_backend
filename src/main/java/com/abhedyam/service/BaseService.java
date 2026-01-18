@@ -23,7 +23,7 @@ public abstract class BaseService {
         
         if (entityOwnerId == null || !entityOwnerId.equals(currentOwnerId)) {
             throw new BusinessException("UNAUTHORIZED", 
-                "You don't have access to this " + entityName.toLowerCase());
+                "You don't have permission to access this " + entityName.toLowerCase());
         }
         
         return entity;

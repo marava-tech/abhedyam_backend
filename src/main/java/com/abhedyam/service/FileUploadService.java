@@ -56,7 +56,7 @@ public class FileUploadService implements IFileUploadService {
             return new FileUploadResponse(url, publicId);
         } catch (IOException e) {
             log.error("Error uploading file to Cloudinary", e);
-            throw new BusinessException("UPLOAD_FAILED", "Failed to upload file: " + e.getMessage());
+            throw new BusinessException("UPLOAD_FAILED", "Unable to upload file. Please try again");
         }
     }
     

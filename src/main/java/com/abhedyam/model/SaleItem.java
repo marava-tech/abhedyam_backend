@@ -12,7 +12,12 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "sale_items")
+@Table(name = "sale_items", indexes = {
+    @Index(name = "idx_sale_items_owner_id", columnList = "owner_id"),
+    @Index(name = "idx_sale_items_customer_id", columnList = "customer_id"),
+    @Index(name = "idx_sale_items_transaction_id", columnList = "transaction_id"),
+    @Index(name = "idx_sale_items_created_at", columnList = "created_at")
+})
 @Getter
 @Setter
 public class SaleItem extends BaseEntity {

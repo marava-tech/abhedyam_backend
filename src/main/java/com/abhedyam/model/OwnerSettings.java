@@ -23,9 +23,6 @@ public class OwnerSettings extends BaseEntity {
     private Boolean dailyQuoteEnabled = true;
     
     @Column(nullable = false)
-    private Boolean callLogSyncEnabled = true;
-    
-    @Column(nullable = false)
     private Boolean isDarkModeEnabled = false;
     
     @JdbcTypeCode(SqlTypes.JSON)

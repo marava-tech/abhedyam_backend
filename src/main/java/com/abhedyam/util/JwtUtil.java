@@ -90,6 +90,7 @@ public class JwtUtil {
     
     public Boolean validateToken(String token) {
         try {
+            getAllClaimsFromToken(token);
             return !isTokenExpired(token);
         } catch (Exception e) {
             return false;

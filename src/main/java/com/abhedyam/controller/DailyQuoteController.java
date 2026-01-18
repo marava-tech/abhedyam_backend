@@ -35,11 +35,6 @@ public class DailyQuoteController {
         return ApiResponse.success(dailyQuoteService.getAll());
     }
     
-    @GetMapping("/active")
-    public ApiResponse<List<DailyQuote>> getActiveQuotes() {
-        return ApiResponse.success(dailyQuoteService.getActiveQuotes());
-    }
-    
     @GetMapping("/today")
     public ApiResponse<DailyQuote> getTodaysQuote() {
         return ApiResponse.success(dailyQuoteService.getTodaysQuote());

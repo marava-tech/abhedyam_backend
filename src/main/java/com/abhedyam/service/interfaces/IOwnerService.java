@@ -16,6 +16,7 @@ public interface IOwnerService {
     OwnerDetailsResponse getOwnerDetails(UUID id);
     List<OwnerResponse> getAll();
     OwnerResponse updateCurrentOwner(OwnerUpdateRequest request);
+    OwnerResponse updateOwnerForOwner(UUID ownerId, OwnerUpdateRequest request);
     List<OwnerPublicResponse> getAllPublic(BigDecimal latitude, BigDecimal longitude);
 }
 

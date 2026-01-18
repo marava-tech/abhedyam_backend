@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +25,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Tag(name = "Subscriptions", description = "API for managing subscription plans")
 public class SubscriptionController {
+    
+    @Value("${app.subscription.admin-key:}")
+    private String adminKey;
     
     private final ISubscriptionService subscriptionService;
     
@@ -63,9 +67,9 @@ public class SubscriptionController {
     }
     
     @PostMapping("/subscription/test/activate-pro")
-    @Operation(summary = "Activate PRO plan for testing (Admin)", description = "Manually activates PRO subscription for a specific owner. Requires admin key.")
+    @Operation(summary = "Activate PRO plan for testing", description = "Manually activates PRO subscription for a specific owner. Requires security key. Any authenticated owner can use this endpoint with the correct key.")
     public ApiResponse<Void> activateProPlanForTesting(@Valid @RequestBody AdminSubscriptionUpdateRequest request) {
-        if (!"Madhu7814".equals(request.getAdminKey())) {
+        if (adminKey == null || adminKey.isEmpty() || !adminKey.equals(request.getAdminKey())) {
             throw new BusinessException("UNAUTHORIZED", "Invalid admin key");
         }
         subscriptionService.activateProPlanForTesting(request.getOwnerId());
@@ -73,9 +77,9 @@ public class SubscriptionController {
     }
     
     @PostMapping("/subscription/test/downgrade-go")
-    @Operation(summary = "Downgrade to GO plan for testing (Admin)", description = "Manually downgrades subscription from PRO to GO for a specific owner. Requires admin key.")
+    @Operation(summary = "Downgrade to GO plan for testing", description = "Manually downgrades subscription from PRO to GO for a specific owner. Requires security key. Any authenticated owner can use this endpoint with the correct key.")
     public ApiResponse<Void> downgradeToGoForTesting(@Valid @RequestBody AdminSubscriptionUpdateRequest request) {
-        if (!"Madhu7814".equals(request.getAdminKey())) {
+        if (adminKey == null || adminKey.isEmpty() || !adminKey.equals(request.getAdminKey())) {
             throw new BusinessException("UNAUTHORIZED", "Invalid admin key");
         }
         subscriptionService.downgradeToGoForTesting(request.getOwnerId());

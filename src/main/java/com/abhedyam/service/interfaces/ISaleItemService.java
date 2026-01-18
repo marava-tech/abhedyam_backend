@@ -12,6 +12,7 @@ public interface ISaleItemService {
     List<SaleItem> getAll();
     List<SaleItem> getByOwnerId(UUID ownerId);
     List<SaleItemResponse> getByCustomerId(UUID customerId);
+    List<SaleItemResponse> getByCustomerIdForOwner(UUID ownerId, UUID customerId, boolean expandProduct);
     List<SaleItem> getByTransactionId(String transactionId);
     SaleItem update(UUID id, SaleItem saleItemDetails);
 }

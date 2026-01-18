@@ -35,7 +35,7 @@ public class GoogleOAuthService {
         } catch (Exception e) {
             log.error("Error verifying Google token via Firebase", e);
             throw new com.abhedyam.exception.BusinessException("GOOGLE_TOKEN_VERIFICATION_FAILED", 
-                "Failed to verify Google ID token: " + e.getMessage());
+                "Unable to verify Google account. Please try again");
         }
     }
     

@@ -61,24 +61,16 @@ public class LocationDetailsService implements ILocationDetailsService {
         return toResponse(saved);
     }
     
-    @Transactional
-    public LocationDetailsResponse getCurrentUserLocation() {
-        UUID userId = SecurityUtil.getCurrentUserId();
-        LocationDetails location = locationDetailsRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("LocationDetails not found for current user"));
-        return toResponse(location);
-    }
-    
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public LocationDetailsResponse getCustomerLocation(UUID customerId) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
         Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
         
         if (customer.getOwnerId() == null || !customer.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer");
+            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this customer");
         }
         
         LocationDetails location = locationDetailsRepository.findByUserId(customerId).orElse(null);
@@ -106,7 +98,7 @@ public class LocationDetailsService implements ILocationDetailsService {
         
         if (currentUser.getType() == UserType.BUSINESS) {
             User targetUser = userRepository.findById(userId)
-                    .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+                    .orElseThrow(() -> new ResourceNotFoundException("User could not be found"));
             
             if (targetUser.getType() == UserType.CUSTOMER) {
                 Customer customer = customerRepository.findById(userId)
@@ -120,7 +112,7 @@ public class LocationDetailsService implements ILocationDetailsService {
             }
         }
         
-        throw new BusinessException("UNAUTHORIZED", "You don't have access to this user's location");
+        throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this user's location");
     }
     
     public List<LocationDetailsResponse> getAll() {
@@ -245,6 +237,16 @@ public class LocationDetailsService implements ILocationDetailsService {
         LocationDetails saved = locationDetailsRepository.save(location);
         return toResponse(saved);
     }
+
+    @Override
+    @Transactional
+    public LocationDetailsResponse updateLocationForUser(UUID userId, LocationDetailsUpdateRequest request) {
+        UUID currentUserId = SecurityUtil.getCurrentUserId();
+        if (userId.equals(currentUserId)) {
+            return updateCurrentUserLocation(request);
+        }
+        return updateCustomerLocation(userId, request);
+    }
     
     @Override
     @Transactional
@@ -252,10 +254,10 @@ public class LocationDetailsService implements ILocationDetailsService {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         
         Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
         
         if (customer.getOwnerId() == null || !customer.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have access to this customer");
+            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this customer");
         }
         
         LocationDetails location = locationDetailsRepository.findByUserId(customerId).orElse(null);

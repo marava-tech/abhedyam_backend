@@ -11,9 +11,6 @@ public class OwnerSettingsUpdateRequest {
     @Schema(description = "Daily quote enabled", example = "true")
     private Boolean dailyQuoteEnabled;
     
-    @Schema(description = "Call log sync enabled", example = "true")
-    private Boolean callLogSyncEnabled;
-    
     @Schema(description = "Dark mode enabled", example = "false")
     private Boolean isDarkModeEnabled;
     
