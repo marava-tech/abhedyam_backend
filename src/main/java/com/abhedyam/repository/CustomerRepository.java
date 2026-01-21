@@ -57,5 +57,8 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
     
     @Query("SELECT c FROM Customer c WHERE c.id IN :customerIds")
     List<Customer> findByIdIn(@Param("customerIds") List<UUID> customerIds);
+    
+    @Query("SELECT COUNT(c) FROM Customer c WHERE c.ownerId = :ownerId")
+    long countByOwnerId(@Param("ownerId") UUID ownerId);
 }
 

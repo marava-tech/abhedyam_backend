@@ -44,6 +44,12 @@ public class OpenApiConfig {
                         .type(SecurityScheme.Type.HTTP)
                         .scheme("bearer")
                         .bearerFormat("JWT")
-                        .description("JWT token obtained from /auth/otp/verify endpoint")));
+                        .description("JWT token obtained from /auth/otp/verify endpoint"))
+                .addSecuritySchemes("AdminKey",
+                    new SecurityScheme()
+                        .type(SecurityScheme.Type.APIKEY)
+                        .in(SecurityScheme.In.HEADER)
+                        .name("X-Admin-Key")
+                        .description("Admin key in format: {prefix}{date}{month} (e.g., Madhu78141901)")));
     }
 }

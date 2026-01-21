@@ -53,5 +53,13 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     @Query("SELECT p FROM Payment p WHERE p.customerId IN :customerIds AND p.ownerId = :ownerId")
     List<Payment> findByCustomerIdInAndOwnerId(@Param("customerIds") List<UUID> customerIds,
                                                 @Param("ownerId") UUID ownerId);
+    
+    @Query("SELECT COUNT(p) FROM Payment p WHERE p.ownerId = :ownerId " +
+           "AND p.status = 'SUCCESS' " +
+           "AND (:startDate IS NULL OR p.createdAt >= :startDate) " +
+           "AND (:endDate IS NULL OR p.createdAt <= :endDate)")
+    long countSuccessfulPaymentsByOwnerIdAndDateRange(@Param("ownerId") UUID ownerId,
+                                                       @Param("startDate") java.time.Instant startDate,
+                                                       @Param("endDate") java.time.Instant endDate);
 }
 

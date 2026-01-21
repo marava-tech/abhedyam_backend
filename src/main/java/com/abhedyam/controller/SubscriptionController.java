@@ -1,19 +1,16 @@
 package com.abhedyam.controller;
 
-import com.abhedyam.dto.AdminSubscriptionUpdateRequest;
 import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.PaymentVerifyRequest;
 import com.abhedyam.dto.SubscriptionCreateRequest;
 import com.abhedyam.dto.SubscriptionCreateResponse;
 import com.abhedyam.dto.SubscriptionDetailsResponse;
 import com.abhedyam.dto.SubscriptionStatusResponse;
-import com.abhedyam.exception.BusinessException;
 import com.abhedyam.service.interfaces.ISubscriptionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -25,9 +22,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Tag(name = "Subscriptions", description = "API for managing subscription plans")
 public class SubscriptionController {
-    
-    @Value("${app.subscription.admin-key:}")
-    private String adminKey;
     
     private final ISubscriptionService subscriptionService;
     
@@ -66,24 +60,5 @@ public class SubscriptionController {
         return ApiResponse.success(subscriptionService.getSubscriptionDetailsByOwnerId(ownerId));
     }
     
-    @PostMapping("/subscription/test/activate-pro")
-    @Operation(summary = "Activate PRO plan for testing", description = "Manually activates PRO subscription for a specific owner. Requires security key. Any authenticated owner can use this endpoint with the correct key.")
-    public ApiResponse<Void> activateProPlanForTesting(@Valid @RequestBody AdminSubscriptionUpdateRequest request) {
-        if (adminKey == null || adminKey.isEmpty() || !adminKey.equals(request.getAdminKey())) {
-            throw new BusinessException("UNAUTHORIZED", "Invalid admin key");
-        }
-        subscriptionService.activateProPlanForTesting(request.getOwnerId());
-        return ApiResponse.success(null);
-    }
-    
-    @PostMapping("/subscription/test/downgrade-go")
-    @Operation(summary = "Downgrade to GO plan for testing", description = "Manually downgrades subscription from PRO to GO for a specific owner. Requires security key. Any authenticated owner can use this endpoint with the correct key.")
-    public ApiResponse<Void> downgradeToGoForTesting(@Valid @RequestBody AdminSubscriptionUpdateRequest request) {
-        if (adminKey == null || adminKey.isEmpty() || !adminKey.equals(request.getAdminKey())) {
-            throw new BusinessException("UNAUTHORIZED", "Invalid admin key");
-        }
-        subscriptionService.downgradeToGoForTesting(request.getOwnerId());
-        return ApiResponse.success(null);
-    }
 }
 

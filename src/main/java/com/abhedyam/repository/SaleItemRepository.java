@@ -37,5 +37,12 @@ public interface SaleItemRepository extends JpaRepository<SaleItem, UUID> {
     @Query("SELECT s FROM SaleItem s WHERE s.customerId IN :customerIds AND s.ownerId = :ownerId")
     List<SaleItem> findByCustomerIdAndOwnerIdIn(@Param("customerIds") List<UUID> customerIds,
                                                   @Param("ownerId") UUID ownerId);
+    
+    @Query("SELECT COUNT(DISTINCT s.transactionId) FROM SaleItem s WHERE s.ownerId = :ownerId " +
+           "AND (:startDate IS NULL OR s.createdAt >= :startDate) " +
+           "AND (:endDate IS NULL OR s.createdAt <= :endDate)")
+    long countDistinctSalesByOwnerIdAndDateRange(@Param("ownerId") UUID ownerId,
+                                                  @Param("startDate") java.time.Instant startDate,
+                                                  @Param("endDate") java.time.Instant endDate);
 }
 

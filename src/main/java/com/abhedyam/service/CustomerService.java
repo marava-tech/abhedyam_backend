@@ -684,7 +684,12 @@ public class CustomerService implements ICustomerService {
         BigDecimal totalPaid = payments.stream()
             .map(Payment::getAmount)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new CustomerPaymentsSummaryResponse(customerId, (long) payments.size(), totalPaid);
+        List<SaleItem> saleItems = saleItemRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
+        BigDecimal totalAmount = saleItems.stream()
+            .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal dueAmount = totalAmount.subtract(totalPaid);
+        return new CustomerPaymentsSummaryResponse(customerId, (long) payments.size(), totalPaid, totalAmount, dueAmount);
     }
 
     @Override
