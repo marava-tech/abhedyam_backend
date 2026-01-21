@@ -14,6 +14,8 @@ public class CustomerPaymentsSummaryResponse {
     private UUID customerId;
     private Long totalPayments;
     private BigDecimal totalPaid;
+    private BigDecimal totalAmount;
+    private BigDecimal dueAmount;
 }
 
 

@@ -19,8 +19,6 @@ import com.abhedyam.repository.LocationDetailsRepository;
 import com.abhedyam.repository.UserRepository;
 import com.abhedyam.service.interfaces.ILocationDetailsService;
 import com.abhedyam.util.SecurityUtil;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -29,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -41,10 +38,8 @@ public class LocationDetailsService implements ILocationDetailsService {
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
     private final RedisTemplate<String, String> redisTemplate;
-    private final ObjectMapper objectMapper;
     
     private static final String VILLAGES_CACHE_PREFIX = "villages:";
-    private static final int CACHE_TTL_MINUTES = 5;
     
     @Transactional
     public LocationDetailsResponse create(LocationDetailsCreateRequest request) {
@@ -135,21 +130,6 @@ public class LocationDetailsService implements ILocationDetailsService {
     @Transactional(readOnly = true)
     public List<VillageResponse> getAllVillages() {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        String cacheKey = VILLAGES_CACHE_PREFIX + ownerId + ":all";
-        
-        try {
-            String cached = redisTemplate.opsForValue().get(cacheKey);
-            if (cached != null) {
-                List<VillageResponse> cachedResponse = objectMapper.readValue(
-                    cached,
-                    new TypeReference<List<VillageResponse>>() {}
-                );
-                log.debug("Returning cached villages for owner {}", ownerId);
-                return cachedResponse;
-            }
-        } catch (Exception e) {
-            log.warn("Error reading from cache for key: {}", cacheKey, e);
-        }
         
         List<Object[]> results = locationDetailsRepository.findVillagesWithCustomerCountByOwnerId(ownerId);
         List<VillageResponse> villages = results.stream()
@@ -159,14 +139,6 @@ public class LocationDetailsService implements ILocationDetailsService {
                 return new VillageResponse(village, customerCount);
             })
             .toList();
-        
-        try {
-            String jsonResponse = objectMapper.writeValueAsString(villages);
-            redisTemplate.opsForValue().set(cacheKey, jsonResponse, CACHE_TTL_MINUTES, TimeUnit.MINUTES);
-            log.debug("Cached villages for owner {}", ownerId);
-        } catch (Exception e) {
-            log.warn("Error caching villages for key: {}", cacheKey, e);
-        }
         
         return villages;
     }
@@ -181,22 +153,6 @@ public class LocationDetailsService implements ILocationDetailsService {
             return getAllVillages();
         }
         
-        String cacheKey = VILLAGES_CACHE_PREFIX + ownerId + ":search:" + normalizedName;
-        
-        try {
-            String cached = redisTemplate.opsForValue().get(cacheKey);
-            if (cached != null) {
-                List<VillageResponse> cachedResponse = objectMapper.readValue(
-                    cached,
-                    new TypeReference<List<VillageResponse>>() {}
-                );
-                log.debug("Returning cached village search for owner {} name {}", ownerId, normalizedName);
-                return cachedResponse;
-            }
-        } catch (Exception e) {
-            log.warn("Error reading from cache for key: {}", cacheKey, e);
-        }
-        
         List<Object[]> results = locationDetailsRepository.findVillagesWithCustomerCountByNameContainingIgnoreCaseAndOwnerId(
             normalizedName, ownerId);
         List<VillageResponse> villages = results.stream()
@@ -206,14 +162,6 @@ public class LocationDetailsService implements ILocationDetailsService {
                 return new VillageResponse(village, customerCount);
             })
             .toList();
-        
-        try {
-            String jsonResponse = objectMapper.writeValueAsString(villages);
-            redisTemplate.opsForValue().set(cacheKey, jsonResponse, CACHE_TTL_MINUTES, TimeUnit.MINUTES);
-            log.debug("Cached village search for owner {} name {}", ownerId, normalizedName);
-        } catch (Exception e) {
-            log.warn("Error caching village search for key: {}", cacheKey, e);
-        }
         
         return villages;
     }

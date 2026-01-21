@@ -1,0 +1,135 @@
+spring:
+  application:
+    name: abhedyam-backend
+
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 15MB
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/abhedyam?createDatabaseIfNotExist=true&serverTimezone=Asia/Kolkata
+    username: madhu
+    password: REDACTED_DB_PASSWORD
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+  jackson:
+    time-zone: Asia/Kolkata
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+    database-platform: org.hibernate.dialect.MySQLDialect
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+        jdbc:
+          use_get_generated_keys: true
+          time_zone: Asia/Kolkata
+        id:
+          new_generator_mappings: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: 
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 2000ms
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: marava.technologies@gmail.com
+    password: 
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          ssl:
+            trust: smtp.gmail.com
+
+server:
+  port: 8081
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui
+    operations-sorter: method
+    tags-sorter: alpha
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+app:
+  jwt:
+    secret: REDACTED_JWT_SECRET
+    expiration: 1296000000
+    customer-expiration: 2592000000
+  twofactor:
+    api-key: 
+    otp-template: Abhedyam_OTP_Template
+  firebase:
+    credentials: 
+  email:
+    enabled: true
+    from: marava.technologies@gmail.com
+    host: smtp.gmail.com
+    port: 587
+    username: marava.technologies@gmail.com
+    password: 
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  razorpay:
+    key-id: REDACTED_RAZORPAY_KEY_ID
+    key-secret: REDACTED_RAZORPAY_SECRET
+    custom-payment-page-url: 
+  features:
+    global:
+      dailyQuote: true
+  cors:
+    allowed-origins: http://localhost:3000,http://localhost:4000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080,https://abhedyam-dashboard.marava.tech
+  cache:
+    invalidate:
+      key: REDACTED_ADMIN_KEY
+  subscription:
+    admin-key: REDACTED_ADMIN_KEY
+  admin:
+    key-prefix: REDACTED_ADMIN_KEY
+  cloudinary:
+    cloud-name: dhssmiyoc
+    api-key: REDACTED_CLOUDINARY_KEY
+    api-secret: REDACTED_CLOUDINARY_SECRET
+

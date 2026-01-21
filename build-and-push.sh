@@ -6,11 +6,11 @@
 
 set -e
 
-DOCKER_USERNAME="madhukinnera"
+DOCKER_USERNAME="maravatechnologies"
 IMAGE_NAME="abhedyam"
 
 echo "🐳 Building and pushing Docker image..."
-echo "📦 Image: $DOCKER_USERNAME/$IMAGE_NAME:linux-amd64"
+echo "📦 Image: $DOCKER_USERNAME/abhedyam-backend:latest"
 
 # Check if JAR exists
 JAR_FILE=$(ls target/abhedyam-backend-*.jar 2>/dev/null | head -n 1)
@@ -30,13 +30,11 @@ fi
 
 echo "✅ Docker Hub authentication confirmed"
 
-# Build and push
-echo "🐧 Building Linux AMD64 image..."
-docker buildx build \
-    --platform linux/amd64 \
-    --tag $DOCKER_USERNAME/$IMAGE_NAME:linux-amd64 \
-    --push \
-    .
+echo "🐧 Building Docker image for linux/amd64..."
+docker build --platform linux/amd64 -t $DOCKER_USERNAME/abhedyam-backend:latest .
+
+echo "📤 Pushing to Docker Hub..."
+docker push $DOCKER_USERNAME/abhedyam-backend:latest
 
 echo "✅ Successfully built and pushed image!"
-echo "🎉 Image available at: $DOCKER_USERNAME/$IMAGE_NAME:linux-amd64"
+echo "🎉 Image available at: $DOCKER_USERNAME/abhedyam-backend:latest"
