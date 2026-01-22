@@ -9,6 +9,7 @@ import com.abhedyam.dto.CustomerRemindersSummaryResponse;
 import com.abhedyam.dto.CustomerSalesSummaryResponse;
 import com.abhedyam.dto.CustomerSearchRequest;
 import com.abhedyam.dto.CustomerSearchResult;
+import com.abhedyam.dto.CustomerSummaryResponse;
 import com.abhedyam.dto.CustomerUpdateRequest;
 import com.abhedyam.dto.NearestCustomerRequest;
 import com.abhedyam.dto.NearestCustomerResponse;
@@ -783,6 +784,53 @@ public class CustomerService implements ICustomerService {
             throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You don't have permission to access this customer");
         }
         return customer;
+    }
+
+    @Transactional(readOnly = true)
+    public CustomerSummaryResponse getMySummary() {
+        UUID customerId = SecurityUtil.getCurrentUserId();
+        Customer customer = customerRepository.findById(customerId)
+            .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
+        
+        UUID ownerId = customer.getOwnerId();
+        if (ownerId == null) {
+            return new CustomerSummaryResponse(
+                customer.getId(),
+                customer.getName(),
+                customer.getPhone(),
+                customer.getImageUrl(),
+                0L,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO
+            );
+        }
+        
+        List<SaleItem> saleItems = saleItemRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
+        long totalSales = saleItems.size();
+        BigDecimal totalAmount = saleItems.stream()
+            .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        List<Payment> payments = paymentRepository.findByCustomerIdAndOwnerId(customerId, ownerId).stream()
+            .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+            .toList();
+        BigDecimal totalPaid = payments.stream()
+            .map(Payment::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        BigDecimal totalDue = totalAmount.subtract(totalPaid);
+        
+        return new CustomerSummaryResponse(
+            customer.getId(),
+            customer.getName(),
+            customer.getPhone(),
+            customer.getImageUrl(),
+            totalSales,
+            totalAmount,
+            totalPaid,
+            totalDue
+        );
     }
 }
 
