@@ -10,6 +10,7 @@ import com.abhedyam.dto.CustomerSalesSummaryResponse;
 import com.abhedyam.dto.CustomerPaymentsSummaryResponse;
 import com.abhedyam.dto.CustomerNotesSummaryResponse;
 import com.abhedyam.dto.CustomerRemindersSummaryResponse;
+import com.abhedyam.dto.CustomerSummaryResponse;
 import com.abhedyam.dto.NearestCustomerRequest;
 import com.abhedyam.dto.NearestCustomerResponse;
 import com.abhedyam.dto.PageResponse;
@@ -36,5 +37,6 @@ public interface ICustomerService {
     Customer updateCustomerForOwner(UUID ownerId, CustomerUpdateRequest request);
     NearestCustomerResponse findNearestCustomer(NearestCustomerRequest request);
     void invalidateCustomerSummaryCache(UUID ownerId, UUID customerId);
+    CustomerSummaryResponse getMySummary();
 }
 
