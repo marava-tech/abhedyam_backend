@@ -26,65 +26,55 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class SaleItemService implements ISaleItemService {
-    
+
     private final SaleItemRepository saleItemRepository;
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
-    
-    public SaleItem create(SaleItem saleItem) {
-        return saleItemRepository.save(saleItem);
-    }
-    
+
     public SaleItem getById(UUID id) {
         return saleItemRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Sale item could not be found"));
     }
-    
-    public List<SaleItem> getAll() {
-        return saleItemRepository.findAll();
-    }
-    
-    public List<SaleItem> getByOwnerId(UUID ownerId) {
-        return saleItemRepository.findByOwnerId(ownerId);
-    }
-    
+
     @Transactional(readOnly = true)
     public List<SaleItemResponse> getByCustomerId(UUID customerId) {
         UUID currentUserId = SecurityUtil.getCurrentUserId();
-        
+
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
-        
+
         UUID ownerId = customer.getOwnerId();
-        
+
         // Allow access if:
         // 1. Current user is the customer themselves
         // 2. Current user is the owner of this customer
         boolean hasAccess = false;
-        
+
         if (currentUserId.equals(customerId)) {
             hasAccess = true;
         } else if (ownerId != null) {
             User currentUser = userRepository.findById(currentUserId)
                     .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
-            
+
             if (currentUser.getType() == UserType.BUSINESS && ownerId.equals(currentUserId)) {
                 hasAccess = true;
             }
         }
-        
+
         if (!hasAccess) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this customer's sale items");
+            throw new BusinessException("UNAUTHORIZED",
+                    "You don't have permission to access this customer's sale items");
         }
-        
-        // If customer is accessing, use their ownerId; if owner is accessing, use currentUserId
+
+        // If customer is accessing, use their ownerId; if owner is accessing, use
+        // currentUserId
         UUID filterOwnerId = currentUserId.equals(customerId) ? ownerId : currentUserId;
-        
-        List<SaleItem> saleItems = filterOwnerId == null 
-            ? List.of() 
-            : saleItemRepository.findByCustomerIdAndOwnerId(customerId, filterOwnerId);
-        
+
+        List<SaleItem> saleItems = filterOwnerId == null
+                ? List.of()
+                : saleItemRepository.findByCustomerIdAndOwnerId(customerId, filterOwnerId);
+
         return mapSaleItems(saleItems, true);
     }
 
@@ -93,59 +83,51 @@ public class SaleItemService implements ISaleItemService {
     public List<SaleItemResponse> getByCustomerIdForOwner(UUID ownerId, UUID customerId, boolean expandProduct) {
         validateOwnerAccess(ownerId);
         Customer customer = customerRepository.findById(customerId)
-            .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
         if (customer.getOwnerId() == null || !customer.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this customer's sale items");
+            throw new BusinessException("UNAUTHORIZED",
+                    "You don't have permission to access this customer's sale items");
         }
         List<SaleItem> saleItems = saleItemRepository.findByCustomerIdAndOwnerId(customerId, ownerId);
         return mapSaleItems(saleItems, expandProduct);
     }
-    
+
     public List<SaleItem> getByTransactionId(String transactionId) {
         return saleItemRepository.findByTransactionId(transactionId);
-    }
-    
-    @Transactional
-    public SaleItem update(UUID id, SaleItem saleItemDetails) {
-        SaleItem saleItem = getById(id);
-        if (saleItemDetails.getPrice() != null) saleItem.setPrice(saleItemDetails.getPrice());
-        if (saleItemDetails.getDueDate() != null) saleItem.setDueDate(saleItemDetails.getDueDate());
-        if (saleItemDetails.getTransactionId() != null) saleItem.setTransactionId(saleItemDetails.getTransactionId());
-        return saleItemRepository.save(saleItem);
     }
 
     private List<SaleItemResponse> mapSaleItems(List<SaleItem> saleItems, boolean expandProduct) {
         Map<UUID, String> productNameMap = Map.of();
         if (expandProduct && !saleItems.isEmpty()) {
             List<UUID> productIds = saleItems.stream()
-                .map(SaleItem::getProductId)
-                .distinct()
-                .toList();
+                    .map(SaleItem::getProductId)
+                    .distinct()
+                    .toList();
             productNameMap = productRepository.findByIdIn(productIds).stream()
-                .collect(Collectors.toMap(Product::getId, Product::getName, (v1, v2) -> v1));
+                    .collect(Collectors.toMap(Product::getId, Product::getName, (v1, v2) -> v1));
         }
-        
+
         Map<UUID, String> finalProductNameMap = productNameMap;
         return saleItems.stream()
-            .map(item -> {
-                SaleItemResponse response = new SaleItemResponse();
-                response.setId(item.getId());
-                response.setProductId(item.getProductId());
-                response.setProductName(expandProduct ? finalProductNameMap.get(item.getProductId()) : null);
-                response.setCustomerId(item.getCustomerId());
-                response.setOwnerId(item.getOwnerId());
-                response.setPrice(item.getPrice());
-                response.setQuantity(item.getQuantity());
-                response.setRemainingAmount(item.getRemainingAmount());
-                response.setStatus(item.getStatus());
-                response.setDueDate(item.getDueDate());
-                response.setTransactionId(item.getTransactionId());
-                response.setCreatedAt(item.getCreatedAt());
-                response.setUpdatedAt(item.getUpdatedAt());
-                response.setIsActive(item.getIsActive());
-                return response;
-            })
-            .toList();
+                .map(item -> {
+                    SaleItemResponse response = new SaleItemResponse();
+                    response.setId(item.getId());
+                    response.setProductId(item.getProductId());
+                    response.setProductName(expandProduct ? finalProductNameMap.get(item.getProductId()) : null);
+                    response.setCustomerId(item.getCustomerId());
+                    response.setOwnerId(item.getOwnerId());
+                    response.setPrice(item.getPrice());
+                    response.setQuantity(item.getQuantity());
+                    response.setRemainingAmount(item.getRemainingAmount());
+                    response.setStatus(item.getStatus());
+                    response.setDueDate(item.getDueDate());
+                    response.setTransactionId(item.getTransactionId());
+                    response.setCreatedAt(item.getCreatedAt());
+                    response.setUpdatedAt(item.getUpdatedAt());
+                    response.setIsActive(item.getIsActive());
+                    return response;
+                })
+                .toList();
     }
 
     private void validateOwnerAccess(UUID ownerId) {
@@ -155,4 +137,3 @@ public class SaleItemService implements ISaleItemService {
         }
     }
 }
-

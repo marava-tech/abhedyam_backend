@@ -48,6 +48,12 @@ public class SubscriptionController {
         return ApiResponse.success(null);
     }
     
+    @PostMapping("/subscription/trial")
+    @Operation(summary = "Start 45-day free trial", description = "Starts a 45-day PRO trial for the current owner. Eligible only when plan is GO and trial has not been used before.")
+    public ApiResponse<SubscriptionStatusResponse> startTrial() {
+        return ApiResponse.success(subscriptionService.startTrial());
+    }
+
     @GetMapping("/user/subscription")
     @Operation(summary = "Get subscription status", description = "Returns current subscription plan, status, and validity")
     public ApiResponse<SubscriptionStatusResponse> getSubscriptionStatus() {

@@ -21,9 +21,13 @@ import com.abhedyam.service.interfaces.ILocationDetailsService;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.abhedyam.dto.PageResponse;
 
 import java.util.List;
 import java.util.UUID;
@@ -33,14 +37,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class LocationDetailsService implements ILocationDetailsService {
-    
+
     private final LocationDetailsRepository locationDetailsRepository;
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
     private final RedisTemplate<String, String> redisTemplate;
-    
+
     private static final String VILLAGES_CACHE_PREFIX = "villages:";
-    
+
     @Transactional
     public LocationDetailsResponse create(LocationDetailsCreateRequest request) {
         UUID userId = SecurityUtil.getCurrentUserId();
@@ -51,54 +55,54 @@ public class LocationDetailsService implements ILocationDetailsService {
         locationDetails.setLongitude(request.getLongitude());
         locationDetails.setVillage(request.getVillage());
         locationDetails.setAddressText(request.getAddressText());
-        
+
         LocationDetails saved = locationDetailsRepository.save(locationDetails);
         return toResponse(saved);
     }
-    
+
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public LocationDetailsResponse getCustomerLocation(UUID customerId) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        
+
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
-        
+
         if (customer.getOwnerId() == null || !customer.getOwnerId().equals(ownerId)) {
             throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this customer");
         }
-        
+
         LocationDetails location = locationDetailsRepository.findByUserId(customerId).orElse(null);
-        
+
         if (location == null) {
             return null;
         }
-        
+
         return toResponse(location);
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public LocationDetailsResponse getLocationByUserId(UUID userId) {
         UUID currentUserId = SecurityUtil.getCurrentUserId();
-        
+
         if (userId.equals(currentUserId)) {
             LocationDetails location = locationDetailsRepository.findByUserId(userId)
                     .orElseThrow(() -> new ResourceNotFoundException("LocationDetails not found for user"));
             return toResponse(location);
         }
-        
+
         User currentUser = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
-        
+
         if (currentUser.getType() == UserType.BUSINESS) {
             User targetUser = userRepository.findById(userId)
                     .orElseThrow(() -> new ResourceNotFoundException("User could not be found"));
-            
+
             if (targetUser.getType() == UserType.CUSTOMER) {
                 Customer customer = customerRepository.findById(userId)
                         .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
-                
+
                 if (customer.getOwnerId() != null && customer.getOwnerId().equals(currentUserId)) {
                     LocationDetails location = locationDetailsRepository.findByUserId(userId)
                             .orElseThrow(() -> new ResourceNotFoundException("LocationDetails not found for user"));
@@ -106,66 +110,118 @@ public class LocationDetailsService implements ILocationDetailsService {
                 }
             }
         }
-        
+
         throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this user's location");
     }
-    
+
     public List<LocationDetailsResponse> getAll() {
         return locationDetailsRepository.findAll().stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public List<VillageSearchResult> searchVillagesByName(String name) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        List<String> villages = locationDetailsRepository.findDistinctVillagesByNameContainingIgnoreCaseAndOwnerId(name, ownerId);
+        String normalizedName = name != null ? name.trim() : "";
+
+        List<String> villages;
+        if (normalizedName.isEmpty()) {
+            villages = locationDetailsRepository.findDistinctVillagesByOwnerId(ownerId);
+        } else {
+            villages = locationDetailsRepository
+                    .findDistinctVillagesByNameContainingIgnoreCaseAndOwnerId(normalizedName, ownerId);
+        }
+
         return villages.stream()
-            .map(VillageSearchResult::new)
-            .toList();
+                .map(VillageSearchResult::new)
+                .toList();
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public List<VillageResponse> getAllVillages() {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        
+
         List<Object[]> results = locationDetailsRepository.findVillagesWithCustomerCountByOwnerId(ownerId);
         List<VillageResponse> villages = results.stream()
-            .map(result -> {
-                String village = (String) result[0];
-                Long customerCount = ((Number) result[1]).longValue();
-                return new VillageResponse(village, customerCount);
-            })
-            .toList();
-        
+                .map(result -> {
+                    String village = (String) result[0];
+                    Long customerCount = ((Number) result[1]).longValue();
+                    return new VillageResponse(village, customerCount);
+                })
+                .toList();
+
         return villages;
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public List<VillageResponse> searchVillagesByNameWithCount(String name) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         String normalizedName = name != null ? name.trim() : "";
-        
+
         if (normalizedName.isEmpty()) {
             return getAllVillages();
         }
-        
-        List<Object[]> results = locationDetailsRepository.findVillagesWithCustomerCountByNameContainingIgnoreCaseAndOwnerId(
-            normalizedName, ownerId);
+
+        List<Object[]> results = locationDetailsRepository
+                .findVillagesWithCustomerCountByNameContainingIgnoreCaseAndOwnerId(
+                        normalizedName, ownerId);
         List<VillageResponse> villages = results.stream()
-            .map(result -> {
-                String village = (String) result[0];
-                Long customerCount = ((Number) result[1]).longValue();
-                return new VillageResponse(village, customerCount);
-            })
-            .toList();
-        
+                .map(result -> {
+                    String village = (String) result[0];
+                    Long customerCount = ((Number) result[1]).longValue();
+                    return new VillageResponse(village, customerCount);
+                })
+                .toList();
+
         return villages;
     }
-    
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<VillageResponse> getVillagesPaginated(String name, Integer page, Integer size) {
+        UUID ownerId = SecurityUtil.getCurrentUserId();
+
+        if (page == null || page < 0) {
+            page = 0;
+        }
+        if (size == null || size < 1) {
+            size = 20;
+        }
+
+        String normalizedName = name != null ? name.trim() : "";
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<Object[]> villagePage;
+        if (normalizedName.isEmpty()) {
+            villagePage = locationDetailsRepository.findVillagesWithCustomerCountByOwnerIdPageable(ownerId, pageable);
+        } else {
+            villagePage = locationDetailsRepository
+                    .findVillagesWithCustomerCountByNameContainingIgnoreCaseAndOwnerIdPageable(
+                            normalizedName, ownerId, pageable);
+        }
+
+        List<VillageResponse> villages = villagePage.getContent().stream()
+                .map(result -> {
+                    String village = (String) result[0];
+                    Long customerCount = ((Number) result[1]).longValue();
+                    return new VillageResponse(village, customerCount);
+                })
+                .toList();
+
+        return new PageResponse<>(
+                villages,
+                villagePage.getNumber(),
+                villagePage.getSize(),
+                villagePage.getTotalElements(),
+                villagePage.getTotalPages(),
+                villagePage.hasNext(),
+                villagePage.hasPrevious());
+    }
+
     @Transactional
     public LocationDetailsResponse updateCurrentUserLocation(LocationDetailsUpdateRequest request) {
         UUID userId = SecurityUtil.getCurrentUserId();
@@ -176,12 +232,16 @@ public class LocationDetailsService implements ILocationDetailsService {
                     newLocation.setUserId(userId);
                     return newLocation;
                 });
-        
-        if (request.getLatitude() != null) location.setLatitude(request.getLatitude());
-        if (request.getLongitude() != null) location.setLongitude(request.getLongitude());
-        if (request.getVillage() != null) location.setVillage(request.getVillage());
-        if (request.getAddressText() != null) location.setAddressText(request.getAddressText());
-        
+
+        if (request.getLatitude() != null)
+            location.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null)
+            location.setLongitude(request.getLongitude());
+        if (request.getVillage() != null)
+            location.setVillage(request.getVillage());
+        if (request.getAddressText() != null)
+            location.setAddressText(request.getAddressText());
+
         LocationDetails saved = locationDetailsRepository.save(location);
         return toResponse(saved);
     }
@@ -195,24 +255,25 @@ public class LocationDetailsService implements ILocationDetailsService {
         }
         return updateCustomerLocation(userId, request);
     }
-    
+
     @Override
     @Transactional
     public LocationDetailsResponse updateCustomerLocation(UUID customerId, LocationDetailsUpdateRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        
+
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
-        
+
         if (customer.getOwnerId() == null || !customer.getOwnerId().equals(ownerId)) {
             throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this customer");
         }
-        
+
         LocationDetails location = locationDetailsRepository.findByUserId(customerId).orElse(null);
-        
+
         if (location == null) {
             if (request.getLatitude() == null || request.getLongitude() == null) {
-                throw new BusinessException("MISSING_REQUIRED_FIELDS", "Latitude and longitude are required when creating location");
+                throw new BusinessException("MISSING_REQUIRED_FIELDS",
+                        "Latitude and longitude are required when creating location");
             }
             location = new LocationDetails();
             location.setId(customerId);
@@ -226,56 +287,59 @@ public class LocationDetailsService implements ILocationDetailsService {
                 location.setAddressText(request.getAddressText());
             }
         } else {
-            if (request.getLatitude() != null) location.setLatitude(request.getLatitude());
-            if (request.getLongitude() != null) location.setLongitude(request.getLongitude());
-            if (request.getVillage() != null) location.setVillage(request.getVillage());
-            if (request.getAddressText() != null) location.setAddressText(request.getAddressText());
+            if (request.getLatitude() != null)
+                location.setLatitude(request.getLatitude());
+            if (request.getLongitude() != null)
+                location.setLongitude(request.getLongitude());
+            if (request.getVillage() != null)
+                location.setVillage(request.getVillage());
+            if (request.getAddressText() != null)
+                location.setAddressText(request.getAddressText());
         }
-        
+
         LocationDetails saved = locationDetailsRepository.save(location);
         return toResponse(saved);
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public List<CustomerLocationResponse> getCustomerLocations(CustomerLocationRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        
+
         List<LocationDetails> locations = locationDetailsRepository.findCustomerLocationsByCustomerIds(
-            ownerId, request.getCustomerIds());
-        
+                ownerId, request.getCustomerIds());
+
         List<CustomerLocationResponse> responses = locations.stream()
-            .filter(location -> location.getLatitude() != null && location.getLongitude() != null)
-            .map(location -> {
-                Customer customer = customerRepository.findById(location.getUserId()).orElse(null);
-                if (customer == null) {
-                    return null;
-                }
-                return new CustomerLocationResponse(
-                    location.getUserId(),
-                    customer.getName(),
-                    location.getLatitude(),
-                    location.getLongitude()
-                );
-            })
-            .filter(response -> response != null)
-            .collect(Collectors.toList());
-        
+                .filter(location -> location.getLatitude() != null && location.getLongitude() != null)
+                .map(location -> {
+                    Customer customer = customerRepository.findById(location.getUserId()).orElse(null);
+                    if (customer == null) {
+                        return null;
+                    }
+                    return new CustomerLocationResponse(
+                            location.getUserId(),
+                            customer.getName(),
+                            location.getLatitude(),
+                            location.getLongitude());
+                })
+                .filter(response -> response != null)
+                .collect(Collectors.toList());
+
         if (request.getCurrentLat() != null && request.getCurrentLng() != null) {
             responses.sort((r1, r2) -> {
                 double distance1 = DistanceUtil.calculateDistanceKm(
-                    request.getCurrentLat(), request.getCurrentLng(),
-                    r1.getLat(), r1.getLng());
+                        request.getCurrentLat(), request.getCurrentLng(),
+                        r1.getLat(), r1.getLng());
                 double distance2 = DistanceUtil.calculateDistanceKm(
-                    request.getCurrentLat(), request.getCurrentLng(),
-                    r2.getLat(), r2.getLng());
+                        request.getCurrentLat(), request.getCurrentLng(),
+                        r2.getLat(), r2.getLng());
                 return Double.compare(distance1, distance2);
             });
         }
-        
+
         return responses;
     }
-    
+
     private LocationDetailsResponse toResponse(LocationDetails location) {
         LocationDetailsResponse response = new LocationDetailsResponse();
         response.setId(location.getId());
@@ -288,7 +352,7 @@ public class LocationDetailsService implements ILocationDetailsService {
         response.setUpdatedAt(location.getUpdatedAt());
         return response;
     }
-    
+
     public void invalidateOwnerCaches(UUID ownerId) {
         try {
             var keys = redisTemplate.keys(VILLAGES_CACHE_PREFIX + ownerId + ":*");
@@ -301,4 +365,3 @@ public class LocationDetailsService implements ILocationDetailsService {
         }
     }
 }
-

@@ -11,13 +11,16 @@ import java.util.UUID;
 
 @Repository
 public interface SubscriptionRepository extends JpaRepository<Subscription, UUID> {
-    
-    Optional<Subscription> findByRazorpayOrderId(String razorpayOrderId);
-    
-    Optional<Subscription> findByOwnerId(UUID ownerId);
-    
-    List<Subscription> findAllByOwnerIdOrderByCreatedAtDesc(UUID ownerId);
-    
-    Optional<Subscription> findFirstByOwnerIdAndStatusOrderByCreatedAtDesc(UUID ownerId, SubscriptionStatus status);
-}
 
+    Optional<Subscription> findByRazorpayOrderId(String razorpayOrderId);
+
+    Optional<Subscription> findByOwnerId(UUID ownerId);
+
+    List<Subscription> findAllByOwnerIdOrderByCreatedAtDesc(UUID ownerId);
+
+    Optional<Subscription> findFirstByOwnerIdAndStatusOrderByCreatedAtDesc(UUID ownerId, SubscriptionStatus status);
+
+    boolean existsByOwnerIdAndRazorpayOrderIdStartingWith(UUID ownerId, String prefix);
+
+    void deleteAllByOwnerIdAndRazorpayOrderIdStartingWith(UUID ownerId, String prefix);
+}

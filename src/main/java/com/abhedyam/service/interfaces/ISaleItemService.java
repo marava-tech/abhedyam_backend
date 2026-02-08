@@ -7,13 +7,11 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ISaleItemService {
-    SaleItem create(SaleItem saleItem);
     SaleItem getById(UUID id);
-    List<SaleItem> getAll();
-    List<SaleItem> getByOwnerId(UUID ownerId);
-    List<SaleItemResponse> getByCustomerId(UUID customerId);
-    List<SaleItemResponse> getByCustomerIdForOwner(UUID ownerId, UUID customerId, boolean expandProduct);
-    List<SaleItem> getByTransactionId(String transactionId);
-    SaleItem update(UUID id, SaleItem saleItemDetails);
-}
 
+    List<SaleItemResponse> getByCustomerId(UUID customerId);
+
+    List<SaleItemResponse> getByCustomerIdForOwner(UUID ownerId, UUID customerId, boolean expandProduct);
+
+    List<SaleItem> getByTransactionId(String transactionId);
+}

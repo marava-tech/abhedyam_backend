@@ -26,9 +26,9 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(name = "Statistics", description = "Statistics and dashboard APIs")
 public class StatsController {
-    
+
     private final IStatsService statsService;
-    
+
     @GetMapping
     @Operation(summary = "Get statistics", description = "Get daily statistics for a date range")
     public ApiResponse<List<StatsResponse>> getStats(@ModelAttribute StatsRequest request) {
@@ -40,38 +40,35 @@ public class StatsController {
         }
         return ApiResponse.success(statsService.getStats(request));
     }
-    
+
     @PostMapping("/recompute")
     @Operation(summary = "Recompute statistics", description = "Recompute statistics for a date range")
     public ApiResponse<Void> recomputeStats(@Valid @RequestBody StatsRequest request) {
         LocalDate startDate = request.getStartDate() != null ? request.getStartDate() : LocalDate.now().minusDays(30);
         LocalDate endDate = request.getEndDate() != null ? request.getEndDate() : LocalDate.now();
-        
+
         statsService.recomputeStats(startDate, endDate);
         return ApiResponse.success(null);
     }
-    
+
     @GetMapping("/dashboard")
     @Operation(summary = "Get dashboard statistics", description = "Get dashboard statistics including total stock, low stock count, last week sales, and weekly growth")
     public ApiResponse<DashboardStatsResponse> getDashboardStats() {
         return ApiResponse.success(statsService.getDashboardStats());
     }
-    
+
     @GetMapping("/recent-activities")
     @Operation(summary = "Get recent activities", description = "Get recent activities with pagination (default page size: 10)")
     public ApiResponse<Page<RecentActivityResponse>> getRecentActivities(
-            @Parameter(description = "Page number (0-indexed)", example = "0")
-            @RequestParam(defaultValue = "0") int page,
-            @Parameter(description = "Page size", example = "10")
-            @RequestParam(defaultValue = "10") int size) {
+            @Parameter(description = "Page number (0-indexed)", example = "0") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size", example = "10") @RequestParam(defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size);
         return ApiResponse.success(statsService.getRecentActivities(pageable));
     }
-    
+
     @PostMapping("/analytics")
-    @Operation(summary = "Get analytics data", description = "Get analytics data by type (WEEKLY, MONTHLY, YEARLY) and owner ID. Weekly returns last 7 days, Monthly returns weekly breakdown of last month, Yearly returns monthly breakdown of last year")
+    @Operation(summary = "Get analytics data", description = "Get analytics data by type (DAILY, WEEKLY, MONTHLY) and owner ID. Daily returns last 7 days, Weekly returns weekly breakdown of last 4 weeks, Monthly returns monthly breakdown of last 6 months")
     public ApiResponse<AnalyticsResponse> getAnalytics(@Valid @RequestBody AnalyticsRequest request) {
         return ApiResponse.success(statsService.getAnalytics(request));
     }
 }
-

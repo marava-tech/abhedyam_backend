@@ -14,11 +14,14 @@ import java.util.List;
 
 public interface IStatsService {
     void aggregateDailyStats(LocalDate date);
-    void aggregateDailyStatsForDateRange(LocalDate startDate, LocalDate endDate);
+
     List<StatsResponse> getStats(StatsRequest request);
+
     void recomputeStats(LocalDate startDate, LocalDate endDate);
+
     DashboardStatsResponse getDashboardStats();
+
     Page<RecentActivityResponse> getRecentActivities(Pageable pageable);
+
     AnalyticsResponse getAnalytics(AnalyticsRequest request);
 }
-

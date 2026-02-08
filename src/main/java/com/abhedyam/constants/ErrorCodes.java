@@ -33,5 +33,7 @@ public final class ErrorCodes {
     public static final String NEGATIVE_STOCK = "NEGATIVE_STOCK";
     public static final String INVALID_EMAIL = "INVALID_EMAIL";
     public static final String NO_PAYMENTS_FOUND = "NO_PAYMENTS_FOUND";
+    public static final String TRIAL_ALREADY_USED = "TRIAL_ALREADY_USED";
+    public static final String TRIAL_NOT_ELIGIBLE = "TRIAL_NOT_ELIGIBLE";
 }
 

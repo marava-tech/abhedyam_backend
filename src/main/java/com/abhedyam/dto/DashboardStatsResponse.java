@@ -14,14 +14,13 @@ import java.math.BigDecimal;
 public class DashboardStatsResponse {
     @Schema(description = "Total stock/inventory count across all products", example = "1500.00")
     private BigDecimal totalStockCount;
-    
+
     @Schema(description = "Count of products with stock less than 2", example = "5")
     private Long lowStockCount;
-    
+
     @Schema(description = "Total sales amount from last 7 days", example = "50000.00")
     private BigDecimal lastWeekSalesAmount;
-    
+
     @Schema(description = "Weekly growth percentage based on number of products sold", example = "15.5")
     private BigDecimal weeklyGrowthPercentage;
 }
-

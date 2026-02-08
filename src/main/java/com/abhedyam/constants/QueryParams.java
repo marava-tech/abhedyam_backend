@@ -2,7 +2,7 @@ package com.abhedyam.constants;
 
 public final class QueryParams {
     private QueryParams() {}
-    
+
     public static final String Q = "q";
     public static final String PAGE = "page";
     public static final String SIZE = "size";
@@ -11,5 +11,6 @@ public final class QueryParams {
     public static final String EXPAND = "expand";
     public static final String EXPAND_PRODUCT = "product";
     public static final String EXPAND_NAMES = "names";
+    public static final String INCLUDE_PENDING_AMOUNT_DETAILS = "includePendingAmountDetails";
 }
 
