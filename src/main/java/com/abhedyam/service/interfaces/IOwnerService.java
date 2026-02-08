@@ -4,6 +4,7 @@ import com.abhedyam.dto.OwnerCreateRequest;
 import com.abhedyam.dto.OwnerDetailsResponse;
 import com.abhedyam.dto.OwnerPublicResponse;
 import com.abhedyam.dto.OwnerResponse;
+import com.abhedyam.dto.OwnerSummaryResponse;
 import com.abhedyam.dto.OwnerUpdateRequest;
 
 import java.math.BigDecimal;
@@ -18,5 +19,6 @@ public interface IOwnerService {
     OwnerResponse updateCurrentOwner(OwnerUpdateRequest request);
     OwnerResponse updateOwnerForOwner(UUID ownerId, OwnerUpdateRequest request);
     List<OwnerPublicResponse> getAllPublic(BigDecimal latitude, BigDecimal longitude);
+    OwnerSummaryResponse getOwnerSummary(UUID ownerId);
 }
 

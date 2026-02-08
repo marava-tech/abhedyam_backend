@@ -14,16 +14,16 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
-    
+
     private final AuthService authService;
-    
+
     @PostMapping("/google/login")
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<AuthResponse> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
         AuthResponse response = authService.loginWithGoogle(request);
         return ApiResponse.success(response);
     }
-    
+
     @PostMapping("/phone/login")
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<AuthResponse> loginWithPhone(@Valid @RequestBody PhoneLoginRequest request) {

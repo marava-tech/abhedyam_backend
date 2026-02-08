@@ -6,6 +6,7 @@ import com.abhedyam.dto.OwnerDetailsResponse;
 import com.abhedyam.dto.OwnerPublicResponse;
 import com.abhedyam.dto.OwnerResponse;
 import com.abhedyam.dto.OwnerSettingsResponse;
+import com.abhedyam.dto.OwnerSummaryResponse;
 import com.abhedyam.dto.OwnerUpdateRequest;
 import com.abhedyam.dto.UpiAccountResponse;
 import com.abhedyam.exception.BusinessException;
@@ -13,11 +14,17 @@ import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.LocationDetails;
 import com.abhedyam.model.Owner;
 import com.abhedyam.model.OwnerSettings;
+import com.abhedyam.model.Payment;
+import com.abhedyam.model.SaleItem;
 import com.abhedyam.model.UPIAccount;
+import com.abhedyam.model.enums.PaymentStatus;
 import com.abhedyam.model.enums.UserType;
+import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.LocationDetailsRepository;
 import com.abhedyam.repository.OwnerRepository;
 import com.abhedyam.repository.OwnerSettingsRepository;
+import com.abhedyam.repository.PaymentRepository;
+import com.abhedyam.repository.SaleItemRepository;
 import com.abhedyam.repository.UPIAccountRepository;
 import com.abhedyam.service.interfaces.IOwnerService;
 import com.abhedyam.util.EmailUtil;
@@ -46,6 +53,9 @@ public class OwnerService implements IOwnerService {
     private final LocationDetailsRepository locationDetailsRepository;
     private final OwnerSettingsRepository ownerSettingsRepository;
     private final UPIAccountRepository upiAccountRepository;
+    private final CustomerRepository customerRepository;
+    private final PaymentRepository paymentRepository;
+    private final SaleItemRepository saleItemRepository;
     
     @Transactional
     public OwnerResponse create(OwnerCreateRequest request) {
@@ -295,6 +305,40 @@ public class OwnerService implements IOwnerService {
         return response;
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public OwnerSummaryResponse getOwnerSummary(UUID ownerId) {
+        validateOwnerAccess(ownerId);
+        
+        long totalCustomers = customerRepository.countByOwnerId(ownerId);
+        
+        List<SaleItem> saleItems = saleItemRepository.findByOwnerId(ownerId);
+        BigDecimal totalSalesAmount = saleItems.stream()
+            .map(item -> item.getPrice().multiply(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        List<Payment> payments = paymentRepository.findByOwnerId(ownerId);
+        BigDecimal totalCollectedAmount = payments.stream()
+            .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+            .map(Payment::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        BigDecimal totalPendingAmount = totalSalesAmount.subtract(totalCollectedAmount);
+        if (totalPendingAmount.compareTo(BigDecimal.ZERO) < 0) {
+            totalPendingAmount = BigDecimal.ZERO;
+        }
+        
+        List<Object[]> villagesData = locationDetailsRepository.findVillagesWithCustomerCountByOwnerId(ownerId);
+        long totalVillages = villagesData.size();
+        
+        return new OwnerSummaryResponse(
+            totalPendingAmount,
+            totalCustomers,
+            totalVillages,
+            totalCollectedAmount
+        );
+    }
+    
     private void validateOwnerAccess(UUID ownerId) {
         UUID currentOwnerId = SecurityUtil.getCurrentUserId();
         if (ownerId == null || !ownerId.equals(currentOwnerId)) {

@@ -17,33 +17,32 @@ import java.util.UUID;
 @Getter
 @Setter
 public class Audit extends BaseEntity {
-    
+
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, columnDefinition = "VARCHAR(36)")
     private UUID ownerId;
-    
+
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 50, columnDefinition = "VARCHAR(50)")
     private AuditType type;
-    
+
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 50, columnDefinition = "VARCHAR(50)")
     private AuditAction action;
-    
+
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(columnDefinition = "VARCHAR(36)")
     private UUID entityId;
-    
+
     @Column(precision = 15, scale = 2)
     private BigDecimal amount;
-    
+
     @Column(nullable = false)
     private String headline;
-    
+
     @Column(columnDefinition = "TEXT")
     private String description;
-    
+
     @Column(nullable = false)
     private Instant timestamp;
 }
-

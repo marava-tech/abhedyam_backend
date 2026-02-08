@@ -1,0 +1,26 @@
+package com.abhedyam.dto;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Schema(description = "Owner summary statistics")
+public class OwnerSummaryResponse {
+    @Schema(description = "Total pending amount across all customers", example = "50000.00")
+    private BigDecimal totalPendingAmount;
+    
+    @Schema(description = "Total number of customers", example = "150")
+    private Long totalCustomers;
+    
+    @Schema(description = "Number of distinct villages", example = "25")
+    private Long totalVillages;
+    
+    @Schema(description = "Total collected amount from successful payments", example = "200000.00")
+    private BigDecimal totalCollectedAmount;
+}

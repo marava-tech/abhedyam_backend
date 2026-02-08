@@ -1,10 +1,12 @@
 package com.abhedyam.dto;
 
 import com.abhedyam.model.Customer;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -22,7 +24,10 @@ public class CustomerResponse {
     private String village;
     private Instant createdAt;
     private Instant updatedAt;
-    
+
+    @Schema(description = "Pending amount (only when includePendingAmountDetails=true)")
+    private BigDecimal pendingAmount;
+
     public static CustomerResponse fromEntity(Customer customer, String village) {
         CustomerResponse response = new CustomerResponse();
         response.setId(customer.getId());

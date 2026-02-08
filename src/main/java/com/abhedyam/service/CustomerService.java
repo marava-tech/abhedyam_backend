@@ -256,17 +256,18 @@ public class CustomerService implements ICustomerService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<CustomerResponse> getOwnerCustomers(UUID ownerId, String searchText, Integer page, Integer size, String sortBy, String sortDirection) {
+    public PageResponse<CustomerResponse> getOwnerCustomers(UUID ownerId, String searchText, String village, Integer page, Integer size, String sortBy, String sortDirection, boolean includePendingAmountDetails) {
         validateOwnerAccess(ownerId);
-        
+
         if (page == null || page < 0) {
             page = 0;
         }
         if (size == null || size < 1) {
             size = 20;
         }
-        
+
         String normalizedSearchText = searchText != null && !searchText.trim().isEmpty() ? searchText.trim() : null;
+        String normalizedVillage = village != null && !village.trim().isEmpty() ? village.trim() : null;
         boolean isNumeric = false;
         if (normalizedSearchText != null) {
             try {
@@ -276,22 +277,33 @@ public class CustomerService implements ICustomerService {
                 isNumeric = false;
             }
         }
-        
+
         Sort sort = Sort.by(
-            "DESC".equalsIgnoreCase(sortDirection) 
-                ? Sort.Direction.DESC 
+            "DESC".equalsIgnoreCase(sortDirection)
+                ? Sort.Direction.DESC
                 : Sort.Direction.ASC,
             sortBy != null && !sortBy.trim().isEmpty() ? sortBy : "createdAt"
         );
         Pageable pageable = PageRequest.of(page, size, sort);
-        
-        Page<Customer> customerPage = customerRepository.searchCustomersWithVillage(
-            ownerId,
-            normalizedSearchText,
-            isNumeric,
-            pageable
-        );
-        
+
+        Page<Customer> customerPage;
+        if (normalizedVillage != null) {
+            customerPage = customerRepository.searchCustomersWithVillageFilter(
+                ownerId,
+                normalizedVillage,
+                normalizedSearchText,
+                isNumeric,
+                pageable
+            );
+        } else {
+            customerPage = customerRepository.searchCustomersWithVillage(
+                ownerId,
+                normalizedSearchText,
+                isNumeric,
+                pageable
+            );
+        }
+
         List<Customer> customers = customerPage.getContent();
         List<UUID> customerIds = customers.stream().map(Customer::getId).toList();
         List<LocationDetails> locations = locationDetailsRepository.findByUserIdIn(customerIds);
@@ -301,14 +313,39 @@ public class CustomerService implements ICustomerService {
                 LocationDetails::getVillage,
                 (v1, v2) -> v1
             ));
-        
+
         List<CustomerResponse> responses = customers.stream()
             .map(customer -> {
-                String village = villageMap.get(customer.getId());
-                return CustomerResponse.fromEntity(customer, village);
+                String customerVillage = villageMap.get(customer.getId());
+                return CustomerResponse.fromEntity(customer, customerVillage);
             })
             .toList();
-        
+
+        if (includePendingAmountDetails && !customerIds.isEmpty()) {
+            List<SaleItem> saleItems = saleItemRepository.findByCustomerIdAndOwnerIdIn(customerIds, ownerId);
+            List<Payment> payments = paymentRepository.findByCustomerIdInAndOwnerId(customerIds, ownerId);
+            Map<UUID, BigDecimal> totalByCustomer = saleItems.stream()
+                .collect(Collectors.groupingBy(
+                    SaleItem::getCustomerId,
+                    Collectors.reducing(
+                        BigDecimal.ZERO,
+                        si -> si.getPrice().multiply(si.getQuantity() != null ? si.getQuantity() : BigDecimal.ONE),
+                        BigDecimal::add
+                    )
+                ));
+            Map<UUID, BigDecimal> paidByCustomer = payments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                .collect(Collectors.groupingBy(
+                    Payment::getCustomerId,
+                    Collectors.reducing(BigDecimal.ZERO, Payment::getAmount, BigDecimal::add)
+                ));
+            for (CustomerResponse r : responses) {
+                BigDecimal total = totalByCustomer.getOrDefault(r.getId(), BigDecimal.ZERO);
+                BigDecimal paid = paidByCustomer.getOrDefault(r.getId(), BigDecimal.ZERO);
+                r.setPendingAmount(total.subtract(paid));
+            }
+        }
+
         return new PageResponse<>(
             responses,
             customerPage.getNumber(),

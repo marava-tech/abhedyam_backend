@@ -37,7 +37,7 @@ public class AuthService {
     private final CustomerRepository customerRepository;
     private final LocationDetailsRepository locationDetailsRepository;
     private final JwtUtil jwtUtil;
-    
+
     @Transactional
     public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
         GoogleUserInfo googleUser = googleOAuthService.verifyToken(request.getIdToken());

@@ -27,7 +27,7 @@ public interface ICustomerService {
     List<CustomerResponse> filterCustomers(String searchText);
     PageResponse<Customer> searchCustomers(CustomerSearchRequest request);
     List<CustomerSearchResult> searchByName(String name);
-    PageResponse<CustomerResponse> getOwnerCustomers(UUID ownerId, String searchText, Integer page, Integer size, String sortBy, String sortDirection);
+    PageResponse<CustomerResponse> getOwnerCustomers(UUID ownerId, String searchText, String village, Integer page, Integer size, String sortBy, String sortDirection, boolean includePendingAmountDetails);
     CustomerBasicSummaryResponse getCustomerBasicSummary(UUID ownerId, UUID customerId);
     CustomerSalesSummaryResponse getCustomerSalesSummary(UUID ownerId, UUID customerId);
     CustomerPaymentsSummaryResponse getCustomerPaymentsSummary(UUID ownerId, UUID customerId);

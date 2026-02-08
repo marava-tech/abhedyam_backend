@@ -17,7 +17,7 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
     List<Customer> findByOwnerId(UUID ownerId);
     
     Optional<Customer> findByPhoneNormalized(String phoneNormalized);
-    
+
     @Query("SELECT c FROM Customer c WHERE c.ownerId = :ownerId " +
            "AND (:searchTerm IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
            "OR LOWER(c.phone) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
@@ -52,6 +52,19 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
                                               @Param("searchText") String searchText,
                                               @Param("isNumeric") boolean isNumeric,
                                               Pageable pageable);
+    
+    @Query("SELECT DISTINCT c FROM Customer c " +
+           "LEFT JOIN LocationDetails ld ON ld.userId = c.id " +
+           "WHERE c.ownerId = :ownerId " +
+           "AND (:village IS NULL OR (ld.village IS NOT NULL AND LOWER(TRIM(ld.village)) = LOWER(TRIM(:village)))) " +
+           "AND (:searchText IS NULL OR " +
+           "     LOWER(c.name) LIKE LOWER(CONCAT('%', :searchText, '%')) OR " +
+           "     (:isNumeric = true AND c.phone LIKE CONCAT('%', :searchText, '%')))")
+    Page<Customer> searchCustomersWithVillageFilter(@Param("ownerId") UUID ownerId,
+                                                    @Param("village") String village,
+                                                    @Param("searchText") String searchText,
+                                                    @Param("isNumeric") boolean isNumeric,
+                                                    Pageable pageable);
     
     Page<Customer> findByOwnerIdOrderByCreatedAtDesc(UUID ownerId, Pageable pageable);
     
