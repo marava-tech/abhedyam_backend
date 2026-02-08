@@ -19,4 +19,7 @@ public interface IOwnerOnboardingService {
     List<OwnerOnboardingResponse> getRequestsByOwner(UUID ownerId);
 
     List<OwnerOnboardingResponse> getAllRequests(OnboardingStatus status);
+
+    com.abhedyam.dto.PageResponse<OwnerOnboardingResponse> getAdminRequests(String search, OnboardingStatus status,
+            org.springframework.data.domain.Pageable pageable);
 }
