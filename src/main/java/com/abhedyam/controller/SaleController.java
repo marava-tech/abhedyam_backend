@@ -1,18 +1,13 @@
 package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
-import com.abhedyam.dto.PageResponse;
 import com.abhedyam.dto.SaleCreateRequest;
 import com.abhedyam.dto.SaleDetailResponse;
-import com.abhedyam.dto.SaleSearchRequest;
-import com.abhedyam.model.SaleItem;
 import com.abhedyam.service.interfaces.ISaleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/sales")
@@ -30,16 +25,6 @@ public class SaleController {
     @GetMapping("/transaction/{transactionId}")
     public ApiResponse<SaleDetailResponse> getSaleByTransactionId(@PathVariable String transactionId) {
         return ApiResponse.success(saleService.getSaleByTransactionId(transactionId));
-    }
-    
-    @GetMapping("/search")
-    public ApiResponse<PageResponse<SaleItem>> searchSales(@ModelAttribute SaleSearchRequest request) {
-        return ApiResponse.success(saleService.searchSales(request));
-    }
-    
-    @GetMapping("/transaction/{transactionId}/items")
-    public ApiResponse<List<SaleItem>> getSaleItems(@PathVariable String transactionId) {
-        return ApiResponse.success(saleService.getSaleItemsByTransactionId(transactionId));
     }
     
     @PostMapping("/transaction/{transactionId}/cancel")

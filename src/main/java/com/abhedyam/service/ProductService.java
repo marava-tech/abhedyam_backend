@@ -292,13 +292,6 @@ public class ProductService implements IProductService {
 
     @Override
     @Transactional
-    public Product updateProductForOwner(UUID ownerId, ProductUpdateRequest request) {
-        validateOwnerAccess(ownerId);
-        return updateProduct(request);
-    }
-
-    @Override
-    @Transactional
     public Product toggleActive(UUID id) {
         Product product = getById(id);
         product.setIsActive(!product.getIsActive());
@@ -313,13 +306,6 @@ public class ProductService implements IProductService {
         }
 
         return updatedProduct;
-    }
-
-    @Override
-    @Transactional
-    public Product toggleActiveForOwner(UUID ownerId, UUID id) {
-        validateOwnerAccess(ownerId);
-        return toggleActive(id);
     }
 
     public void invalidateOwnerCaches(UUID ownerId) {

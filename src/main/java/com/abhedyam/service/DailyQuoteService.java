@@ -40,15 +40,6 @@ public class DailyQuoteService implements IDailyQuoteService {
         return dailyQuoteRepository.save(dailyQuote);
     }
     
-    public DailyQuote getById(UUID id) {
-        return dailyQuoteRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Daily quote could not be found"));
-    }
-    
-    public List<DailyQuote> getAll() {
-        return dailyQuoteRepository.findAll();
-    }
-    
     @Override
     @Transactional
     public DailyQuote getTodaysQuote() {
@@ -130,7 +121,8 @@ public class DailyQuoteService implements IDailyQuoteService {
     
     @Transactional
     public DailyQuote update(UUID id, DailyQuote quoteDetails) {
-        DailyQuote quote = getById(id);
+        DailyQuote quote = dailyQuoteRepository.findById(id)
+                .orElseThrow(() -> new com.abhedyam.exception.ResourceNotFoundException("Daily quote not found"));
         if (quoteDetails.getText() != null) quote.setText(quoteDetails.getText());
         if (quoteDetails.getLastUsedAt() != null) quote.setLastUsedAt(quoteDetails.getLastUsedAt());
         if (quoteDetails.getIsActive() != null) quote.setIsActive(quoteDetails.getIsActive());

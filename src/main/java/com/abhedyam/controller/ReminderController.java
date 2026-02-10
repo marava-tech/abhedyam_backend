@@ -25,11 +25,6 @@ public class ReminderController {
         return ApiResponse.success(reminderService.create(request));
     }
     
-    @GetMapping("/{id}")
-    public ApiResponse<Reminder> getById(@PathVariable UUID id) {
-        return ApiResponse.success(reminderService.getById(id));
-    }
-    
     @GetMapping("/customer/{customerId}")
     public ApiResponse<List<Reminder>> getByCustomerId(@PathVariable UUID customerId) {
         return ApiResponse.success(reminderService.getByCustomerId(customerId));
@@ -38,11 +33,6 @@ public class ReminderController {
     @GetMapping("/pending")
     public ApiResponse<List<Reminder>> getPendingReminders() {
         return ApiResponse.success(reminderService.getPendingReminders());
-    }
-    
-    @PutMapping("/{id}")
-    public ApiResponse<Reminder> update(@PathVariable UUID id, @Valid @RequestBody ReminderCreateRequest request) {
-        return ApiResponse.success(reminderService.update(id, request));
     }
     
     @PatchMapping("/{id}/mark-sent")

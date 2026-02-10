@@ -3,12 +3,10 @@ package com.abhedyam.controller;
 import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.PageResponse;
 import com.abhedyam.dto.ProductSearchRequest;
-import com.abhedyam.dto.ProductUpdateRequest;
 import com.abhedyam.model.Product;
 import com.abhedyam.service.interfaces.IProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -42,23 +40,6 @@ public class OwnerProductController {
         return ApiResponse.success(productService.searchProductsByOwner(ownerId, request));
     }
 
-    @PatchMapping("/{productId}")
-    @Operation(summary = "Update product", description = "Update a product for an owner")
-    public ApiResponse<Product> updateProduct(
-            @PathVariable UUID ownerId,
-            @PathVariable UUID productId,
-            @Valid @RequestBody ProductUpdateRequest request) {
-        request.setId(productId);
-        return ApiResponse.success(productService.updateProductForOwner(ownerId, request));
-    }
-
-    @PatchMapping("/{productId}/toggle-active")
-    @Operation(summary = "Toggle product active", description = "Toggle product active status for an owner")
-    public ApiResponse<Product> toggleActive(
-            @PathVariable UUID ownerId,
-            @PathVariable UUID productId) {
-        return ApiResponse.success(productService.toggleActiveForOwner(ownerId, productId));
-    }
 }
 
 

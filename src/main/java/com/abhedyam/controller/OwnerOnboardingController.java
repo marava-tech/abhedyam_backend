@@ -34,7 +34,7 @@ public class OwnerOnboardingController {
         return ApiResponse.success(onboardingService.createRequest(request));
     }
 
-    @PatchMapping("/owner-onboarding/{id}/status")
+    @PatchMapping("/admin/owner-onboarding/{id}/status")
     @Operation(summary = "Update request status", description = "Update the status of an onboarding request (Admin only)")
     public ApiResponse<OwnerOnboardingResponse> updateStatus(
             @PathVariable UUID id,
@@ -42,23 +42,10 @@ public class OwnerOnboardingController {
         return ApiResponse.success(onboardingService.updateStatus(id, request));
     }
 
-    @GetMapping("/owner-onboarding/{id}")
-    @Operation(summary = "Get request by ID", description = "Get details of a specific onboarding request")
-    public ApiResponse<OwnerOnboardingResponse> getById(@PathVariable UUID id) {
-        return ApiResponse.success(onboardingService.getRequest(id));
-    }
-
     @GetMapping("/owner-onboarding/owner/{ownerId}")
     @Operation(summary = "Get requests by Owner", description = "Get all onboarding requests submitted by a specific owner")
     public ApiResponse<List<OwnerOnboardingResponse>> getByOwner(@PathVariable UUID ownerId) {
         return ApiResponse.success(onboardingService.getRequestsByOwner(ownerId));
-    }
-
-    @GetMapping("/owner-onboarding")
-    @Operation(summary = "Get all requests", description = "Get all onboarding requests (optionally filtered by status)")
-    public ApiResponse<List<OwnerOnboardingResponse>> getAll(
-            @RequestParam(required = false) OnboardingStatus status) {
-        return ApiResponse.success(onboardingService.getAllRequests(status));
     }
 
     @GetMapping("/admin/owner-onboarding")

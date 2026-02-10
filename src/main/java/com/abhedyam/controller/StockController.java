@@ -3,7 +3,6 @@ package com.abhedyam.controller;
 import com.abhedyam.dto.ApiResponse;
 import com.abhedyam.dto.StockAdjustmentRequest;
 import com.abhedyam.dto.StockUpdateRequest;
-import com.abhedyam.model.Product;
 import com.abhedyam.service.interfaces.IStockService;
 import com.abhedyam.util.StockFormatUtil;
 import jakarta.validation.Valid;
@@ -11,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -58,9 +56,5 @@ public class StockController {
         return ApiResponse.success(StockFormatUtil.formatStock(stock));
     }
     
-    @GetMapping("/low-stock")
-    public ApiResponse<List<Product>> getLowStockProducts(@RequestParam(defaultValue = "0") BigDecimal threshold) {
-        return ApiResponse.success(stockService.getLowStockProducts(threshold));
-    }
 }
 

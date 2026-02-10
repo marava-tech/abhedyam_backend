@@ -6,10 +6,8 @@ import com.abhedyam.dto.UpiAccountResponse;
 import com.abhedyam.service.interfaces.IUpiAccountManagementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -18,12 +16,6 @@ import java.util.UUID;
 public class UpiAccountController {
     
     private final IUpiAccountManagementService upiAccountManagementService;
-    
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<UpiAccountResponse> createUpiAccount(@Valid @RequestBody UpiAccountCreateRequest request) {
-        return ApiResponse.success(upiAccountManagementService.createUpiAccount(request));
-    }
     
     @GetMapping("/owner/{ownerId}")
     public ApiResponse<UpiAccountResponse> getUpiAccountByOwnerId(@PathVariable UUID ownerId) {
@@ -35,16 +27,6 @@ public class UpiAccountController {
             @PathVariable UUID ownerId,
             @Valid @RequestBody UpiAccountCreateRequest request) {
         return ApiResponse.success(upiAccountManagementService.updateUpiAccountForOwner(ownerId, request));
-    }
-    
-    @GetMapping
-    public ApiResponse<List<UpiAccountResponse>> getOwnerUpiAccounts() {
-        return ApiResponse.success(upiAccountManagementService.getOwnerUpiAccounts());
-    }
-    
-    @GetMapping("/{id}")
-    public ApiResponse<UpiAccountResponse> getUpiAccountById(@PathVariable UUID id) {
-        return ApiResponse.success(upiAccountManagementService.getUpiAccountById(id));
     }
     
     @PutMapping("/{id}/primary")

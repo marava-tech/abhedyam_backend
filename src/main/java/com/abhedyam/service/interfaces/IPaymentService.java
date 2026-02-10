@@ -19,6 +19,5 @@ public interface IPaymentService {
     PageResponse<PaymentResponse> getOwnerPayments(UUID ownerId, String searchText, Integer page, Integer size, String sortBy, String sortDirection, boolean expandNames);
     List<Payment> getByCustomerId(UUID customerId);
     Payment updateStatus(UUID id, PaymentStatusUpdateRequest request);
-    Payment update(UUID id, Payment paymentDetails);
 }
 

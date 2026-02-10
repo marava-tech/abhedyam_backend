@@ -63,13 +63,7 @@ public class OwnerOnboardingService implements IOwnerOnboardingService {
     }
 
     @Override
-    public OwnerOnboardingResponse getRequest(UUID requestId) {
-        OwnerOnboardingRequest request = requestRepository.findById(requestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Request not found"));
-        return mapToDto(request);
-    }
-
-    @Override
+    @Transactional(readOnly = true)
     public List<OwnerOnboardingResponse> getRequestsByOwner(UUID ownerId) {
         List<OwnerOnboardingRequest> requests = requestRepository.findByOwnerId(ownerId);
         return requests.stream()
@@ -78,20 +72,7 @@ public class OwnerOnboardingService implements IOwnerOnboardingService {
     }
 
     @Override
-    public List<OwnerOnboardingResponse> getAllRequests(OnboardingStatus status) {
-        List<OwnerOnboardingRequest> requests;
-        if (status != null) {
-            requests = requestRepository.findByStatus(status);
-        } else {
-            requests = requestRepository.findAll();
-        }
-
-        return requests.stream()
-                .map(this::mapToDto)
-                .collect(Collectors.toList());
-    }
-
-    @Override
+    @Transactional(readOnly = true)
     public com.abhedyam.dto.PageResponse<OwnerOnboardingResponse> getAdminRequests(String search,
             OnboardingStatus status, org.springframework.data.domain.Pageable pageable) {
         org.springframework.data.domain.Page<OwnerOnboardingRequest> page = requestRepository

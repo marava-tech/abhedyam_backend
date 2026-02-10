@@ -41,20 +41,6 @@ public class NoteService implements INoteService {
     
     @Override
     @Transactional(readOnly = true)
-    public Note getById(UUID id) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
-        Note note = noteRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Note could not be found"));
-        
-        if (!note.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this note");
-        }
-        
-        return note;
-    }
-    
-    @Override
-    @Transactional(readOnly = true)
     public List<Note> getByOwnerId(UUID ownerId) {
         UUID currentOwnerId = SecurityUtil.getCurrentUserId();
         if (!currentOwnerId.equals(ownerId)) {
@@ -79,12 +65,5 @@ public class NoteService implements INoteService {
             .toList();
     }
     
-    @Override
-    @Transactional
-    public Note update(UUID id, String text) {
-        Note note = getById(id);
-        note.setText(text);
-        return noteRepository.save(note);
-    }
 }
 

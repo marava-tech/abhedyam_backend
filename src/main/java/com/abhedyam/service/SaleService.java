@@ -1,11 +1,9 @@
 package com.abhedyam.service;
 
 import com.abhedyam.constants.ErrorCodes;
-import com.abhedyam.dto.PageResponse;
 import com.abhedyam.dto.SaleCreateRequest;
 import com.abhedyam.dto.SaleDetailResponse;
 import com.abhedyam.dto.SaleItemRequest;
-import com.abhedyam.dto.SaleSearchRequest;
 import com.abhedyam.exception.BusinessException;
 import com.abhedyam.exception.ResourceNotFoundException;
 import com.abhedyam.model.Customer;
@@ -25,10 +23,6 @@ import com.abhedyam.util.PhoneUtil;
 import com.abhedyam.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -464,48 +458,6 @@ public class SaleService implements ISaleService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return buildSaleDetailResponse(transactionId, customer, saleItems, totalAmount);
-    }
-
-    @Override
-    public PageResponse<SaleItem> searchSales(SaleSearchRequest request) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
-
-        Sort sort = Sort.by(
-                "DESC".equalsIgnoreCase(request.getSortDirection())
-                        ? Sort.Direction.DESC
-                        : Sort.Direction.ASC,
-                request.getSortBy());
-
-        Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), sort);
-
-        Page<SaleItem> page = saleItemRepository.searchSales(
-                ownerId,
-                request.getCustomerId(),
-                request.getTransactionId(),
-                request.getStartDate(),
-                request.getEndDate(),
-                pageable);
-
-        return new PageResponse<>(
-                page.getContent(),
-                page.getNumber(),
-                page.getSize(),
-                page.getTotalElements(),
-                page.getTotalPages(),
-                page.hasNext(),
-                page.hasPrevious());
-    }
-
-    @Override
-    public List<SaleItem> getSaleItemsByTransactionId(String transactionId) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
-        List<SaleItem> saleItems = saleItemRepository.findByTransactionId(transactionId);
-
-        if (!saleItems.isEmpty() && !saleItems.get(0).getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this sale");
-        }
-
-        return saleItems;
     }
 
     @Override

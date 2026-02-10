@@ -2,10 +2,8 @@ package com.abhedyam.service;
 
 import com.abhedyam.dto.CustomerLocationRequest;
 import com.abhedyam.dto.CustomerLocationResponse;
-import com.abhedyam.dto.LocationDetailsCreateRequest;
 import com.abhedyam.dto.LocationDetailsResponse;
 import com.abhedyam.dto.LocationDetailsUpdateRequest;
-import com.abhedyam.dto.VillageSearchResult;
 import com.abhedyam.dto.VillageResponse;
 import com.abhedyam.util.DistanceUtil;
 import com.abhedyam.exception.BusinessException;
@@ -44,21 +42,6 @@ public class LocationDetailsService implements ILocationDetailsService {
     private final RedisTemplate<String, String> redisTemplate;
 
     private static final String VILLAGES_CACHE_PREFIX = "villages:";
-
-    @Transactional
-    public LocationDetailsResponse create(LocationDetailsCreateRequest request) {
-        UUID userId = SecurityUtil.getCurrentUserId();
-        LocationDetails locationDetails = new LocationDetails();
-        locationDetails.setId(userId);
-        locationDetails.setUserId(userId);
-        locationDetails.setLatitude(request.getLatitude());
-        locationDetails.setLongitude(request.getLongitude());
-        locationDetails.setVillage(request.getVillage());
-        locationDetails.setAddressText(request.getAddressText());
-
-        LocationDetails saved = locationDetailsRepository.save(locationDetails);
-        return toResponse(saved);
-    }
 
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
@@ -112,31 +95,6 @@ public class LocationDetailsService implements ILocationDetailsService {
         }
 
         throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this user's location");
-    }
-
-    public List<LocationDetailsResponse> getAll() {
-        return locationDetailsRepository.findAll().stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<VillageSearchResult> searchVillagesByName(String name) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
-        String normalizedName = name != null ? name.trim() : "";
-
-        List<String> villages;
-        if (normalizedName.isEmpty()) {
-            villages = locationDetailsRepository.findDistinctVillagesByOwnerId(ownerId);
-        } else {
-            villages = locationDetailsRepository
-                    .findDistinctVillagesByNameContainingIgnoreCaseAndOwnerId(normalizedName, ownerId);
-        }
-
-        return villages.stream()
-                .map(VillageSearchResult::new)
-                .toList();
     }
 
     @Override

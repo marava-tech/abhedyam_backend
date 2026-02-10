@@ -25,19 +25,10 @@ public class NoteController {
         return ApiResponse.success(noteService.create(request));
     }
     
-    @GetMapping("/{id}")
-    public ApiResponse<Note> getById(@PathVariable UUID id) {
-        return ApiResponse.success(noteService.getById(id));
-    }
-    
     @GetMapping("/customer/{customerId}")
     public ApiResponse<List<Note>> getByCustomerId(@PathVariable UUID customerId) {
         return ApiResponse.success(noteService.getByCustomerId(customerId));
     }
     
-    @PutMapping("/{id}")
-    public ApiResponse<Note> update(@PathVariable UUID id, @RequestParam String text) {
-        return ApiResponse.success(noteService.update(id, text));
-    }
 }
 

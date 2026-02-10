@@ -48,14 +48,6 @@ public class ImageStoreService implements IImageStoreService {
 
     @Override
     @Transactional(readOnly = true)
-    public ImageStoreResponse getById(UUID id) {
-        ImageStore entity = imageStoreRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Image store entry not found"));
-        return toResponse(entity);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
     public PageResponse<ImageStoreResponse> list(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<ImageStore> p = imageStoreRepository.findByIsActiveTrue(pageable);
@@ -88,14 +80,6 @@ public class ImageStoreService implements IImageStoreService {
             entity.setTags(request.getTags());
         }
         return imageStoreRepository.save(entity);
-    }
-
-    @Override
-    @Transactional
-    public void delete(UUID id) {
-        ImageStore entity = imageStoreRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Image store entry not found"));
-        imageStoreRepository.delete(entity);
     }
 
     @Override

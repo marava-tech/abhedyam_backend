@@ -12,6 +12,4 @@ public interface ISaleItemService {
     List<SaleItemResponse> getByCustomerId(UUID customerId);
 
     List<SaleItemResponse> getByCustomerIdForOwner(UUID ownerId, UUID customerId, boolean expandProduct);
-
-    List<SaleItem> getByTransactionId(String transactionId);
 }
