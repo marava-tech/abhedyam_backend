@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -23,16 +22,6 @@ public class DailyQuoteController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<DailyQuote> create(@Valid @RequestBody DailyQuoteCreateRequest request) {
         return ApiResponse.success(dailyQuoteService.create(request));
-    }
-    
-    @GetMapping("/{id}")
-    public ApiResponse<DailyQuote> getById(@PathVariable UUID id) {
-        return ApiResponse.success(dailyQuoteService.getById(id));
-    }
-    
-    @GetMapping
-    public ApiResponse<List<DailyQuote>> getAll() {
-        return ApiResponse.success(dailyQuoteService.getAll());
     }
     
     @GetMapping("/today")

@@ -8,9 +8,7 @@ import java.util.UUID;
 
 public interface INoteService {
     Note create(NoteCreateRequest request);
-    Note getById(UUID id);
     List<Note> getByOwnerId(UUID ownerId);
     List<Note> getByCustomerId(UUID customerId);
-    Note update(UUID id, String text);
 }
 

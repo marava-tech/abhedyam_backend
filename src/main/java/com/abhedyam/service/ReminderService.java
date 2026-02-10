@@ -76,22 +76,6 @@ public class ReminderService implements IReminderService {
     
     @Override
     @Transactional(readOnly = true)
-    public Reminder getById(UUID id) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
-        Reminder reminder = reminderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Reminder could not be found"));
-        
-        if (!reminder.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this reminder");
-        }
-        
-        reminder.getPackages().size();
-        
-        return reminder;
-    }
-    
-    @Override
-    @Transactional(readOnly = true)
     public List<Reminder> getByCustomerId(UUID customerId) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
         List<Reminder> reminders = reminderRepository.findByCustomerId(customerId);
@@ -122,36 +106,9 @@ public class ReminderService implements IReminderService {
     
     @Override
     @Transactional
-    public Reminder update(UUID id, ReminderCreateRequest request) {
-        Reminder reminder = getById(id);
-        
-        if (request.getName() != null) reminder.setName(request.getName());
-        if (request.getType() != null) reminder.setType(request.getType());
-        if (request.getChannel() != null) reminder.setChannel(request.getChannel());
-        if (request.getDueAt() != null) {
-            if (request.getDueAt().isBefore(Instant.now())) {
-                throw new BusinessException("INVALID_DUE_DATE", "Due date cannot be in the past");
-            }
-            reminder.setTime(request.getDueAt());
-        }
-        if (request.getText() != null) reminder.setText(request.getText());
-        
-        List<String> packages = request.getPackages();
-        if (packages == null || packages.isEmpty()) {
-            packages = determinePackages(reminder.getCustomerId(), reminder.getOwnerId());
-        }
-        reminder.setPackages(packages);
-        
-        Reminder savedReminder = reminderRepository.save(reminder);
-        savedReminder.getPackages().size();
-        
-        return savedReminder;
-    }
-    
-    @Override
-    @Transactional
     public Reminder markAsSent(UUID id) {
-        Reminder reminder = getById(id);
+        Reminder reminder = reminderRepository.findById(id)
+                .orElseThrow(() -> new com.abhedyam.exception.ResourceNotFoundException("Reminder not found"));
         reminder.setStatus(ReminderStatus.SENT);
         Reminder savedReminder = reminderRepository.save(reminder);
         savedReminder.getPackages().size();

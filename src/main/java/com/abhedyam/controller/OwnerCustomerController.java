@@ -7,7 +7,6 @@ import com.abhedyam.dto.CustomerPaymentsSummaryResponse;
 import com.abhedyam.dto.CustomerRemindersSummaryResponse;
 import com.abhedyam.dto.CustomerResponse;
 import com.abhedyam.dto.CustomerSalesSummaryResponse;
-import com.abhedyam.dto.CustomerUpdateRequest;
 import com.abhedyam.dto.PageResponse;
 import com.abhedyam.dto.SaleItemResponse;
 import com.abhedyam.service.interfaces.ICustomerService;
@@ -15,7 +14,6 @@ import com.abhedyam.service.interfaces.ISaleItemService;
 import com.abhedyam.constants.QueryParams;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -43,16 +41,6 @@ public class OwnerCustomerController {
             @RequestParam(defaultValue = "DESC") String sortDirection,
             @RequestParam(value = QueryParams.INCLUDE_PENDING_AMOUNT_DETAILS, defaultValue = "false") Boolean includePendingAmountDetails) {
         return ApiResponse.success(customerService.getOwnerCustomers(ownerId, q, village, page, size, sortBy, sortDirection, Boolean.TRUE.equals(includePendingAmountDetails)));
-    }
-
-    @PatchMapping("/{customerId}")
-    @Operation(summary = "Update customer", description = "Update a customer for an owner")
-    public ApiResponse<com.abhedyam.model.Customer> updateCustomer(
-            @PathVariable UUID ownerId,
-            @PathVariable UUID customerId,
-            @Valid @RequestBody CustomerUpdateRequest request) {
-        request.setId(customerId);
-        return ApiResponse.success(customerService.updateCustomerForOwner(ownerId, request));
     }
 
     @GetMapping("/{customerId}/summary")

@@ -34,12 +34,6 @@ public class ImageStoreController {
         return ApiResponse.success(imageStoreService.create(request));
     }
 
-    @GetMapping("/admin/image-store/{id}")
-    @Operation(summary = "Get by ID (Admin)", description = "Get image store entry by id. Admin key required.")
-    public ApiResponse<ImageStoreResponse> getById(@PathVariable UUID id) {
-        return ApiResponse.success(imageStoreService.getById(id));
-    }
-
     @GetMapping("/admin/image-store")
     @Operation(summary = "List image store (Admin)", description = "List image store entries with pagination. Admin key required.")
     public ApiResponse<PageResponse<ImageStoreResponse>> list(
@@ -54,13 +48,6 @@ public class ImageStoreController {
             @PathVariable UUID id,
             @Valid @RequestBody ImageStoreUpdateRequest request) {
         return ApiResponse.success(imageStoreService.update(id, request));
-    }
-
-    @DeleteMapping("/admin/image-store/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(summary = "Delete image store entry (Admin)", description = "Delete an image store entry by id. Admin key required.")
-    public void delete(@PathVariable UUID id) {
-        imageStoreService.delete(id);
     }
 
     @GetMapping("/image-store/search")

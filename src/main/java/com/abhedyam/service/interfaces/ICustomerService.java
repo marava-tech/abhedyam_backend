@@ -34,7 +34,6 @@ public interface ICustomerService {
     CustomerNotesSummaryResponse getCustomerNotesSummary(UUID ownerId, UUID customerId);
     CustomerRemindersSummaryResponse getCustomerRemindersSummary(UUID ownerId, UUID customerId);
     Customer updateCustomer(CustomerUpdateRequest request);
-    Customer updateCustomerForOwner(UUID ownerId, CustomerUpdateRequest request);
     NearestCustomerResponse findNearestCustomer(NearestCustomerRequest request);
     void invalidateCustomerSummaryCache(UUID ownerId, UUID customerId);
     CustomerSummaryResponse getMySummary();

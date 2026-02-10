@@ -1,8 +1,6 @@
 package com.abhedyam.service;
 
 import com.abhedyam.dto.LocationDetailsResponse;
-import com.abhedyam.dto.OwnerCreateRequest;
-import com.abhedyam.dto.OwnerDetailsResponse;
 import com.abhedyam.dto.OwnerPublicResponse;
 import com.abhedyam.dto.OwnerResponse;
 import com.abhedyam.dto.OwnerSettingsResponse;
@@ -18,7 +16,6 @@ import com.abhedyam.model.Payment;
 import com.abhedyam.model.SaleItem;
 import com.abhedyam.model.UPIAccount;
 import com.abhedyam.model.enums.PaymentStatus;
-import com.abhedyam.model.enums.UserType;
 import com.abhedyam.repository.CustomerRepository;
 import com.abhedyam.repository.LocationDetailsRepository;
 import com.abhedyam.repository.OwnerRepository;
@@ -37,8 +34,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -57,73 +52,10 @@ public class OwnerService implements IOwnerService {
     private final PaymentRepository paymentRepository;
     private final SaleItemRepository saleItemRepository;
     
-    @Transactional
-    public OwnerResponse create(OwnerCreateRequest request) {
-        Owner owner = new Owner();
-        owner.setName(request.getName());
-        owner.setBusinessName(request.getBusinessName());
-        owner.setType(request.getType() != null ? request.getType() : UserType.BUSINESS);
-        owner.setSubscription(request.getSubscription() != null ? request.getSubscription() : com.abhedyam.model.enums.Subscription.GO);
-        owner.setIsVerified(request.getIsVerified() != null ? request.getIsVerified() : false);
-        
-        Instant now = Instant.now();
-        owner.setSubscriptionStatus(com.abhedyam.model.enums.SubscriptionStatus.ACTIVE);
-        owner.setValidTill(now.plus(2, ChronoUnit.YEARS));
-        
-        if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
-            String normalizedPhone = PhoneUtil.normalizePhone(request.getPhone());
-            owner.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
-            owner.setPhoneNormalized(normalizedPhone);
-        }
-        
-        if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
-            owner.setEmail(EmailUtil.normalizeEmail(request.getEmail()));
-        }
-        
-        if (request.getImageUrl() != null) {
-            owner.setImageUrl(request.getImageUrl());
-        }
-        
-        Owner saved = ownerRepository.save(owner);
-        return toResponse(saved);
-    }
-    
     public OwnerResponse getById(UUID id) {
         Owner owner = ownerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Account could not be found"));
         return toResponse(owner);
-    }
-    
-    @Transactional(readOnly = true)
-    public OwnerDetailsResponse getOwnerDetails(UUID id) {
-        Owner owner = ownerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Account could not be found"));
-        
-        OwnerDetailsResponse response = new OwnerDetailsResponse();
-        response.setOwner(toResponse(owner));
-        
-        LocationDetails location = locationDetailsRepository.findByUserId(id).orElse(null);
-        if (location != null) {
-            response.setLocation(toLocationResponse(location));
-        }
-        
-        OwnerSettings settings = ownerSettingsRepository.findById(id).orElse(null);
-        if (settings != null) {
-            response.setSettings(toSettingsResponse(settings));
-        }
-        
-        UPIAccount upiAccount = upiAccountRepository.findById(id).orElse(null);
-        if (upiAccount != null) {
-            response.setUpiAccount(toUpiAccountResponse(upiAccount));
-        }
-        
-        return response;
-    }
-    
-    public List<OwnerResponse> getAll() {
-        return ownerRepository.findAll().stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
     }
     
     @Override

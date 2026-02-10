@@ -92,10 +92,6 @@ public class SaleItemService implements ISaleItemService {
         return mapSaleItems(saleItems, expandProduct);
     }
 
-    public List<SaleItem> getByTransactionId(String transactionId) {
-        return saleItemRepository.findByTransactionId(transactionId);
-    }
-
     private List<SaleItemResponse> mapSaleItems(List<SaleItem> saleItems, boolean expandProduct) {
         Map<UUID, String> productNameMap = Map.of();
         if (expandProduct && !saleItems.isEmpty()) {

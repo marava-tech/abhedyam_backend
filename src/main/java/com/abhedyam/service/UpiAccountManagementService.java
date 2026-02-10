@@ -18,9 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,33 +27,6 @@ public class UpiAccountManagementService implements IUpiAccountManagementService
     private final UPIAccountRepository upiAccountRepository;
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
-    
-    @Override
-    @Transactional
-    public UpiAccountResponse createUpiAccount(UpiAccountCreateRequest request) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
-        
-        if (upiAccountRepository.findByVpa(request.getVpa()).isPresent()) {
-            throw new BusinessException("VPA_ALREADY_EXISTS", "VPA already exists");
-        }
-        
-        UPIAccount existingAccount = upiAccountRepository.findByOwnerId(ownerId).orElse(null);
-        UPIAccount upiAccount;
-        
-        if (existingAccount != null) {
-            upiAccount = existingAccount;
-        } else {
-            upiAccount = new UPIAccount();
-            upiAccount.setId(ownerId);
-        }
-        
-        upiAccount.setVpa(request.getVpa());
-        upiAccount.setOwnerId(ownerId);
-        upiAccount.setIsVerified(false);
-        
-        UPIAccount saved = upiAccountRepository.save(upiAccount);
-        return toResponse(saved);
-    }
     
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
@@ -125,29 +96,6 @@ public class UpiAccountManagementService implements IUpiAccountManagementService
     public UpiAccountResponse updateUpiAccountForOwner(UUID ownerId, UpiAccountCreateRequest request) {
         validateOwnerAccess(ownerId);
         return updateCurrentUserUpiAccount(request);
-    }
-    
-    @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public List<UpiAccountResponse> getOwnerUpiAccounts() {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
-        return upiAccountRepository.findByOwnerIdOrderByCreatedAtDesc(ownerId).stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
-    
-    @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public UpiAccountResponse getUpiAccountById(UUID id) {
-        UUID ownerId = SecurityUtil.getCurrentUserId();
-        UPIAccount account = upiAccountRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("UPI Account not found"));
-        
-        if (!account.getOwnerId().equals(ownerId)) {
-            throw new BusinessException("UNAUTHORIZED", "You don't have permission to access this UPI account");
-        }
-        
-        return toResponse(account);
     }
     
     @Override

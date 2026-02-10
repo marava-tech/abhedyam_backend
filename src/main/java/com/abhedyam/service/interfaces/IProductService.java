@@ -20,8 +20,6 @@ public interface IProductService {
     PageResponse<Product> searchProductsByOwner(UUID ownerId, ProductSearchRequest request);
     List<ProductSearchResult> searchByName(String name);
     Product updateProduct(ProductUpdateRequest request);
-    Product updateProductForOwner(UUID ownerId, ProductUpdateRequest request);
     Product toggleActive(UUID id);
-    Product toggleActiveForOwner(UUID ownerId, UUID id);
 }
 

@@ -31,9 +31,5 @@ public class SaleItemController {
         return ApiResponse.success(saleItemService.getByCustomerId(customerId));
     }
     
-    @GetMapping("/transaction/{transactionId}")
-    public ApiResponse<List<SaleItem>> getByTransactionId(@PathVariable String transactionId) {
-        return ApiResponse.success(saleItemService.getByTransactionId(transactionId));
-    }
 }
 

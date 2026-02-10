@@ -42,10 +42,6 @@ public class PaymentController {
         return ApiResponse.success(paymentService.updateStatus(id, request));
     }
     
-    @PutMapping("/{id}")
-    public ApiResponse<Payment> update(@PathVariable UUID id, @RequestBody Payment payment) {
-        return ApiResponse.success(paymentService.update(id, payment));
-    }
 }
 
 

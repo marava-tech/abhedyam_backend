@@ -17,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -120,22 +119,6 @@ public class StockService implements IStockService {
         return inventoryRepository.findByOwnerIdAndProductId(ownerId, productId)
             .map(Inventory::getStock)
             .orElse(BigDecimal.ZERO);
-    }
-    
-    @Override
-    @Transactional(readOnly = true)
-    public List<Product> getLowStockProducts(BigDecimal threshold) {
-        UUID ownerId = getCurrentOwnerId();
-        List<Product> products = productRepository.findByOwnerId(ownerId).stream()
-            .filter(p -> p.getIsActive() != null && p.getIsActive())
-            .toList();
-        
-        return products.stream()
-            .filter(p -> {
-                BigDecimal stock = getCurrentStock(p.getId());
-                return stock.compareTo(threshold) <= 0;
-            })
-            .toList();
     }
     
     private void updateStockCache(UUID productId, BigDecimal stock) {

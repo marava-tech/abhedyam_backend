@@ -14,13 +14,9 @@ public interface IImageStoreService {
 
     ImageStore create(ImageStoreCreateRequest request);
 
-    ImageStoreResponse getById(UUID id);
-
     PageResponse<ImageStoreResponse> list(int page, int size);
 
     ImageStore update(UUID id, ImageStoreUpdateRequest request);
-
-    void delete(UUID id);
 
     List<ImageStoreSearchResult> search(String searchKey);
 }

@@ -463,14 +463,6 @@ public class CustomerService implements ICustomerService {
         return updateCustomerInternal(customer, request);
     }
 
-    @Override
-    @Transactional
-    public Customer updateCustomerForOwner(UUID ownerId, CustomerUpdateRequest request) {
-        validateOwnerAccess(ownerId);
-        Customer customer = getOwnerCustomer(ownerId, request.getId());
-        return updateCustomerInternal(customer, request);
-    }
-    
     public void invalidateOwnerCaches(UUID ownerId) {
         try {
             String[] patterns = {
