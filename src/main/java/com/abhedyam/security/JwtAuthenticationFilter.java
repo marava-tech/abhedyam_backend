@@ -93,17 +93,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             UUID userId = jwtUtil.getUserIdFromToken(token);
             String phone = jwtUtil.getPhoneFromToken(token);
 
-            try {
-                boolean userExists = getOwnerRepository().existsById(userId)
-                        || getCustomerRepository().existsById(userId);
-                if (!userExists) {
-                    log.warn("User not found for token - userId: {}", userId);
-                    sendUnauthorizedError(response, "User account not found or has been deleted", "USER_NOT_FOUND",
-                            request.getRequestURI());
-                    return;
+            if ("ADMIN".equals(phone)) {
+                // Admin user, skip DB check
+                log.debug("Admin user authenticated via JWT");
+            } else {
+                try {
+                    boolean userExists = getOwnerRepository().existsById(userId)
+                            || getCustomerRepository().existsById(userId);
+                    if (!userExists) {
+                        log.warn("User not found for token - userId: {}", userId);
+                        sendUnauthorizedError(response, "User account not found or has been deleted", "USER_NOT_FOUND",
+                                request.getRequestURI());
+                        return;
+                    }
+                } catch (Exception e) {
+                    log.error("Error checking user existence: {}", e.getMessage());
                 }
-            } catch (Exception e) {
-                log.error("Error checking user existence: {}", e.getMessage());
             }
 
             UserPrincipal userPrincipal = new UserPrincipal(userId, phone);

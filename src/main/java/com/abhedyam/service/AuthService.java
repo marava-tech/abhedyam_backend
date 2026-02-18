@@ -18,6 +18,7 @@ import com.abhedyam.util.EmailUtil;
 import com.abhedyam.util.JwtUtil;
 import com.abhedyam.util.PhoneUtil;
 import java.math.BigDecimal;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,7 +30,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Slf4j
 public class AuthService {
-    
+
     private final GoogleOAuthService googleOAuthService;
     private final FirebaseService firebaseService;
     private final UserRepository userRepository;
@@ -41,113 +42,115 @@ public class AuthService {
     @Transactional
     public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
         GoogleUserInfo googleUser = googleOAuthService.verifyToken(request.getIdToken());
-        
+
         String normalizedEmail = EmailUtil.normalizeEmail(googleUser.getEmail());
         if (!EmailUtil.isValidEmail(normalizedEmail)) {
-            throw new com.abhedyam.exception.BusinessException("INVALID_EMAIL", 
-                "Invalid email format from Google");
+            throw new com.abhedyam.exception.BusinessException("INVALID_EMAIL",
+                    "Invalid email format from Google");
         }
-        
+
         Optional<User> existingUserByUid = userRepository.findByFirebaseUid(googleUser.getFirebaseUid());
         Optional<User> existingUserByEmail = userRepository.findByEmail(normalizedEmail);
-        
+
         User user;
         boolean isNewUser;
-        
+
         if (existingUserByUid.isPresent()) {
             user = existingUserByUid.get();
             isNewUser = false;
             if (user.getType() != UserType.BUSINESS) {
-                throw new com.abhedyam.exception.BusinessException("INVALID_USER_TYPE", 
-                    "Google login is only available for business owners");
+                throw new com.abhedyam.exception.BusinessException("INVALID_USER_TYPE",
+                        "Google login is only available for business owners");
             }
             log.info("Owner logged in with Firebase UID: {}", googleUser.getFirebaseUid());
         } else if (existingUserByEmail.isPresent()) {
             user = existingUserByEmail.get();
             isNewUser = false;
             if (user.getType() != UserType.BUSINESS) {
-                throw new com.abhedyam.exception.BusinessException("INVALID_USER_TYPE", 
-                    "Google login is only available for business owners");
+                throw new com.abhedyam.exception.BusinessException("INVALID_USER_TYPE",
+                        "Google login is only available for business owners");
             }
             user.setFirebaseUid(googleUser.getFirebaseUid());
             log.info("Owner logged in with email, linked Firebase UID: {}", googleUser.getFirebaseUid());
         } else {
             Owner newOwner = new Owner();
-            newOwner.setName(googleUser.getName() != null && !googleUser.getName().trim().isEmpty() 
-                ? googleUser.getName() : "Business Owner");
-            newOwner.setBusinessName(googleUser.getName() != null && !googleUser.getName().trim().isEmpty() 
-                ? googleUser.getName() + "'s Business" : "My Business");
+            newOwner.setName(googleUser.getName() != null && !googleUser.getName().trim().isEmpty()
+                    ? googleUser.getName()
+                    : "Business Owner");
+            newOwner.setBusinessName(googleUser.getName() != null && !googleUser.getName().trim().isEmpty()
+                    ? googleUser.getName() + "'s Business"
+                    : "My Business");
             newOwner.setEmail(normalizedEmail);
             newOwner.setFirebaseUid(googleUser.getFirebaseUid());
             newOwner.setType(UserType.BUSINESS);
             newOwner.setSubscription(Subscription.GO);
             newOwner.setIsVerified(false);
-            
+
             if (googleUser.getPicture() != null && !googleUser.getPicture().trim().isEmpty()) {
                 newOwner.setImageUrl(googleUser.getPicture());
             }
-            
+
             user = ownerRepository.save(newOwner);
             isNewUser = true;
-            log.info("Created new owner account for Google login - Firebase UID: {}, email: {}", 
-                googleUser.getFirebaseUid(), normalizedEmail);
+            log.info("Created new owner account for Google login - Firebase UID: {}, email: {}",
+                    googleUser.getFirebaseUid(), normalizedEmail);
         }
-        
-        if (googleUser.getName() != null && !googleUser.getName().trim().isEmpty() && 
-            (user.getName() == null || user.getName().trim().isEmpty() || user.getName().equals("User"))) {
+
+        if (googleUser.getName() != null && !googleUser.getName().trim().isEmpty() &&
+                (user.getName() == null || user.getName().trim().isEmpty() || user.getName().equals("User"))) {
             user.setName(googleUser.getName());
         }
-        if (googleUser.getPicture() != null && !googleUser.getPicture().trim().isEmpty() && 
-            (user.getImageUrl() == null || user.getImageUrl().trim().isEmpty())) {
+        if (googleUser.getPicture() != null && !googleUser.getPicture().trim().isEmpty() &&
+                (user.getImageUrl() == null || user.getImageUrl().trim().isEmpty())) {
             user.setImageUrl(googleUser.getPicture());
         }
         if (user.getFirebaseUid() == null || !user.getFirebaseUid().equals(googleUser.getFirebaseUid())) {
             user.setFirebaseUid(googleUser.getFirebaseUid());
         }
         userRepository.save(user);
-        
+
         String phoneForToken = user.getPhoneNormalized() != null ? user.getPhoneNormalized() : normalizedEmail;
         String token = jwtUtil.generateToken(user.getId(), phoneForToken);
-        
+
         return new AuthResponse(
-            token,
-            user.getId().toString(),
-            phoneForToken,
-            user.getName(),
-            isNewUser,
-            UserType.BUSINESS,
-            null,
-            user.getCreatedAt()
-        );
+                token,
+                user.getId().toString(),
+                phoneForToken,
+                user.getName(),
+                isNewUser,
+                UserType.BUSINESS,
+                null,
+                user.getCreatedAt());
     }
-    
+
     @Transactional
     public AuthResponse loginWithPhone(PhoneLoginRequest request) {
         String phoneNumber = request.getPhone();
         if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
-            throw new com.abhedyam.exception.BusinessException("MISSING_PHONE", 
-                "Phone number is required");
+            throw new com.abhedyam.exception.BusinessException("MISSING_PHONE",
+                    "Phone number is required");
         }
-        
+
         String normalizedPhone = PhoneUtil.normalizePhone(phoneNumber);
         if (!PhoneUtil.isValidPhone(normalizedPhone)) {
-            throw new com.abhedyam.exception.BusinessException("INVALID_PHONE", 
-                "Invalid phone number format");
+            throw new com.abhedyam.exception.BusinessException("INVALID_PHONE",
+                    "Invalid phone number format");
         }
-        
+
         Optional<User> existingUser = userRepository.findByPhoneNormalized(normalizedPhone);
-        
+
         Customer customer;
         boolean isNewUser;
-        
+
         if (existingUser.isPresent()) {
             User user = existingUser.get();
             if (user.getType() != UserType.CUSTOMER) {
-                throw new com.abhedyam.exception.BusinessException("INVALID_USER_TYPE", 
-                    "Only customer login is allowed for this app");
+                throw new com.abhedyam.exception.BusinessException("INVALID_USER_TYPE",
+                        "Only customer login is allowed for this app");
             }
             customer = customerRepository.findById(user.getId())
-                    .orElseThrow(() -> new com.abhedyam.exception.ResourceNotFoundException("Customer record not found"));
+                    .orElseThrow(
+                            () -> new com.abhedyam.exception.ResourceNotFoundException("Customer record not found"));
             isNewUser = false;
             log.info("Customer logged in with phone: {}", normalizedPhone);
         } else {
@@ -156,9 +159,9 @@ public class AuthService {
             customer.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
             customer.setPhoneNormalized(normalizedPhone);
             customer.setType(UserType.CUSTOMER);
-            
+
             customer = customerRepository.save(customer);
-            
+
             try {
                 LocationDetails locationDetails = new LocationDetails();
                 locationDetails.setUserId(customer.getId());
@@ -169,22 +172,57 @@ public class AuthService {
             } catch (Exception e) {
                 log.warn("Location details save failed for customer {}: {}", customer.getId(), e.getMessage());
             }
-            
+
             isNewUser = true;
             log.info("Created new customer account for phone login - phone: {}", normalizedPhone);
         }
-        
+
         String token = jwtUtil.generateCustomerToken(customer.getId(), normalizedPhone);
-        
+
         return new AuthResponse(
-            token,
-            customer.getId().toString(),
-            normalizedPhone,
-            customer.getName(),
-            isNewUser,
-            UserType.CUSTOMER,
-            customer.getOwnerId(),
-            customer.getCreatedAt()
-        );
+                token,
+                customer.getId().toString(),
+                normalizedPhone,
+                customer.getName(),
+                isNewUser,
+                UserType.CUSTOMER,
+                customer.getOwnerId(),
+                customer.getCreatedAt());
+    }
+
+    @Value("${app.admin.email}")
+    private String adminEmail;
+
+    @Value("${app.admin.totp-secret}")
+    private String adminTotpSecret;
+
+    @Transactional
+    public AuthResponse adminLogin(com.abhedyam.dto.AdminLoginRequest request) {
+        if (!request.getEmail().equalsIgnoreCase(adminEmail)) {
+            throw new com.abhedyam.exception.BusinessException("INVALID_CREDENTIALS",
+                    "Invalid email or OTP");
+        }
+
+        com.warrenstrange.googleauth.GoogleAuthenticator gAuth = new com.warrenstrange.googleauth.GoogleAuthenticator();
+        boolean isCodeValid = gAuth.authorize(adminTotpSecret, Integer.parseInt(request.getOtp()));
+
+        if (!isCodeValid) {
+            throw new com.abhedyam.exception.BusinessException("INVALID_OTP",
+                    "Invalid OTP");
+        }
+
+        // Use a fixed UUID for admin
+        java.util.UUID adminId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000000");
+        String token = jwtUtil.generateToken(adminId, "ADMIN");
+
+        return new AuthResponse(
+                token,
+                adminId.toString(),
+                "ADMIN",
+                "Administrator",
+                false,
+                UserType.BUSINESS, // Reusing BUSINESS type for now, or could add ADMIN enum
+                null,
+                java.time.Instant.now());
     }
 }
