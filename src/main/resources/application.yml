@@ -128,6 +128,8 @@ app:
     admin-key: ${SUBSCRIPTION_ADMIN_KEY:Madhu7814}
   admin:
     key-prefix: ${ADMIN_KEY_PREFIX:Madhu7814}
+    email: ${ADMIN_EMAIL:kinneramadhu123@gmail.com}
+    totp-secret: ${ADMIN_TOTP_SECRET:EJ5WO2KPG5NG4WJY}
   cloudinary:
     cloud-name: ${CLOUDINARY_CLOUD_NAME:dhssmiyoc}
     api-key: ${CLOUDINARY_API_KEY:177531384514114}

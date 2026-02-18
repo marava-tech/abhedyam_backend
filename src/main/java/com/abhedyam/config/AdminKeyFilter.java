@@ -34,6 +34,12 @@ public class AdminKeyFilter extends OncePerRequestFilter {
         String adminKey = request.getHeader("X-Admin-Key");
         String path = request.getRequestURI();
 
+        // Skip if already authenticated (e.g. by JWT)
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         if (adminKey != null && !adminKey.trim().isEmpty()) {
             LocalDate now = LocalDate.now();
             String expectedDate = now.format(DateTimeFormatter.ofPattern("dd"));

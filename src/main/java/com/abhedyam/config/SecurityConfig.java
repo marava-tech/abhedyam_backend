@@ -27,7 +27,7 @@ public class SecurityConfig {
     private final CorrelationIdFilter correlationIdFilter;
     private final LoggingFilter loggingFilter;
     private final AdminKeyFilter adminKeyFilter;
-    
+
     @Value("${app.cors.allowed-origins:*}")
     private String allowedOrigins;
 
@@ -54,19 +54,18 @@ public class SecurityConfig {
                             "/swagger-ui/index.html",
                             "/api-docs/**",
                             "/v3/api-docs/**",
-                            "/error"
-                    ).permitAll();
-                    
+                            "/error").permitAll();
+
                     auth.requestMatchers("/api/v1/admin/**").permitAll()
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers("/actuator/**").authenticated()
-                        .anyRequest().authenticated();
+                            .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                            .requestMatchers("/actuator/**").authenticated()
+                            .anyRequest().authenticated();
                 })
-                .addFilterBefore(adminKeyFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(loggingFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-        
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(adminKeyFilter, jwtAuthenticationFilter.getClass());
+
         return http.build();
     }
 
@@ -74,7 +73,7 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-    
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -84,10 +83,9 @@ public class SecurityConfig {
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 }
-

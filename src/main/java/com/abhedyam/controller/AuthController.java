@@ -1,6 +1,7 @@
 package com.abhedyam.controller;
 
 import com.abhedyam.dto.ApiResponse;
+import com.abhedyam.dto.AdminLoginRequest;
 import com.abhedyam.dto.AuthResponse;
 import com.abhedyam.dto.GoogleLoginRequest;
 import com.abhedyam.dto.PhoneLoginRequest;
@@ -30,5 +31,11 @@ public class AuthController {
         AuthResponse response = authService.loginWithPhone(request);
         return ApiResponse.success(response);
     }
-}
 
+    @PostMapping("/admin/login")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<AuthResponse> loginAdmin(@Valid @RequestBody AdminLoginRequest request) {
+        AuthResponse response = authService.adminLogin(request);
+        return ApiResponse.success(response);
+    }
+}
