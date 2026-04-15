@@ -13,8 +13,7 @@ public class CustomerCreateRequest {
     @Schema(description = "Customer name", example = "John Doe", required = true)
     private String name;
     
-    @NotBlank(message = "Phone number is required")
-    @Schema(description = "Phone number", example = "+919876543210", required = true)
+    @Schema(description = "Phone number", example = "+919876543210")
     private String phone;
     
     @Schema(description = "Village name", example = "Koramangala")

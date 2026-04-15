@@ -11,6 +11,7 @@ import com.abhedyam.model.Payment;
 import com.abhedyam.model.Product;
 import com.abhedyam.model.SaleItem;
 import com.abhedyam.model.User;
+import com.abhedyam.model.enums.PaymentMedium;
 import com.abhedyam.model.enums.PaymentStatus;
 import com.abhedyam.model.enums.SaleItemStatus;
 import com.abhedyam.model.enums.UserType;
@@ -175,6 +176,107 @@ public class PaymentService implements IPaymentService {
             sendPendingPaymentNotificationToOwner(savedPayment, customer, product, paymentOwnerId);
         }
         
+        return new PaymentResponse(
+                savedPayment.getId(),
+                savedPayment.getCustomerId(),
+                customer.getName(),
+                savedPayment.getOwnerId(),
+                savedPayment.getSaleItemId(),
+                product.getName(),
+                savedPayment.getAmount(),
+                savedPayment.getMedium(),
+                savedPayment.getTimestamp(),
+                savedPayment.getReference(),
+                savedPayment.getStatus(),
+                savedPayment.getCreatedAt(),
+                savedPayment.getUpdatedAt()
+        );
+    }
+
+    @Transactional
+    public PaymentResponse createImportedPayment(UUID ownerId, PaymentCreateRequest request, Instant timestamp) {
+        validateOwnerAccess(ownerId);
+
+        if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(ErrorCodes.INVALID_AMOUNT, "Payment amount must be greater than zero");
+        }
+
+        if (request.getMedium() == null) {
+            request.setMedium(PaymentMedium.CASH);
+        }
+
+        SaleItem saleItem = saleItemRepository.findById(request.getSaleItemId())
+                .orElseThrow(() -> new ResourceNotFoundException("Sale item could not be found"));
+
+        if (!ownerId.equals(saleItem.getOwnerId())) {
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "You don't have permission to access this sale item");
+        }
+
+        BigDecimal remainingAmount = saleItem.getRemainingAmount();
+        if (remainingAmount == null) {
+            BigDecimal totalAmount = saleItem.getPrice().multiply(
+                saleItem.getQuantity() != null ? saleItem.getQuantity() : BigDecimal.ONE
+            );
+            remainingAmount = totalAmount;
+        }
+
+        if (remainingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(ErrorCodes.NO_DUE_AMOUNT, "No payment is due for this sale");
+        }
+
+        if (request.getAmount().compareTo(remainingAmount) > 0) {
+            throw new BusinessException(ErrorCodes.PAYMENT_EXCEEDS_DUE,
+                String.format("Payment amount (₹%s) cannot exceed the due amount (₹%s). You can pay maximum ₹%s.",
+                    request.getAmount(), remainingAmount, remainingAmount));
+        }
+
+        Customer customer = customerRepository.findById(saleItem.getCustomerId())
+                .orElseThrow(() -> new ResourceNotFoundException("Customer could not be found"));
+
+        Product product = productRepository.findById(saleItem.getProductId())
+                .orElseThrow(() -> new ResourceNotFoundException("Product could not be found"));
+
+        Payment payment = new Payment();
+        payment.setCustomerId(saleItem.getCustomerId());
+        payment.setOwnerId(ownerId);
+        payment.setSaleItemId(request.getSaleItemId());
+        payment.setAmount(request.getAmount());
+        payment.setMedium(request.getMedium());
+        payment.setTimestamp(timestamp != null ? timestamp : Instant.now());
+        payment.setReference(request.getReference());
+        payment.setStatus(request.getStatus() != null ? request.getStatus() : PaymentStatus.SUCCESS);
+
+        Payment savedPayment = paymentRepository.save(payment);
+
+        invalidateAllRelatedCachesOnPaymentChange(ownerId, savedPayment.getCustomerId());
+
+        if (savedPayment.getStatus() == PaymentStatus.SUCCESS) {
+            updateSaleItemBalance(saleItem, savedPayment.getAmount(), true);
+            auditService.logPaymentSuccess(
+                savedPayment.getId(),
+                ownerId,
+                customer.getId(),
+                customer.getName(),
+                request.getSaleItemId(),
+                product.getName(),
+                savedPayment.getAmount(),
+                savedPayment.getReference()
+            );
+        } else {
+            auditService.logPaymentCreation(
+                savedPayment.getId(),
+                ownerId,
+                customer.getId(),
+                customer.getName(),
+                request.getSaleItemId(),
+                product.getName(),
+                savedPayment.getAmount(),
+                savedPayment.getReference(),
+                savedPayment.getStatus().toString(),
+                savedPayment.getMedium().toString()
+            );
+        }
+
         return new PaymentResponse(
                 savedPayment.getId(),
                 savedPayment.getCustomerId(),
@@ -832,4 +934,3 @@ public class PaymentService implements IPaymentService {
             .toList();
     }
 }
-
