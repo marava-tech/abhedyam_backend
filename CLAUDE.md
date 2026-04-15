@@ -1,29 +1,47 @@
 # Abhedyam Backend
 
 ## What this is
-Digital khata book for small shop owners. Java 17 + Spring Boot 3.
-MongoDB (primary) + MySQL + Redis. Deployed via Docker on Hostinger.
-CI/CD via GitHub Actions → ghcr.io → auto-deploy on merge to main.
+Digital khata book API for small Indian shopkeepers. Java 21 + Spring Boot 3.
+MySQL 8 (primary DB) + Redis 7 (cache only).
+CI/CD: GitHub Actions → ghcr.io/marava-tech/abhedyam-backend:latest → auto-deploy on merge to main.
+
+## Product context
+Abhedyam helps small shopkeepers manage customers, sales, inventory, and payments digitally. OTP auth via email (primary) + SMS via 2Factor API (fallback). Google Sign-in via Firebase. Subscription tiers: GO (free), PRO, PLUS — payments via Razorpay. Push notifications via Firebase FCM.
 
 ## Stack
-- Java 17, Spring Boot 3.x
-- MongoDB 7 (primary DB)
-- MySQL 8
-- Redis 7 (cache only)
-- Docker on Hostinger VPS (32GB RAM)
+- Java 21, Spring Boot 3.x
+- MySQL 8 (primary DB — customers, products, sales, payments, subscriptions)
+- Redis 7 (cache only — never primary store)
+- Firebase Admin SDK (auth token verification)
+- Razorpay SDK (subscription payments)
+- Gmail SMTP (email OTP)
+- 2Factor API (SMS OTP fallback)
+- Port: 8600 → domain: abhedyam-backend.marava.tech
 
-## Agents — always load before acting
+## Project structure
+```
+src/main/java/com/abhedyam/
+├── controller/     ← REST controllers (@RestController)
+├── service/        ← business logic (@Service, interface + impl pattern)
+├── repository/     ← Spring Data MongoDB + JPA repos
+├── model/          ← DB entities
+├── dto/            ← request/response DTOs
+├── exception/      ← custom exceptions (ResourceNotFoundException, etc.)
+└── config/         ← Spring config (Security, CORS, Cloudinary, etc.)
+```
+
+## Agents — load before acting
 - New feature idea → read .claude/agents/spec.md first
-- Writing or fixing code → read .claude/agents/backend.md first
-- Testing changes → read .claude/agents/qa.md first
-- Git operations → read .claude/agents/git.md first
-- Server / infra / Docker → read .claude/agents/devops.md first
+- Writing/fixing code → read .claude/agents/backend.md first
+- Testing → read .claude/agents/qa.md first
+- Git/PR → read .claude/agents/git.md first
+- Server/Docker → read .claude/agents/devops.md first
 
 ## Workflow (always follow this order)
 1. Spec agent writes specs/{feature}.md
 2. Backend agent implements from spec
 3. QA agent writes and runs tests
-4. Git agent: branch → commit → push → raise PR
+4. Git agent: branch → commit → push → PR
 5. Merge PR → GitHub Actions auto-deploys. Never deploy manually.
 
 ## Hard rules
@@ -31,4 +49,17 @@ CI/CD via GitHub Actions → ghcr.io → auto-deploy on merge to main.
 - Never deploy manually
 - Every feature needs a spec file before code is written
 - All API routes under /api/v1/
-- Error format: { "error": "message", "code": "ERROR_CODE" }
+- Error format: `{ "error": "message", "code": "ERROR_CODE" }`
+- DTOs only in controllers — never expose model/entity directly
+- Redis is cache only — never use as primary store
+- Always add OpenAPI annotations to public endpoints
+- Use interface + impl pattern for services (IXxxService + XxxServiceImpl)
+- No hardcoded credentials — all from environment variables via @Value
+
+## Related docs
+- docs/api-guide.md — all 91 API endpoints across 3 clients
+- docs/architecture.md — system design decisions
+- learnings.md — gotchas and lessons learned
+- memory/context.md — current focus / active work
+- specs/ — feature specifications
+- review-apis.md — audit of which endpoints are used vs unused
