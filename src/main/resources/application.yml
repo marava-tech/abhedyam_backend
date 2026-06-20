@@ -10,7 +10,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/abhedyam?createDatabaseIfNotExist=true&serverTimezone=Asia/Kolkata}
     username: ${DB_USERNAME:madhu}
-    password: ${DB_PASSWORD:REDACTED_DB_PASSWORD}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 20
@@ -91,7 +91,7 @@ management:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:REDACTED_JWT_SECRET}
+    secret: ${JWT_SECRET}
     expiration: ${JWT_EXPIRATION:1296000000}
     customer-expiration: ${JWT_CUSTOMER_EXPIRATION:2592000000}
   twofactor:
@@ -113,8 +113,8 @@ app:
           starttls:
             enable: ${EMAIL_STARTTLS_ENABLE:true}
   razorpay:
-    key-id: ${RAZORPAY_KEY_ID:REDACTED_RAZORPAY_KEY_ID}
-    key-secret: ${RAZORPAY_KEY_SECRET:REDACTED_RAZORPAY_SECRET}
+    key-id: ${RAZORPAY_KEY_ID}
+    key-secret: ${RAZORPAY_KEY_SECRET}
     custom-payment-page-url: ${RAZORPAY_CUSTOM_PAYMENT_PAGE_URL:}
   features:
     global:
@@ -123,15 +123,15 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:4000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080,https://abhedyam-dashboard.marava.tech}
   cache:
     invalidate:
-      key: ${CACHE_INVALIDATE_KEY:REDACTED_ADMIN_KEY}
+      key: ${CACHE_INVALIDATE_KEY}
   subscription:
-    admin-key: ${SUBSCRIPTION_ADMIN_KEY:REDACTED_ADMIN_KEY}
+    admin-key: ${SUBSCRIPTION_ADMIN_KEY}
   admin:
-    key-prefix: ${ADMIN_KEY_PREFIX:REDACTED_ADMIN_KEY}
+    key-prefix: ${ADMIN_KEY_PREFIX}
     email: ${ADMIN_EMAIL:kinneramadhu123@gmail.com}
-    totp-secret: ${ADMIN_TOTP_SECRET:REDACTED_TOTP_SECRET}
+    totp-secret: ${ADMIN_TOTP_SECRET}
   cloudinary:
-    cloud-name: ${CLOUDINARY_CLOUD_NAME:dhssmiyoc}
-    api-key: ${CLOUDINARY_API_KEY:REDACTED_CLOUDINARY_KEY}
-    api-secret: ${CLOUDINARY_API_SECRET:REDACTED_CLOUDINARY_SECRET}
+    cloud-name: ${CLOUDINARY_CLOUD_NAME}
+    api-key: ${CLOUDINARY_API_KEY}
+    api-secret: ${CLOUDINARY_API_SECRET}
 
