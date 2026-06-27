@@ -28,9 +28,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 @Service
 @RequiredArgsConstructor
@@ -167,9 +172,10 @@ public class ProductService implements IProductService {
             log.warn("Error reading from cache for key: {}", cacheKey, e);
         }
 
-        List<Product> products = productRepository.findByOwnerId(ownerId).stream()
+        List<Product> products = new ArrayList<>(productRepository.findByOwnerId(ownerId).stream()
                 .filter(p -> p.getIsActive() != null && p.getIsActive())
-                .toList();
+                .toList());
+        products = deduplicateByName(products, Product::getName, Product::getPrice, Product::getCreatedAt);
 
         List<ProductWithStockResponse> responses = products.stream()
                 .map(product -> {
@@ -346,8 +352,14 @@ public class ProductService implements IProductService {
                 request.getIsActive(),
                 pageable);
 
-        return new PageResponse<>(
+        List<Product> deduped = deduplicateByName(
                 productPage.getContent(),
+                Product::getName,
+                Product::getPrice,
+                Product::getCreatedAt);
+
+        return new PageResponse<>(
+                deduped,
                 productPage.getNumber(),
                 productPage.getSize(),
                 productPage.getTotalElements(),
@@ -361,5 +373,25 @@ public class ProductService implements IProductService {
         if (ownerId == null || !ownerId.equals(currentOwnerId)) {
             throw new BusinessException("UNAUTHORIZED", "You can only access your own products");
         }
+    }
+
+    private <T> List<T> deduplicateByName(List<T> products,
+            Function<T, String> nameExtractor,
+            Function<T, BigDecimal> priceExtractor,
+            Function<T, Instant> createdAtExtractor) {
+        Map<String, T> seen = new LinkedHashMap<>();
+        for (T product : products) {
+            String key = nameExtractor.apply(product).trim().toLowerCase();
+            T existing = seen.get(key);
+            if (existing == null) {
+                seen.put(key, product);
+            } else {
+                int cmp = priceExtractor.apply(product).compareTo(priceExtractor.apply(existing));
+                if (cmp > 0 || (cmp == 0 && createdAtExtractor.apply(product).isBefore(createdAtExtractor.apply(existing)))) {
+                    seen.put(key, product);
+                }
+            }
+        }
+        return new ArrayList<>(seen.values());
     }
 }
