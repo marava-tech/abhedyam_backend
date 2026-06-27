@@ -17,6 +17,7 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
     List<Customer> findByOwnerId(UUID ownerId);
     
     Optional<Customer> findByPhoneNormalized(String phoneNormalized);
+    Optional<Customer> findFirstByOwnerIdAndNameIgnoreCase(UUID ownerId, String name);
 
     @Query("SELECT c FROM Customer c WHERE c.ownerId = :ownerId " +
            "AND (:searchTerm IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
@@ -73,5 +74,13 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
     
     @Query("SELECT COUNT(c) FROM Customer c WHERE c.ownerId = :ownerId")
     long countByOwnerId(@Param("ownerId") UUID ownerId);
-}
 
+    @Query("SELECT DISTINCT c FROM Customer c " +
+           "LEFT JOIN LocationDetails ld ON ld.userId = c.id " +
+           "WHERE c.ownerId = :ownerId " +
+           "AND LOWER(TRIM(c.name)) = LOWER(TRIM(:name)) " +
+           "AND ld.village IS NOT NULL AND LOWER(TRIM(ld.village)) = LOWER(TRIM(:village))")
+    Optional<Customer> findByOwnerIdAndNameAndVillageIgnoreCase(@Param("ownerId") UUID ownerId,
+                                                                @Param("name") String name,
+                                                                @Param("village") String village);
+}

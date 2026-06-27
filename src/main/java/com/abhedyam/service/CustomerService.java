@@ -92,26 +92,38 @@ public class CustomerService implements ICustomerService {
     @Transactional
     public Customer create(CustomerCreateRequest request) {
         UUID ownerId = SecurityUtil.getCurrentUserId();
-        String normalizedPhone = PhoneUtil.normalizePhone(request.getPhone());
-        
-        Optional<Customer> existingCustomerOpt = customerRepository.findByPhoneNormalized(normalizedPhone);
-        
-        if (existingCustomerOpt.isPresent()) {
-            Customer existingCustomer = existingCustomerOpt.get();
-            
-            if (existingCustomer.getOwnerId() == null) {
-                customerRepository.delete(existingCustomer);
-                customerRepository.flush();
-            } else {
-                throw new BusinessException(ErrorCodes.CUSTOMER_EXISTS, 
-                    "Customer with this phone number already exists and is associated with another owner");
+        boolean hasPhone = request.getPhone() != null && !request.getPhone().trim().isEmpty();
+        boolean hasVillage = request.getVillage() != null && !request.getVillage().trim().isEmpty();
+
+        if (hasPhone) {
+            String normalizedPhone = PhoneUtil.normalizePhone(request.getPhone());
+            Optional<Customer> existingCustomerOpt = customerRepository.findByPhoneNormalized(normalizedPhone);
+            if (existingCustomerOpt.isPresent()) {
+                Customer existingCustomer = existingCustomerOpt.get();
+                if (existingCustomer.getOwnerId() == null) {
+                    customerRepository.delete(existingCustomer);
+                    customerRepository.flush();
+                } else {
+                    throw new BusinessException(ErrorCodes.CUSTOMER_EXISTS,
+                        "Customer with this phone number already exists and is associated with another owner");
+                }
+            }
+        } else if (hasVillage) {
+            Optional<Customer> existingCustomerOpt = customerRepository.findByOwnerIdAndNameAndVillageIgnoreCase(
+                ownerId, request.getName().trim(), request.getVillage().trim());
+            if (existingCustomerOpt.isPresent()) {
+                throw new BusinessException(ErrorCodes.CUSTOMER_EXISTS,
+                    "Customer with this name and village already exists");
             }
         }
-        
+
         Customer customer = new Customer();
         customer.setName(request.getName());
-        customer.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
-        customer.setPhoneNormalized(normalizedPhone);
+        if (hasPhone) {
+            String normalizedPhone = PhoneUtil.normalizePhone(request.getPhone());
+            customer.setPhone(PhoneUtil.extractPhoneWithoutCountryCode(normalizedPhone));
+            customer.setPhoneNormalized(normalizedPhone);
+        }
         customer.setType(UserType.CUSTOMER);
         customer.setOwnerId(ownerId);
         customer.setIsActive(true);
