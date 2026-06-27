@@ -52,6 +52,6 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            docker compose -f /root/server-v2/services/abhedyam-backend/docker-compose.yml --env-file /root/server-v2/.env pull
-            docker compose -f /root/server-v2/services/abhedyam-backend/docker-compose.yml --env-file /root/server-v2/.env up -d --no-deps abhedyam-backend
+            docker compose -f /root/server/services/abhedyam-backend/docker-compose.yml --env-file /root/server/.env pull
+            docker compose -f /root/server/services/abhedyam-backend/docker-compose.yml --env-file /root/server/.env up -d --no-deps abhedyam-backend
             docker image prune -f
